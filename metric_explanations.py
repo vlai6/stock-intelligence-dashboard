@@ -1,0 +1,26 @@
+
+EXPLANATIONS = {
+    "Alpha": "Annualized return above or below the return predicted by market exposure (SPY). Positive alpha indicates historical outperformance after adjusting for beta.",
+    "Beta": "Sensitivity to SPY movements. A beta of 1.5 means the stock historically moved about 1.5% for a 1% market move, on average.",
+    "Sharpe": "Annualized excess return divided by total volatility. Higher is generally better.",
+    "Sortino": "Annualized excess return divided by downside deviation. Higher is generally better.",
+    "Volatility": "Annualized standard deviation of daily returns. Lower indicates more stable historical returns.",
+    "Max Drawdown": "Largest peak-to-trough decline during the selected period. Closer to zero indicates smaller losses.",
+    "Total Return": "Percentage change in adjusted closing price over the selected historical period.",
+    "Historical CAGR": "Compound annual growth rate of the stock's adjusted closing price over the selected period.",
+    "Trailing P/E": "Current share price divided by trailing 12-month earnings per share.",
+    "Forward P/E": "Current share price divided by forecast earnings per share.",
+    "Price/Book": "Market valuation relative to the company's accounting book equity.",
+    "EV/EBITDA": "Enterprise value divided by earnings before interest, taxes, depreciation and amortization.",
+    "EV/Revenue": "Enterprise value divided by annual revenue.",
+    "PEG Ratio": "P/E ratio adjusted for expected earnings growth. Interpret carefully because growth estimates vary.",
+    "ROE": "Net income relative to shareholders' equity. High leverage can inflate ROE.",
+    "ROIC": "After-tax operating profit divided by average invested capital. Measures how efficiently a business uses debt and equity capital.",
+    "Revenue Growth": "Reported revenue growth over the provider's comparison period.",
+    "Earnings Growth": "Reported earnings growth over the provider's comparison period.",
+    "Operating Margin": "Operating income divided by revenue.",
+    "Free Cash Flow": "Operating cash flow less capital expenditures.",
+    "Debt/Equity": "Total debt divided by shareholders' equity.",
+    "FCF Yield": "Free cash flow divided by market capitalization.",
+    "Earnings Yield": "Net income attributable to common shareholders divided by market capitalization."
+}

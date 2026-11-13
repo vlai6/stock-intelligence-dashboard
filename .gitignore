@@ -1,0 +1,22 @@
+
+# Python environment
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# API keys and credentials
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Local databases and cache
+*.db
+*.sqlite
+*.sqlite3
+.cache/
+.pytest_cache/
+
+# Editor files
+.vscode/
