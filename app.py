@@ -97,6 +97,41 @@ def summarize_todays_sentiment(ticker, counts):
             f"({total} headlines analyzed).")
 
 
+
+
+def one_sentence_summary(value, limit=205):
+    """Keep AI-generated relationship descriptions to a concise single sentence."""
+    text = " ".join(str(value or "").split())
+    if not text:
+        return "Description unavailable."
+    # Only end a sentence at punctuation followed by the next capitalized sentence.
+    first = re.split(r"(?<=[.!?])\s+(?=[A-Z])", text, maxsplit=1)[0]
+    if len(first) > limit:
+        first = first[:limit].rsplit(" ", 1)[0].rstrip(",;: ") + "…"
+    return first if first.endswith((".", "!", "?", "…")) else first + "."
+
+
+def company_one_sentence(info, name):
+    """Use Yahoo's company classification for a short, factual overview."""
+    industry = str(info.get("industry") or "").strip()
+    if industry:
+        return f"{name} operates in the {industry.lower()} industry."
+    business_description = str(info.get("longBusinessSummary") or "").strip()
+    if business_description:
+        return one_sentence_summary(business_description, limit=175)
+    return "Company overview is unavailable from Yahoo Finance."
+
+
+def show_peer_sentiment(ticker):
+    """Use the same cached, today-only Yahoo/FinBERT analysis as Section 4."""
+    try:
+        counts = get_competitor_sentiment_counts(ticker)
+        st.caption("Today's headline sentiment · Yahoo Finance / FinBERT")
+        st.write(summarize_todays_sentiment(ticker, counts))
+    except Exception as exc:
+        st.caption(f"Today's headline sentiment is unavailable for {ticker}: {exc}")
+
+
 def switch_stock(symbol):
     st.session_state.primary = symbol
     st.session_state.loaded = True
@@ -547,8 +582,9 @@ if st.session_state.loaded:
 
                     for peer in peers:
                         with st.expander(f"{peer['ticker']} — {peer['name']}"):
-                            st.write(peer.get("reason", ""))
+                            st.write(one_sentence_summary(peer.get("reason", "")))
                             st.caption(peer.get("relationship", ""))
+                            show_peer_sentiment(peer["ticker"])
                             st.button(
                                 f"Switch primary to {peer['ticker']}",
                                 key=f"switch_{symbol}_{peer['ticker']}",
@@ -568,17 +604,9 @@ if st.session_state.loaded:
                                        or custom_info.get("shortName")
                                        or custom_symbol)
                         with st.expander(f"{custom_symbol} — {custom_name}"):
-                            description_text = str(custom_info.get("longBusinessSummary") or "").strip()
-                            if description_text:
-                                # Short company overview, not an AI-written
-                                # claim about why it competes with the primary.
-                                overview = description_text[:420].rsplit(" ", 1)[0]
-                                if len(description_text) > 420:
-                                    overview += "…"
-                                st.write(overview)
-                            else:
-                                st.write("Company description unavailable from Yahoo Finance.")
+                            st.write(company_one_sentence(custom_info, custom_name))
                             st.caption("Manually added comparison stock · Company overview from Yahoo Finance")
+                            show_peer_sentiment(custom_symbol)
                             st.button(
                                 f"Switch primary to {custom_symbol}",
                                 key=f"switch_custom_{symbol}_{custom_symbol}",
