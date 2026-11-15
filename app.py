@@ -556,6 +556,36 @@ if st.session_state.loaded:
                                 args=(peer["ticker"],),
                             )
 
+                    # Manual additions also get a company information expander.
+                    # Use Yahoo's business summary: don't invent a Gemini
+                    # recommendation or competitor relationship for custom tickers.
+                    ai_symbols = set(recommended_tickers)
+                    for custom_symbol in st.session_state[custom_key]:
+                        if custom_symbol == symbol or custom_symbol in ai_symbols:
+                            continue
+                        _, custom_info = get_stock(custom_symbol)
+                        custom_name = (custom_info.get("longName")
+                                       or custom_info.get("shortName")
+                                       or custom_symbol)
+                        with st.expander(f"{custom_symbol} — {custom_name}"):
+                            description_text = str(custom_info.get("longBusinessSummary") or "").strip()
+                            if description_text:
+                                # Short company overview, not an AI-written
+                                # claim about why it competes with the primary.
+                                overview = description_text[:420].rsplit(" ", 1)[0]
+                                if len(description_text) > 420:
+                                    overview += "…"
+                                st.write(overview)
+                            else:
+                                st.write("Company description unavailable from Yahoo Finance.")
+                            st.caption("Manually added comparison stock · Company overview from Yahoo Finance")
+                            st.button(
+                                f"Switch primary to {custom_symbol}",
+                                key=f"switch_custom_{symbol}_{custom_symbol}",
+                                on_click=switch_stock,
+                                args=(custom_symbol,),
+                            )
+
                     comparison = go.Figure()
 
                     for stock_symbol in [symbol] + selected:
@@ -581,6 +611,7 @@ if st.session_state.loaded:
                                 y=normalized,
                                 name=stock_symbol,
                                 mode="lines",
+                                line=dict(color=ticker_colors[stock_symbol]),
                                 customdata=peer_data["Close"].to_numpy(),
                                 hovertemplate=(
                                     "<b>%{fullData.name}</b><br>"
