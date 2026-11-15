@@ -1,5 +1,6 @@
 import html
 import os
+import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
@@ -67,6 +68,33 @@ def get_competitor_sentiment_counts(ticker):
         raise ValueError(f"Unexpected FinBERT result count for {ticker}.")
     counts = scored["FinBERT Sentiment"].value_counts()
     return {label: int(counts.get(label, 0)) for label in ("Positive", "Neutral", "Negative")}
+
+
+
+def summarize_todays_sentiment(ticker, counts):
+    """One-sentence, headline-based snapshot; not a trading signal."""
+    total = sum(counts.values())
+    if total == 0:
+        return f"No headlines dated today were available for {ticker}."
+    positive = counts.get("Positive", 0)
+    neutral = counts.get("Neutral", 0)
+    negative = counts.get("Negative", 0)
+    highest = max(positive, neutral, negative)
+    leaders = [label.lower() for label, count in
+               (("Positive", positive), ("Neutral", neutral), ("Negative", negative))
+               if count == highest]
+    if len(leaders) == 1:
+        trend = f"mostly {leaders[0]} ({highest / total:.0%})"
+    else:
+        trend = "mixed (no single leading sentiment)"
+    if negative > positive:
+        balance = "negative coverage exceeds positive"
+    elif positive > negative:
+        balance = "positive coverage exceeds negative"
+    else:
+        balance = "positive and negative coverage are balanced"
+    return (f"Today's available {ticker} headlines are {trend}; {balance} "
+            f"({total} headlines analyzed).")
 
 
 def switch_stock(symbol):
@@ -169,6 +197,21 @@ if st.session_state.loaded:
                 peers = []
                 peer_error = str(exc)
 
+        # Keep custom and AI-recommended tickers in the same selection state.
+        # Initialize before Section 1 so its optional competitor overlay can
+        # immediately read the same selection as the Section 2 multiselect.
+        custom_key = f"custom_competitors_{symbol}"
+        selection_key = f"peers_{symbol}"
+        st.session_state.setdefault(custom_key, [])
+        recommended_tickers = list(dict.fromkeys(
+            str(p.get("ticker", "")).strip().upper()
+            for p in peers
+            if str(p.get("ticker", "")).strip().upper() not in ("", symbol)
+        ))
+        if selection_key not in st.session_state:
+            # All AI recommendations selected by default on first load.
+            st.session_state[selection_key] = recommended_tickers.copy()
+
         selected = []
 
         # SECTION 1 — PRIMARY STOCK (FULL WIDTH)
@@ -177,8 +220,9 @@ if st.session_state.loaded:
 
             period = st.selectbox(
                 "Price history",
-                ["1 Month", "3 Months", "6 Months", "1 Year", "5 Years"],
-                index=3
+                ["1 Month", "3 Months", "6 Months", "1 Year", "5 Years", "Custom Range"],
+                index=3,
+                key=f"price_history_period_{symbol}",
             )
 
             price_view = st.radio(
@@ -188,24 +232,55 @@ if st.session_state.loaded:
                 key=f"price_view_{symbol}",
             )
 
-            price_data = data
-
+            # Use the available five-year adjusted price history for both
+            # the primary chart and the normalized competitor comparison.
+            # Compare local calendar dates to include the entire end date.
+            available_start = data.index.min().date()
+            available_end = data.index.max().date()
             days = {
                 "1 Month": 30,
                 "3 Months": 90,
                 "6 Months": 180,
                 "1 Year": 365,
-                "5 Years": 1825
+                "5 Years": 1825,
             }
 
-            cutoff = (
-                price_data.index.max()
-                - pd.Timedelta(
-                    days=days[period]
+            if period == "Custom Range":
+                default_start = max(
+                    available_start,
+                    available_end - pd.Timedelta(days=365),
                 )
-            )
+                date_start_col, date_end_col = st.columns(2)
+                with date_start_col:
+                    start_date = st.date_input(
+                        "Start date",
+                        value=default_start,
+                        min_value=available_start,
+                        max_value=available_end,
+                        key=f"custom_start_date_{symbol}",
+                    )
+                with date_end_col:
+                    end_date = st.date_input(
+                        "End date",
+                        value=available_end,
+                        min_value=available_start,
+                        max_value=available_end,
+                        key=f"custom_end_date_{symbol}",
+                    )
+                if start_date > end_date:
+                    st.error("Start date must be on or before end date.")
+                    st.stop()
+            else:
+                start_date = max(
+                    available_start,
+                    available_end - pd.Timedelta(days=days[period]),
+                )
+                end_date = available_end
 
-            price_data = data[data.index >= cutoff].dropna(subset=["Close"])
+            price_data = data.loc[
+                (data.index.date >= start_date)
+                & (data.index.date <= end_date)
+            ].dropna(subset=["Close"])
             if price_data.empty:
                 st.warning("No prices are available for the selected period.")
                 st.stop()
@@ -238,11 +313,11 @@ if st.session_state.loaded:
                     f"""
                     <div style="margin:0 0 6px 0; line-height:1.35;">
                         <div style="display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;">
-                            <span style="font-size:1rem;">Today's Trading Price</span>
+                            <span style="font-size:1rem;">{"Ending Price" if period == "Custom Range" else "Today's Trading Price"}</span>
                             <strong style="font-size:1.15rem;">${last_price:,.2f}</strong>
                         </div>
                         <div style="color:var(--text-color); opacity:.65; font-size:.83rem; margin-top:3px;">
-                            Latest adjusted close: {last_date:%b %d, %Y} (not a live quote)
+                            {"End date" if period == "Custom Range" else "Latest adjusted close"}: {last_date:%b %d, %Y} (not a live quote)
                         </div>
                     </div>
                     """,
@@ -256,6 +331,31 @@ if st.session_state.loaded:
                 help="Display a straight-line fit of the primary stock's adjusted closing prices over the selected period.",
             )
 
+            # Keep ticker colors stable regardless of optional trend-line traces.
+            # A color is assigned from a consistent list of recommended/custom
+            # tickers, rather than Plotly's trace insertion order.
+            stock_colors = [
+                "#63B3ED",  # Primary stock: light blue
+                "#1E88E5",  # Blue
+                "#F4A6AB",  # Soft pink
+                "#FF4040",  # Red
+                "#55D88A",  # Green
+                "#1AB5A8",  # Teal
+                "#A78BFA",  # Violet
+                "#F59E0B",  # Amber
+                "#E879F9",  # Orchid
+                "#94A3B8",  # Slate
+            ]
+            color_order = list(dict.fromkeys(
+                [symbol] + recommended_tickers
+                + st.session_state.get(custom_key, [])
+                + st.session_state.get(selection_key, [])
+            ))
+            ticker_colors = {
+                ticker_name: stock_colors[i % len(stock_colors)]
+                for i, ticker_name in enumerate(color_order)
+            }
+
             fig = go.Figure()
 
             fig.add_trace(go.Scatter(
@@ -263,6 +363,7 @@ if st.session_state.loaded:
                 y=price_data["Close"],
                 name=symbol,
                 mode="lines",
+                line=dict(color=ticker_colors[symbol]),
                 hovertemplate=(
                     "<b>%{fullData.name}</b><br>"
                     "%{x|%B %d, %Y}<br>"
@@ -296,25 +397,18 @@ if st.session_state.loaded:
             if price_view == "Include Competitors":
                 # Section 2 is rendered below this chart. Read its retained selections
                 # from session state so both sections use the same competitors.
-                available_peers = [
-                    p.get("ticker", "").upper()
-                    for p in peers
-                    if p.get("ticker", "").upper() not in ("", symbol)
-                ]
-                available_peers = list(dict.fromkeys(available_peers))
-                selected_peers = st.session_state.get(
-                    f"peers_{symbol}", available_peers[:3]
-                )
+                # Includes manually entered tickers as well as AI suggestions.
                 selected_peers = [
-                    ticker for ticker in selected_peers
-                    if ticker in available_peers
+                    peer for peer in st.session_state.get(selection_key, [])
+                    if peer != symbol
                 ]
                 if selected_peers:
                     for peer_symbol in selected_peers:
                         try:
                             peer_history, _ = get_stock(peer_symbol)
                             peer_history = peer_history.loc[
-                                peer_history.index >= cutoff
+                                (peer_history.index.date >= start_date)
+                                & (peer_history.index.date <= end_date)
                             ]
                             if peer_history.empty:
                                 continue
@@ -323,6 +417,7 @@ if st.session_state.loaded:
                                 y=peer_history["Close"],
                                 name=peer_symbol,
                                 mode="lines",
+                                line=dict(color=ticker_colors[peer_symbol]),
                                 hovertemplate=(
                                     "<b>%{fullData.name}</b><br>"
                                     "%{x|%B %d, %Y}<br>"
@@ -369,95 +464,128 @@ if st.session_state.loaded:
                             + peer_error
                         )
 
-                    peers = [p for p in peers if p.get("ticker", "").upper() != symbol]
+                    st.caption("Select AI-recommended competitors or add your own ticker.")
 
-                    if peers:
-                        st.caption("Select competitors to compare.")
-
-                        options = [p["ticker"] for p in peers]
-
-                        selected = st.multiselect(
-                            "Competitors",
-                            options=options,
-                            default=options,
-                            key=f"peers_{symbol}"
+                    # Render the add form BEFORE the multiselect so submitted
+                    # tickers can be added to its session state without a Streamlit
+                    # widget-state mutation error.
+                    with st.form(key=f"add_competitor_form_{symbol}", clear_on_submit=True):
+                        custom_input = st.text_input(
+                            "Add a custom ticker",
+                            placeholder="e.g., TSM, MU, ASML",
+                            key=f"custom_ticker_input_{symbol}",
                         )
+                        add_custom = st.form_submit_button("Add Ticker")
 
-                        for peer in peers:
-                            with st.expander(
-                                f"{peer['ticker']} — {peer['name']}"
-                            ):
-                                st.write(peer["reason"])
-                                st.caption(peer["relationship"])
-
-                                st.button(
-                                    f"Switch primary to {peer['ticker']}",
-                                    key=f"switch_{symbol}_{peer['ticker']}",
-                                    on_click=switch_stock,
-                                    args=(peer["ticker"],)
-                                )
-
-                        comparison = go.Figure()
-
-                        for stock_symbol in [symbol] + selected:
+                    if add_custom:
+                        new_ticker = custom_input.strip().upper()
+                        if not new_ticker:
+                            st.warning("Enter a stock ticker to add.")
+                        elif not re.fullmatch(r"[A-Z0-9.^=-]{1,20}", new_ticker):
+                            st.warning("Use a valid ticker symbol (letters, numbers, dots, or dashes).")
+                        elif new_ticker == symbol:
+                            st.info(f"{symbol} is already the primary stock.")
+                        elif new_ticker in st.session_state[selection_key]:
+                            st.info(f"{new_ticker} is already selected.")
+                        else:
                             try:
-                                peer_data, _ = get_stock(stock_symbol)
+                                # Verify that Yahoo Finance recognizes the symbol
+                                # and provides historical closing prices.
+                                ticker_history, _ = get_stock(new_ticker)
+                                if ticker_history.empty or "Close" not in ticker_history.columns or ticker_history["Close"].dropna().empty:
+                                    st.warning(f"No historical stock prices found for {new_ticker}. Check the ticker symbol.")
+                                else:
+                                    if new_ticker not in recommended_tickers and new_ticker not in st.session_state[custom_key]:
+                                        st.session_state[custom_key].append(new_ticker)
+                                    st.session_state[selection_key].append(new_ticker)
+                                    # Rerun so Section 1 (rendered earlier) updates too.
+                                    st.rerun()
+                            except Exception as exc:
+                                st.warning(f"Could not validate {new_ticker}: {exc}")
 
-                                peer_data = peer_data[
-                                    peer_data.index >= cutoff
-                                ]
+                    # Retain previously selected symbols if Gemini's
+                    # recommendation list changes during this session.
+                    options = list(dict.fromkeys(
+                        recommended_tickers
+                        + st.session_state[custom_key]
+                        + st.session_state[selection_key]
+                    ))
+                    selected = st.multiselect(
+                        "Competitors",
+                        options=options,
+                        key=selection_key,
+                    )
 
-                                if peer_data.empty:
-                                    continue
+                    for peer in peers:
+                        with st.expander(f"{peer['ticker']} — {peer['name']}"):
+                            st.write(peer.get("reason", ""))
+                            st.caption(peer.get("relationship", ""))
+                            st.button(
+                                f"Switch primary to {peer['ticker']}",
+                                key=f"switch_{symbol}_{peer['ticker']}",
+                                on_click=switch_stock,
+                                args=(peer["ticker"],),
+                            )
 
-                                normalized = (
-                                    peer_data["Close"]
-                                    / peer_data["Close"].iloc[0]
-                                    - 1
-                                ) * 100
+                    comparison = go.Figure()
 
-                                comparison.add_trace(go.Scatter(
-                                    x=normalized.index,
-                                    y=normalized,
-                                    name=stock_symbol,
-                                    mode="lines",
-                                    customdata=peer_data["Close"].to_numpy(),
-                                    hovertemplate=(
-                                        "<b>%{fullData.name}</b><br>"
-                                        "%{x|%B %d, %Y}<br>"
-                                        "Stock price: <b>$%{customdata:,.2f}</b><br>"
-                                        "Return: <b>%{y:+.2f}%</b><extra></extra>"
-                                    ),
-                                ))
+                    for stock_symbol in [symbol] + selected:
+                        try:
+                            peer_data, _ = get_stock(stock_symbol)
 
-                            except Exception:
-                                st.warning(
-                                    f"Could not load {stock_symbol}."
-                                )
+                            peer_data = peer_data.loc[
+                                (peer_data.index.date >= start_date)
+                                & (peer_data.index.date <= end_date)
+                            ]
 
-                        comparison.update_layout(
-                            height=380,
-                            yaxis_title="Return (%)",
-                            xaxis_title="Date",
-                            hovermode="closest",
-                            hoverlabel=dict(
-                                font=dict(size=21),
-                            ),
-                            margin=dict(l=10, r=10, t=30, b=10)
-                        )
+                            if peer_data.empty:
+                                continue
 
-                        st.plotly_chart(
-                            comparison,
-                            use_container_width=True
-                        )
-                        st.caption(
-                            "Return (%) is the cumulative percentage change from "
-                            "each stock's first available closing price in the selected "
-                            "period (starting at 0%). It is not a daily return."
-                        )
-                    elif not peer_error:
-                        st.info("No validated competitors found.")
+                            normalized = (
+                                peer_data["Close"]
+                                / peer_data["Close"].iloc[0]
+                                - 1
+                            ) * 100
 
+                            comparison.add_trace(go.Scatter(
+                                x=normalized.index,
+                                y=normalized,
+                                name=stock_symbol,
+                                mode="lines",
+                                customdata=peer_data["Close"].to_numpy(),
+                                hovertemplate=(
+                                    "<b>%{fullData.name}</b><br>"
+                                    "%{x|%B %d, %Y}<br>"
+                                    "Stock price: <b>$%{customdata:,.2f}</b><br>"
+                                    "Return: <b>%{y:+.2f}%</b><extra></extra>"
+                                ),
+                            ))
+
+                        except Exception:
+                            st.warning(
+                                f"Could not load {stock_symbol}."
+                            )
+
+                    comparison.update_layout(
+                        height=380,
+                        yaxis_title="Return (%)",
+                        xaxis_title="Date",
+                        hovermode="closest",
+                        hoverlabel=dict(
+                            font=dict(size=21),
+                        ),
+                        margin=dict(l=10, r=10, t=30, b=10)
+                    )
+
+                    st.plotly_chart(
+                        comparison,
+                        use_container_width=True
+                    )
+                    st.caption(
+                        "Return (%) is the cumulative percentage change from "
+                        "each stock's first available closing price in the selected "
+                        "period (starting at 0%). It is not a daily return."
+                    )
             # SECTION 3 — FINANCIAL METRICS
             with metrics_col:
                 with st.container(border=True):
@@ -977,6 +1105,7 @@ if st.session_state.loaded:
                                         font=dict(size=15),
                                     )
                                     st.plotly_chart(fig_sentiment, use_container_width=True)
+                                    st.caption(summarize_todays_sentiment(symbol, sentiment_counts[symbol]))
                             else:
                                 available = {ticker: counts for ticker, counts in sentiment_counts.items()
                                              if sum(counts.values()) > 0}
@@ -1012,6 +1141,8 @@ if st.session_state.loaded:
                                         font=dict(size=14),
                                     )
                                     st.plotly_chart(fig_sentiment, use_container_width=True)
+                                    st.caption(summarize_todays_sentiment(symbol, sentiment_counts[symbol]))
+                                    st.caption("Competitor bars show each stock's own headline distribution.")
                                     missing = [t for t, counts in sentiment_counts.items() if sum(counts.values()) == 0]
                                     if missing:
                                         st.caption("No headlines dated today: " + ", ".join(missing) + ".")
