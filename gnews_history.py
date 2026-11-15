@@ -35,7 +35,7 @@ def update_gnews(ticker, company, api_key, force=False, pages=3):
     Returns (number_of_new_articles, status_message). No API calls when cache fresh.
     """
     if not api_key:
-        return 0, 'Add GNEWS_API_KEY to .streamlit/secrets.toml to enable GNews.'
+        return 0, 'GNEWS_API_KEY is not configured.'
     ticker = ticker.upper()
     with _connect() as conn:
         last = conn.execute('SELECT fetched_at FROM fetches WHERE ticker=?', (ticker,)).fetchone()
@@ -56,8 +56,8 @@ def update_gnews(ticker, company, api_key, force=False, pages=3):
                                     headers={'X-Api-Key': api_key}, timeout=18)
             response.raise_for_status()
             payload = response.json()
-        except requests.RequestException as exc:
-            return 0, f'GNews request failed: {exc}'
+        except requests.RequestException:
+            return 0, 'GNews request failed. Please try again later.'
         articles = payload.get('articles', [])
         seen.extend(articles)
         if len(articles) < 10:

@@ -1,5 +1,8 @@
 import html
 import os
+import logging
+import time
+from threading import Lock
 import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -28,6 +31,41 @@ st.set_page_config(
     layout="wide"
 )
 
+
+
+# Security: never present provider exception strings to public app visitors.
+security_logger = logging.getLogger("stock_dashboard")
+
+
+def report_issue(context, exc):
+    # Deliberately avoid logging exception strings or provider response bodies:
+    # an HTTP exception may contain sensitive request details.
+    security_logger.warning("%s failed (%s)", context, type(exc).__name__)
+
+
+@st.cache_resource(show_spinner=False)
+def api_cooldown_store():
+    """Per-process shared limits across Streamlit sessions (not distributed)."""
+    return {"lock": Lock(), "last": {}}
+
+
+def cooldown_remaining(action, ticker, seconds):
+    store = api_cooldown_store()
+    with store["lock"]:
+        elapsed = time.monotonic() - store["last"].get((action, ticker), -1e12)
+        return max(0, int(seconds - elapsed + 0.999))
+
+
+def claim_api_action(action, ticker, seconds):
+    """Atomically reject excessive manual requests for the same ticker."""
+    store = api_cooldown_store()
+    with store["lock"]:
+        key = (action, ticker)
+        now = time.monotonic()
+        if now - store["last"].get(key, -1e12) < seconds:
+            return False
+        store["last"][key] = now
+        return True
 
 
 @st.cache_data(show_spinner=False)
@@ -129,7 +167,8 @@ def show_peer_sentiment(ticker):
         st.caption("Today's headline sentiment · Yahoo Finance / FinBERT")
         st.write(summarize_todays_sentiment(ticker, counts))
     except Exception as exc:
-        st.caption(f"Today's headline sentiment is unavailable for {ticker}: {exc}")
+        report_issue("Peer sentiment", exc)
+        st.caption(f"Today's headline sentiment is temporarily unavailable for {ticker}.")
 
 
 def switch_stock(symbol):
@@ -167,7 +206,8 @@ def add_custom_comparison_ticker(primary_symbol):
             st.session_state[message_key] = ("warning", f"No price history found for {new_ticker}. Check its ticker symbol.")
             return
     except Exception as exc:
-        st.session_state[message_key] = ("warning", f"Could not validate {new_ticker}: {exc}")
+        report_issue("Custom ticker validation", exc)
+        st.session_state[message_key] = ("warning", f"Could not validate {new_ticker}. Please retry.")
         return
 
     if new_ticker not in custom:
@@ -238,10 +278,10 @@ with st.form("stock_search"):
 if submitted:
     symbol = ticker.strip().upper()
 
-    if symbol:
+    if symbol and re.fullmatch(r"[A-Z0-9.^=-]{1,20}", symbol):
         switch_stock(symbol)
     else:
-        st.warning("Please enter a stock ticker.")
+        st.warning("Enter a valid ticker symbol (up to 20 characters).")
 
 if st.session_state.loaded:
     symbol = st.session_state.primary
@@ -272,7 +312,8 @@ if st.session_state.loaded:
                 peer_error = None
             except Exception as exc:
                 peers = []
-                peer_error = str(exc)
+                report_issue("AI recommendations", exc)
+                peer_error = "AI recommendations are temporarily unavailable."
 
         # Keep custom and AI-recommended tickers in the same selection state.
         # Initialize before Section 1 so its optional competitor overlay can
@@ -1046,13 +1087,18 @@ if st.session_state.loaded:
                 f"Recent news coverage for {company_name} ({symbol})"
             )
 
+            remaining_news = cooldown_remaining("manual_news_refresh", symbol, 900)
             refresh_news = st.button(
                 "Refresh News",
-                key=f"refresh_news_{symbol}"
+                key=f"refresh_news_{symbol}",
+                disabled=remaining_news > 0,
+                help="Manual full refresh is limited to once every 15 minutes per stock.",
             )
+            if remaining_news > 0:
+                st.caption(f"Refresh News available again in about {remaining_news // 60 + 1} minute(s).")
             refresh_timestamp_key = f"last_news_refresh_{symbol}"
             refresh_label = st.empty()
-            if refresh_news:
+            if refresh_news and claim_api_action("manual_news_refresh", symbol, 900):
                 # Force Yahoo to fetch again (not just reuse Streamlit's cache).
                 fetch_stock_news.clear()
 
@@ -1078,9 +1124,10 @@ if st.session_state.loaded:
                             score_unscored(symbol)
                         # An API error can be returned as a status, rather than thrown.
                         if "failed" in gnews_refresh_status.lower():
-                            st.warning(gnews_refresh_status)
+                            st.warning("GNews request failed. Try again later.")
                     except Exception as exc:
-                        st.warning(f"GNews refresh failed: {exc}")
+                        report_issue("GNews refresh", exc)
+                        st.warning("GNews refresh is temporarily unavailable.")
                 else:
                     st.info("GNews was skipped: GNEWS_API_KEY is not set in .env.")
 
@@ -1124,8 +1171,9 @@ if st.session_state.loaded:
                         news_df["Sentiment"] = finbert_results["FinBERT Sentiment"]
                         news_df["Score"] = finbert_results["FinBERT Score"]
                     except Exception as exc:
+                        report_issue("FinBERT analysis", exc)
                         st.error(
-                            f"FinBERT sentiment analysis failed: {exc}. "
+                            "FinBERT sentiment analysis is temporarily unavailable. "
                             "News sentiment and event analysis cannot run until FinBERT works."
                         )
                         st.stop()
@@ -1167,7 +1215,8 @@ if st.session_state.loaded:
                                         with st.spinner(f"Analyzing today's {peer_symbol} headlines..."):
                                             sentiment_counts[peer_symbol] = get_competitor_sentiment_counts(peer_symbol)
                                     except Exception as exc:
-                                        st.warning(f"Could not analyze {peer_symbol}: {exc}")
+                                        report_issue("Competitor news", exc)
+                                        st.warning(f"Could not analyze {peer_symbol} right now.")
 
                             total = len(today_news)
                             # The detailed bar chart below already shows this distribution.
@@ -1257,11 +1306,12 @@ if st.session_state.loaded:
                                         new_count, fetch_status = update_gnews(
                                             symbol, company_name, gnews_key, force=False
                                         )
-                                    st.caption(fetch_status)
+                                    st.caption("GNews history check completed; available saved articles are shown below.")
                                     with st.spinner("Scoring new GNews headlines with FinBERT..."):
                                         score_unscored(symbol)
                                 except Exception as exc:
-                                    st.warning(f"Historical news update unavailable: {exc}")
+                                    report_issue("Historical news", exc)
+                                    st.warning("Historical news is temporarily unavailable.")
                 
                                 historical = load_gnews(symbol, days_back)
                                 historical = historical.dropna(subset=["Date", "Score"])
@@ -1333,12 +1383,16 @@ if st.session_state.loaded:
                         # Always display a dedicated retry, including when Gemini
                         # is overloaded or returned zero events. This retries only
                         # grouping; it does not refetch Yahoo or GNews.
+                        remaining_gemini = cooldown_remaining("manual_gemini_retry", symbol, 120)
                         retry_grouping = st.button(
                             "Retry AI Event Grouping",
                             key=f"retry_events_{symbol}",
-                            help="Try Gemini again using the already loaded Yahoo headlines.",
+                            disabled=remaining_gemini > 0,
+                            help="Gemini retries are limited to once every 2 minutes per stock.",
                         )
-                        if retry_grouping:
+                        if remaining_gemini > 0:
+                            st.caption(f"Retry available in about {remaining_gemini} second(s).")
+                        if retry_grouping and claim_api_action("manual_gemini_retry", symbol, 120):
                             st.session_state.pop(attempted_key, None)
                             st.session_state.pop(error_key, None)
                             clear_events = getattr(group_news_events, "clear", None)
@@ -1357,7 +1411,8 @@ if st.session_state.loaded:
                                 st.session_state[articles_key] = event_articles
                                 st.session_state[snapshot_key] = current_snapshot
                             except Exception as exc:
-                                st.session_state[error_key] = str(exc)
+                                report_issue("Gemini event grouping", exc)
+                                st.session_state[error_key] = "Gemini grouping is temporarily unavailable."
 
                         if st.session_state.get(error_key):
                             st.warning(
@@ -1531,15 +1586,17 @@ if st.session_state.loaded:
 
 
             except Exception as exc:
+                report_issue("News analysis", exc)
                 st.warning(
-                    f"News analysis unavailable: {exc}"
+                    "News analysis is temporarily unavailable."
                 )
 
 
 
 
     except Exception as exc:
-        st.error(f"Unable to load dashboard: {exc}")
+        report_issue("Dashboard load", exc)
+        st.error("Unable to load dashboard. Please try again later.")
 
 else:
     st.info("Enter a ticker and click Load Stock.")
