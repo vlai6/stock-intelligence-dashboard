@@ -102,6 +102,48 @@ def switch_stock(symbol):
     st.session_state.loaded = True
 
 
+def add_custom_comparison_ticker(primary_symbol):
+    """Form callback runs before widgets render, so multiselect state is safe to update."""
+    input_key = f"custom_ticker_input_{primary_symbol}"
+    selected_key = f"peers_{primary_symbol}"
+    custom_key = f"custom_competitors_{primary_symbol}"
+    message_key = f"custom_ticker_message_{primary_symbol}"
+    new_ticker = str(st.session_state.get(input_key, "")).strip().upper()
+
+    if not new_ticker:
+        st.session_state[message_key] = ("warning", "Enter a ticker symbol first.")
+        return
+    if not re.fullmatch(r"[A-Z0-9.^=-]{1,20}", new_ticker):
+        st.session_state[message_key] = ("warning", "Invalid ticker format.")
+        return
+    if new_ticker == primary_symbol:
+        st.session_state[message_key] = ("info", "The primary stock is already included in every comparison.")
+        return
+
+    selected = list(st.session_state.get(selected_key, []))
+    custom = list(st.session_state.get(custom_key, []))
+    if new_ticker in selected:
+        st.session_state[message_key] = ("info", f"{new_ticker} is already selected.")
+        return
+
+    try:
+        history, _ = get_stock(new_ticker)
+        if history.empty or "Close" not in history or history["Close"].dropna().empty:
+            st.session_state[message_key] = ("warning", f"No price history found for {new_ticker}. Check its ticker symbol.")
+            return
+    except Exception as exc:
+        st.session_state[message_key] = ("warning", f"Could not validate {new_ticker}: {exc}")
+        return
+
+    if new_ticker not in custom:
+        custom.append(new_ticker)
+    selected.append(new_ticker)
+    # Assign fresh lists in the callback BEFORE the multiselect is instantiated.
+    st.session_state[custom_key] = custom
+    st.session_state[selected_key] = selected
+    st.session_state[message_key] = ("success", f"{new_ticker} added to Comparison Stocks.")
+
+
 # Slightly larger typography while preserving the original Streamlit theme.
 st.markdown(
     """
@@ -464,44 +506,31 @@ if st.session_state.loaded:
                             + peer_error
                         )
 
-                    st.caption("Select AI-recommended competitors or add your own ticker.")
+                    st.caption("Select AI-recommended competitors or add your own ticker. Newly added tickers are selected automatically.")
 
-                    # Render the add form BEFORE the multiselect so submitted
-                    # tickers can be added to its session state without a Streamlit
-                    # widget-state mutation error.
+                    # Streamlit form callbacks execute before the entire app reruns,
+                    # so adding a ticker immediately checks its chip in the multiselect.
                     with st.form(key=f"add_competitor_form_{symbol}", clear_on_submit=True):
-                        custom_input = st.text_input(
+                        st.text_input(
                             "Add a custom ticker",
                             placeholder="e.g., TSM, MU, ASML",
                             key=f"custom_ticker_input_{symbol}",
                         )
-                        add_custom = st.form_submit_button("Add Ticker")
+                        st.form_submit_button(
+                            "Add Ticker",
+                            on_click=add_custom_comparison_ticker,
+                            args=(symbol,),
+                        )
 
-                    if add_custom:
-                        new_ticker = custom_input.strip().upper()
-                        if not new_ticker:
-                            st.warning("Enter a stock ticker to add.")
-                        elif not re.fullmatch(r"[A-Z0-9.^=-]{1,20}", new_ticker):
-                            st.warning("Use a valid ticker symbol (letters, numbers, dots, or dashes).")
-                        elif new_ticker == symbol:
-                            st.info(f"{symbol} is already the primary stock.")
-                        elif new_ticker in st.session_state[selection_key]:
-                            st.info(f"{new_ticker} is already selected.")
+                    message = st.session_state.pop(f"custom_ticker_message_{symbol}", None)
+                    if message:
+                        level, content = message
+                        if level == "success":
+                            st.success(content)
+                        elif level == "info":
+                            st.info(content)
                         else:
-                            try:
-                                # Verify that Yahoo Finance recognizes the symbol
-                                # and provides historical closing prices.
-                                ticker_history, _ = get_stock(new_ticker)
-                                if ticker_history.empty or "Close" not in ticker_history.columns or ticker_history["Close"].dropna().empty:
-                                    st.warning(f"No historical stock prices found for {new_ticker}. Check the ticker symbol.")
-                                else:
-                                    if new_ticker not in recommended_tickers and new_ticker not in st.session_state[custom_key]:
-                                        st.session_state[custom_key].append(new_ticker)
-                                    st.session_state[selection_key].append(new_ticker)
-                                    # Rerun so Section 1 (rendered earlier) updates too.
-                                    st.rerun()
-                            except Exception as exc:
-                                st.warning(f"Could not validate {new_ticker}: {exc}")
+                            st.warning(content)
 
                     # Retain previously selected symbols if Gemini's
                     # recommendation list changes during this session.
@@ -511,7 +540,7 @@ if st.session_state.loaded:
                         + st.session_state[selection_key]
                     ))
                     selected = st.multiselect(
-                        "Competitors",
+                        "Comparison Stocks",
                         options=options,
                         key=selection_key,
                     )
