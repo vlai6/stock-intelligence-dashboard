@@ -147,6 +147,21 @@ with regression:
         "(https://papers.ssrn.com/sol3/papers.cfm?abstract_id=249455). "
         "Neither paper validates these exact regression thresholds."
     )
+
+    with st.expander("Research evidence and our preliminary backtest", expanded=False):
+        st.markdown("""
+| Evidence | What it demonstrates |
+|:--|:--|
+| **De Bondt & Thaler (1985): +19.6 percentage points** | Prior-loser portfolios' cumulative *market-adjusted* return over the following **36 months** in a historical sample; not this scanner's Z-score rules. |
+| **Piotroski (2000): at least +7 percentage points annually** | Historical improvement in mean return from identifying financially strong companies *within a cheap book-to-market universe*. Not a predicted return for our strategy. |
+| **Our experiment: 26 of 30 profitable trades** | An earlier provisional matched-date analysis found **17 of 30** beat SPY and mean relative performance of **−4.5 percentage points per trade**. |
+
+**Limitations:** Our 30-trade export is not a portfolio backtest. Historical price and corporate-action data require reconciliation (including DOW), and stock-dividend adjustments may differ from SPY. **These results do not establish an exploitable edge.**
+
+**Planned Backtrader test:** Hold entries constant and compare exits at the regression line, −2σ, −1.5σ, and −1σ. Measure portfolio CAGR, drawdown, turnover, idle cash, and dividend-adjusted SPY on identical dates; reserve untouched out-of-sample data.
+
+**Sources:** [De Bondt & Thaler (1985)](https://onlinelibrary.wiley.com/doi/10.1111/j.1540-6261.1985.tb05004.x) · [Piotroski (2000)](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=249455)
+""")
     st.page_link("regression_scanner/app.py", label="Open Regression Scanner", icon="📉")
 
 with momentum:
