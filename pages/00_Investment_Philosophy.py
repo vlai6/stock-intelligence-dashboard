@@ -249,6 +249,18 @@ st.markdown(
     "Assess risk, taxes, transaction costs, and opportunity cost versus ETFs."
 )
 
+
+with st.expander("Valuation example: price outpacing fundamentals", expanded=False):
+    st.markdown(
+        "If a stock gains **60%** while its revenue grows **20%**, its "
+        "price-to-sales multiple increases by roughly **33%** "
+        "(1.60 ÷ 1.20 − 1). This may justify a reassessment, "
+        "**not automatic selling**. Higher expected margins, earnings, "
+        "and cash flow could still support the price. "
+        "Consider next-year earnings expectations, business durability, "
+        "and the risk-adjusted return available from VOO or another ETF."
+    )
+
 st.divider()
 st.markdown("## LIQUIDITY & CAPITAL PRESERVATION")
 st.markdown("""
