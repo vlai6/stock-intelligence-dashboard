@@ -296,6 +296,18 @@ st.caption(
     "[Vanguard — Capital Markets Model forecasts (Oct. 2026)]"
     "(https://corporate.vanguard.com/content/corporatesite/us/en/corp/vemo/vemo-return-forecasts.html)"
 )
+
+with st.expander("Vanguard research and the trade-off in holding additional cash", expanded=False):
+    st.markdown("""
+Vanguard's **2026 outlook** used a *time-varying asset-allocation model* to favor **40% stocks / 60% bonds** versus 60/40 under its assumptions, reflecting stretched equity valuations and relatively attractive bond yields. This was a **conditional model preference**, not a universal target.
+
+In **October 2026**, Vanguard explicitly warned that valuation is a **poor predictor of short- and even intermediate-term returns**. For our philosophy, that means keeping any extra discretionary cash within a **predefined allocation range**, rather than trying to identify a precise market top.
+
+**Liquidity trade-off:** Treasury bills or CDs held to maturity better match known nominal cash needs; VTES and especially VTEB can fluctuate in price. Municipal tax-exempt income can be appealing at higher tax rates, but after-tax yield should be compared with Treasury interest and the investor's state-tax treatment.
+
+**Sources:** [Vanguard's time-varying allocation view](https://corporate.vanguard.com/content/corporatesite/us/en/corp/vemo/why-were-underweight-stocks.html) · [Vanguard, Oct. 2026 return forecasts and warning](https://corporate.vanguard.com/content/corporatesite/us/en/corp/vemo/vemo-return-forecasts.html)
+""")
+
 st.caption(
     "Research and educational context only. Historical premiums and backtests "
     "do not guarantee future results."
