@@ -35,17 +35,27 @@ st.markdown(
     "decisions worth the risk compared with simply owning the S&P 500.**"
 )
 
-st.markdown("### ABOUT THIS DASHBOARD")
+st.markdown("### ABOUT OUR DASHBOARDS")
 st.markdown(
-    "**Stock Intelligence** helps us find stocks worth researching and understand "
-    "the companies behind them. It brings together price history, financial "
-    "information, competitors, and recent news to make research faster and more "
-    "organized. The dashboard is mainly designed to identify stocks that have "
-    "fallen unusually far below their historical price trends."
+    "**Our dashboards** help us find stocks worth researching and understand "
+    "the businesses behind them. They bring together historical prices, "
+    "financial results, competitors, and recent news. The regression scanner "
+    "flags unusually large declines so we can research whether a company's "
+    "long-term value may be stronger than its current stock price suggests."
 )
+intro_a, intro_b, intro_c = st.columns(3, gap="small")
+with intro_a:
+    st.markdown("**Find opportunities**")
+    st.caption("Use regression to flag unusually large price declines.")
+with intro_b:
+    st.markdown("**Understand the business**")
+    st.caption("Check the reasons for the decline and the company's financial health.")
+with intro_c:
+    st.markdown("**Make informed decisions**")
+    st.caption("Compare realistic upside, downside, and recovery time with SPY.")
 st.markdown(
-    "**It helps us decide what to investigate, not what to automatically buy.** "
-    "A complete investment decision still requires deeper research."
+    "**Statistical signals tell us where to investigate. Fundamental analysis "
+    "helps us decide whether to invest.**"
 )
 st.divider()
 
@@ -447,10 +457,15 @@ Extra cash can reduce losses during a downturn—but may cause us to miss gains 
 st.divider()
 st.markdown("### OUR GUIDING PRINCIPLE")
 st.markdown(
-    "**Invest most of our money through diversified, research-backed strategies.** "
-    "Use individual-company research to seek additional opportunities, "
-    "stay disciplined about risk and price, and measure our decisions "
-    "against the broader market."
+    "**Our goal is not to predict every market recovery.** We want to find "
+    "situations where a company's long-term value may be stronger than its "
+    "depressed share price suggests. Regression tells us where to look; "
+    "financial strength, business understanding, valuation, and disciplined "
+    "decisions help us decide whether an opportunity is worth pursuing."
+)
+st.markdown(
+    "We keep most of our investments diversified and judge individual-stock "
+    "decisions against a simple alternative: owning the S&P 500."
 )
 st.caption(
     "Historical returns, research findings, and backtests provide useful evidence, "
