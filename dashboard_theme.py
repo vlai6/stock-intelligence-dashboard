@@ -15,6 +15,7 @@ BLUE_SERIES = ('#41A5FF', '#668BFF', '#36C1E8', '#268AD1', '#98BFFE', '#74C8F7')
 
 
 PAGES = (
+    ('philosophy', 'Investment Philosophy', 'pages/00_Investment_Philosophy.py', '📚'),
     ('general', 'General News Screen', 'pages/1_News_Screen.py', '📰'),
     ('scanner', 'Regression Scanner', 'regression_scanner/app.py', '📉'),
     ('stock', 'Stock Intelligence', 'pages/0_Stock_Intelligence.py', '📊'),
@@ -81,7 +82,7 @@ def style_blue_figure(figure):
 
 def apply_dashboard_theme():
 
-    """Same background, font family, inputs, and controls for all four pages."""
+    """Same background, font family, inputs, and controls for all five pages."""
 
     st.markdown('''
 
@@ -138,6 +139,7 @@ html, body, .stApp, [data-testid="stSidebar"] {
 .st-key-si_header_sentiment,
 
 .st-key-si_header_general,
+.st-key-si_header_philosophy,
 .st-key-si_header_scanner {padding:0 0 .5rem;}
 
 .si-page-title {font-family:Inter,"Segoe UI",Arial,sans-serif !important;
