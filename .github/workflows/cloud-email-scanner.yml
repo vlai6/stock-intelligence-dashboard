@@ -1,0 +1,234 @@
+name: Stock Intelligence - Regression Email Alerts
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Test email first, then a limited dry run, then a real scan"
+        required: true
+        type: choice
+        default: test-email
+        options:
+          - test-email
+          - dry-run-small
+          - dry-run-full
+          - live
+  # 8:30 AM ET is when GitHub is ASKED to start the workflow, NOT a
+  # guaranteed email-arrival time. The scan/install steps take additional time.
+  schedule:
+    - cron: '30 8 * * 1-5'
+      timezone: 'America/New_York'
+
+# Scheduled scan disabled until destination repository Actions variable
+# ENABLE_CLOUD_SCHEDULE=true. The dashboard app is unaffected.
+# Needed ONLY to publish state/alerts.json AFTER a successful email.
+# The separate Investing UI token remains Contents: Read-only.
+permissions:
+  contents: write
+
+concurrency:
+  group: dashboard-regression-scanner-cloud-email
+  cancel-in-progress: false
+
+jobs:
+  email-alerts:
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.ENABLE_CLOUD_SCHEDULE == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: regression_scanner
+    env:
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      ALERT_TO: ${{ secrets.ALERT_TO }}
+      SEND_EVERY_SCAN: '1'
+      AUTO_REGRESSION_YEARS: '10'
+      AUTO_BATCH_HARD_TIMEOUT_SECONDS: '20'
+      ENABLE_INTRINSIC_VALUE: '1'
+      MAX_INTRINSIC_VALUATIONS_PER_RUN: '30'
+      ENABLE_AI_SUMMARY: '0'
+      DCF_WACC_PCT: '10'
+      DCF_FCFF_GROWTH_PCT: '5'
+      DCF_TERMINAL_GROWTH_PCT: '2.5'
+      PYTHONUNBUFFERED: '1'
+
+    steps:
+      - name: Diagnose scheduled trigger
+        shell: bash
+        run: |
+          echo "Event: ${{ github.event_name }}"
+          echo "Cron that fired: ${{ github.event.schedule }}"
+          echo "Workflow commit: ${{ github.sha }}"
+          echo "Actual start UTC: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "Actual start Eastern: $(TZ=America/New_York date '+%Y-%m-%d %I:%M:%S %p %Z')"
+          echo "NOTE: 8:30 AM ET is workflow trigger time; SMTP send is logged separately."
+
+      - name: Check out Stock Intelligence Dashboard source
+        uses: actions/checkout@v6
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install cloud scanner dependencies
+        run: python -m pip install -r requirements-automation.txt
+
+      - name: Restore prior alert status
+        uses: actions/cache/restore@v6
+        with:
+          path: regression_scanner/state/scheduled_alerts.json
+          key: dashboard-regression-alert-state-${{ github.run_id }}
+          restore-keys: |
+            dashboard-regression-alert-state-
+
+      - name: Restore historical price cache
+        uses: actions/cache/restore@v6
+        with:
+          path: regression_scanner/.cache/price_history
+          key: dashboard-regression-price-cache-${{ github.run_id }}
+          restore-keys: |
+            dashboard-regression-price-cache-
+
+      - name: Confirm required files are present
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          required = ["automated_scan.py", "scanner.py", "price_batch_worker.py",
+                      "email_report.py", "emailer.py", "intrinsic_value.py",
+                      "publish_watchlist.py"]
+          missing = [name for name in required if not Path(name).is_file()]
+          if missing:
+              raise SystemExit("Missing required scanner files: " + ", ".join(missing))
+          print("All required scanner files found.")
+          PY
+
+      - name: Run manual test email or scheduled stock scan
+        timeout-minutes: 45
+        shell: bash
+        run: |
+          MODE="${{ github.event_name == 'schedule' && 'live' || inputs.mode }}"
+          case "$MODE" in
+            test-email) python automated_scan.py --test-email ;;
+            dry-run-small) python automated_scan.py --dry-run --limit-per-bucket 10 ;;
+            dry-run-full) python automated_scan.py --dry-run ;;
+            live) python automated_scan.py ;;
+            *) echo "Unknown workflow mode" >&2; exit 2 ;;
+          esac
+
+      - name: Diagnose partial scan coverage
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import csv
+          import json
+          from collections import Counter
+          from pathlib import Path
+          root = Path('scheduled_scans')
+          folders = sorted(p for p in root.iterdir() if p.is_dir()) if root.is_dir() else []
+          if not folders:
+              print('No scan folder found (test-email runs will not create one).')
+          else:
+              latest = folders[-1]
+              print(f'Scan diagnostic folder: {latest}')
+              coverage = latest / 'coverage.json'
+              if coverage.is_file():
+                  data = json.loads(coverage.read_text(encoding='utf-8'))
+                  print('Overall coverage complete:', data.get('complete'))
+                  for report in data.get('buckets', []):
+                      print(f"  {report.get('bucket')}: "
+                            f"complete={report.get('ok')} "
+                            f"data_errors={report.get('download_or_data_errors', 'unknown')} "
+                            f"analyzed={report.get('analyzed', 'unknown')}")
+              for bucket in ('50B+', '25-50B', '10-25B', '5-10B', '2-5B'):
+                  skip_file = latest / bucket / 'skipped.csv'
+                  if not skip_file.is_file():
+                      print(f'[{bucket}] No skipped.csv file: bucket may have failed before saving.')
+                      continue
+                  with skip_file.open(encoding='utf-8', newline='') as f:
+                      skipped = list(csv.DictReader(f))
+                  errors = [row for row in skipped if row.get('reason') != 'trend_or_band_filter'
+                            and not row.get('reason', '').startswith('insufficient_history_')]
+                  causes = Counter(row.get('reason', '<missing reason>') for row in errors)
+                  print(f'[{bucket}] DATA ERRORS: {len(errors)} | '
+                        f'normal/eligibility exclusions: {len(skipped) - len(errors)}')
+                  for reason, count in causes.most_common():
+                      print(f'    {reason}: {count}')
+                  for row in errors[:50]:
+                      print(f"    TICKER {row.get('symbol', '?')}: {row.get('reason', '?')}")
+                  if len(errors) > 50:
+                      print(f'    ... and {len(errors) - 50} additional symbols (download artifact).')
+          PY
+
+      - name: Upload coverage diagnostic files
+        if: ${{ always() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v6
+        with:
+          name: scan-coverage-${{ github.run_id }}
+          path: |
+            regression_scanner/scheduled_scans/**/coverage.json
+            regression_scanner/scheduled_scans/**/summary.json
+            regression_scanner/scheduled_scans/**/skipped.csv
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Keep only the two latest market-session caches
+        if: ${{ success() && (github.event_name == 'schedule' || inputs.mode == 'live') }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re, shutil
+          root = Path('.cache/price_history')
+          if root.is_dir():
+              sessions = sorted(p for p in root.iterdir()
+                                if p.is_dir() and re.fullmatch(r'\d{4}-\d{2}-\d{2}', p.name))
+              for old in sessions[:-2]:
+                  shutil.rmtree(old, ignore_errors=True)
+          PY
+
+      - name: Save delivered alert state for next cloud run
+        if: ${{ success() && (github.event_name == 'schedule' || inputs.mode == 'live') }}
+        uses: actions/cache/save@v6
+        with:
+          path: regression_scanner/state/scheduled_alerts.json
+          key: dashboard-regression-alert-state-${{ github.run_id }}
+
+      - name: Save price histories for next cloud run
+        if: ${{ success() && (github.event_name == 'schedule' || inputs.mode == 'live') }}
+        uses: actions/cache/save@v6
+        with:
+          path: regression_scanner/.cache/price_history
+          key: dashboard-regression-price-cache-${{ github.run_id }}
+
+      # Last: data is published ONLY when the email send succeeded. If this
+      # publish step fails, the prior dedupe cache has already been saved.
+      - name: Publish emailed stocks to Investing UI
+        id: publish_watchlist
+        if: ${{ success() && (github.event_name == 'schedule' || inputs.mode == 'live') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python publish_watchlist.py
+
+      # A failed publication is reported in Actions, but does NOT send a second
+      # misleading "scanner failed" email after a successful scanner email.
+      - name: Send diagnostic email if the cloud scanner failed
+        if: ${{ failure() && steps.publish_watchlist.outcome != 'failure' && (github.event_name == 'schedule' || inputs.mode == 'live') }}
+        run: |
+          python - <<'PY'
+          import os
+          from emailer import send_email
+          url = (f"{os.environ.get('GITHUB_SERVER_URL', 'https://github.com')}/"
+                 f"{os.environ.get('GITHUB_REPOSITORY', '')}/actions/runs/"
+                 f"{os.environ.get('GITHUB_RUN_ID', '')}")
+          try:
+              send_email('[Regression Scanner] CLOUD RUN FAILED',
+                         'The scheduled cloud stock scanner failed. Check the workflow log:\n' + url)
+              print('Failure notification sent.')
+          except Exception as exc:
+              print(f'Could not send failure notification: {type(exc).__name__}')
+          PY

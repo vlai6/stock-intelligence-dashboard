@@ -1,0 +1,8 @@
+# Scanner runtime files — keep all credentials and generated outputs out of git
+.env
+.env.*
+!.env.example
+.cache/
+state/
+scheduled_scans/
+results/
