@@ -89,9 +89,9 @@ with regression:
     st.markdown("""
 | Market capitalization | Experimental threshold |
 |:--|--:|
-| $50B+ | −3σ |
-| $25B–$50B | −3.5σ |
-| $2B–$25B | −4σ |
+| `≥$50B` | −3σ |
+| `$25B–<$50B` | −3.5σ |
+| `$2B–<$25B` | −4σ |
 """)
     st.markdown(
         "**Our hypothesis.** The potential advantage may lie **beyond the numerical "
