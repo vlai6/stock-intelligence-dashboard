@@ -250,6 +250,8 @@ The **average excess return was −4.5 percentage points** per trade, while the 
 
 This shows why **the ability to find a recovering stock is not the same as the ability to beat the market**.
 
+**How sensitive are the averages?** Excluding the questionable DOW trade alone leaves the mean relative return at about **−1.8 percentage points** across 29 trades. Excluding both DOW and MMM moves it to about **+1.9 percentage points** across 28 trades. That does **not** justify dropping those losing trades after seeing the results; it shows that this small sample is strongly affected by a few outliers and needs proper historical-data validation.
+
 **Research outside our test**
 
 - **De Bondt & Thaler (1985):** In their historical study, portfolios of extreme losers beat the market by roughly **19.6 percentage points over the following 36 months**. Their methodology was *not* our regression-Z-score scanner.
