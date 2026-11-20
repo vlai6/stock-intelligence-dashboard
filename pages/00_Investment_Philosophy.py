@@ -224,17 +224,17 @@ with regression:
         "businesses whose long-term value may be greater than the market currently expects.**"
     )
 
-    st.markdown("#### WHAT OUR BACKTESTING HAS SHOWN")
+    st.markdown("#### WHAT OUR BACKTRADER TESTING HAS SHOWN")
     st.markdown(
-        "Our earlier QuantConnect experiment recorded **30 completed trades** "
-        "in stocks screened using a large-company −3σ rule. We compared each "
-        "trade with SPY over its corresponding entry and exit dates."
+        "We judge the strategy by **how the full investment portfolio performed "
+        "against buying and holding SPY over the same dates**. A high number "
+        "of profitable individual trades is not enough to show an advantage."
     )
     st.markdown("""
 <style>
 .si-backtest-results { display:flex; flex-wrap:wrap; gap:9px; margin:.4rem 0 .65rem; }
 .si-backtest-chip {
-    flex:0 0 auto; min-width:121px; max-width:163px;
+    flex:0 0 auto; min-width:121px; max-width:164px;
     padding:9px 11px; border:1px solid #1d3854;
     border-radius:9px; background:#091726;
 }
@@ -242,98 +242,108 @@ with regression:
 .si-backtest-chip .value { font-weight:700; font-size:1.24rem; color:#DAEBFF; }
 </style>
 <div class="si-backtest-results">
-  <div class="si-backtest-chip"><div class="label">Profitable trades</div><div class="value">26 / 30</div></div>
-  <div class="si-backtest-chip"><div class="label">Beat matched SPY</div><div class="value">17 / 30</div></div>
-  <div class="si-backtest-chip"><div class="label">Average vs. SPY</div><div class="value">−4.5 pp</div></div>
-  <div class="si-backtest-chip"><div class="label">Median vs. SPY</div><div class="value">+6.3 pp</div></div>
+  <div class="si-backtest-chip"><div class="label">Backtrader CAGR</div><div class="value">12.40%</div></div>
+  <div class="si-backtest-chip"><div class="label">SPY CAGR</div><div class="value">12.79%</div></div>
+  <div class="si-backtest-chip"><div class="label">Ending gap vs. SPY</div><div class="value">−$13,898</div></div>
+  <div class="si-backtest-chip"><div class="label">Max strategy drawdown</div><div class="value">−35.65%</div></div>
 </div>
 """, unsafe_allow_html=True)
+    st.markdown("""
+**Reported Backtrader full-portfolio result (January 4, 2016 – November 19, 2026)**
+
+| Portfolio measure | Regression strategy | Buy-and-hold SPY |
+|:--|--:|--:|
+| Starting portfolio | $100,000 | $100,000 |
+| Ending portfolio | **$356,374** | **$370,272** |
+| Annualized compound growth (CAGR) | **12.40%** | **12.79%** |
+
+The best reported after-tax variant from this set used **−3σ entries and −0.5σ exits**. It finished around **$13,898 below SPY**, even though the portfolio grew substantially.
+
+**The result is negative relative to the benchmark**, not a loss of invested principal. The strategy grew but did not beat simply holding SPY in this test.
+""")
     st.markdown(
-        "**Encouraging:** Extreme declines sometimes preceded large recoveries, "
-        "and 17 of 30 trades beat SPY over matching periods. "
-        "**Less encouraging:** The average trade lagged SPY by 4.5 percentage "
-        "points, despite a high percentage of profitable trades. "
-        "A small number of large relative losers had an outsized effect."
+        "**What looks promising:** The statistical screen generated many "
+        "potential recovery investments, and the tested portfolio grew over "
+        "the long sample. **What is not established:** An advantage over SPY "
+        "after the modeled taxes, trading costs, and capital deployment. "
+        "That is a more demanding and useful test than counting winning trades."
     )
     st.markdown(
-        "**Our conclusion:** Regression has potential as a **way to generate "
-        "research ideas**, not yet as a reliable buy/sell system. "
-        "An additional advantage might come from understanding the business, "
-        "avoiding financial distress, estimating fair value, finding catalysts, "
-        "or managing exits better—but **our tests have not yet proven which "
-        "of these adds performance**."
-    )
-    st.markdown(
-        "A **separate set of SPY-funded portfolio simulations** summarized in "
-        "our research reported some better after-tax outcomes, but the results "
-        "are in-sample and have not been independently rechecked here. "
-        "See the detailed portfolio-rotation section below."
+        "**Our conclusion:** Regression remains a reasonable **idea-generation "
+        "indicator**, not a proven profitable trading edge relative to SPY. "
+        "A potential additional advantage might come from understanding "
+        "the business, avoiding financial distress, estimating fair value, "
+        "identifying recovery catalysts, or improving position exits. "
+        "None has yet been demonstrated as a repeatable advantage "
+        "within our strategy."
     )
     st.caption(
-        "The 30-trade comparison is provisional and is not a full portfolio "
-        "backtest. Historical stock symbols, corporate actions, dividends "
-        "and one suspicious DOW price need verification."
+        "Figures above were reported in our earlier Backtrader discussion; "
+        "the complete raw run and settings have not been independently re-run "
+        "for this website update. This is a historical, in-sample comparison, "
+        "not a forecast."
     )
 
-    with st.expander("Separate research: SPY-funded portfolio rotation simulations", expanded=False):
+    with st.expander("Backtrader assumptions and why the result needs validation", expanded=False):
         st.markdown("""
-Our **later research summary**, from a separate analysis, reports results from **32 historical portfolio-rotation rule combinations**. This is **not** the same sample as the 30 completed QuantConnect trades above.
+**Reported full-portfolio model:** weekly signals, approximately 2,500 historical trading days for the regression, an entry around −3σ, an exit at −0.5σ in the best reported variant, positions sized at up to **10% each** with no more than **10 positions**, and a roughly **52-week holding limit**. The simulation included assumed 0.15% one-way trading costs, a short-term Treasury cash-yield proxy, modeled capital-gains taxes, and SPY dividend reinvestment.
 
-| Result reported in that summary | Historical finding |
-|:--|--:|
-| **Before modeled taxes** | 32 of 32 rule combinations outperformed the SPY comparison |
-| **After estimated taxes** | 11 of 32 combinations outperformed SPY |
-| **Best estimated after-tax excess value** | About USD 4,659 on USD 100,000 starting capital over nearly 11 years |
+The earlier report recorded **100 completed trades** and a maximum strategy drawdown around **−35.65%**. This is a portfolio-level model, unlike individual trade averages.
 
-The simulations mainly kept capital in SPY and moved limited amounts into a qualifying stock when a screen triggered. One setup tested moving about **1% of the portfolio** per qualifying opportunity, subject to total stock-exposure limits. These are **research configurations**, not established allocation rules.
+**Why results may not repeat:**
 
-**Important:** These results are supplied by a summary of prior analysis. We have **not independently reprocessed the raw simulation output here**. They were in-sample tests with simplified tax and trading assumptions; a result selected from 32 variants is vulnerable to overfitting. The 52-week maximum holding period used in many simulations is also **not a proven optimal exit horizon**.
+- **Survivorship bias:** The current $50B+ company universe can omit firms that previously qualified but later failed or shrank.
+- **COVID-era effects:** The extraordinary 2020–2022 market environment may have contributed disproportionately to recoveries.
+- **Historical data:** Tickers, stock splits, dividends, mergers, and delistings require point-in-time verification.
+- **Overfitting:** Choosing the best exit after examining many historical settings may overstate future performance.
+- **Taxes and cash:** Realized gains, idle capital, position sizing, and benchmark dividends materially affect results.
 
-The large difference between before-tax and after-tax outcomes illustrates why capital-gains taxes, turnover, and the opportunity cost of temporarily selling SPY are central to this strategy. Do **not** treat the best simulation as a forecast.
+The figures are **reported outputs, not independently reproduced audited performance**. The best variant from a historical search is not necessarily the best future trading rule.
 """)
 
-    with st.expander("Detailed trade comparisons and independent research", expanded=False):
+    with st.expander("Separate research: smaller SPY-funded stock rotations", expanded=False):
         st.markdown("""
-**Original 30-trade QuantConnect experiment (preliminary):**
+Another historical analysis considered a portfolio invested mainly in SPY, reallocating approximately **1% of capital per qualifying stock**, subject to an aggregate satellite limit. This model is **different from the Backtrader full-portfolio test above**.
 
-| Comparison | Stock | SPY over matching dates |
-|:--|--:|--:|
-| Mean return across completed trades | +29.4% | +33.9% |
-| NFLX | +167.0% | +17.9% |
-| WFC | +92.9% | +33.7% |
-| IBM | +25.3% | +92.9% |
-| MMM | −7.5% | +96.7% |
+| Reported historical simulation results | Outcome |
+|:--|--:|
+| Rule combinations beating SPY before modeled taxes | 32 of 32 |
+| Rule combinations beating SPY after estimated taxes | 11 of 32 |
+| Best estimated after-tax advantage | About $4,659 on $100,000 over nearly 11 years |
 
-Winning trades can still substantially underperform the market. These are individual-trade averages and selected examples, **not** returns of an investable portfolio. Stock dividends and SPY dividends may not have been handled equivalently.
+**Interpretation:** Under the simplified assumptions, certain limited-allocation rules modestly outperformed SPY after taxes. But most of the tested combinations did not; the selected best result is exposed to hindsight and multiple-testing bias.
 
-**Relevant academic findings:**
+These 32-combination figures come from a **separate re-aggregation summarized in earlier research**, not an independently rerun Backtrader simulation. We have not reprocessed its underlying results here. Its estimated tax treatment, historical stock universe, and 52-week time limits also need further validation.
 
-- **De Bondt & Thaler (1985):** Historical portfolios of extreme losers experienced subsequent return reversals. Their design is different from our regression thresholds.
-- **Benou & Richie (2003):** Studied large-firm price declines and reported average abnormal returns of approximately **4% over six months and 12% over twelve months** in their historical sample. That is not a prediction for any new alert.
-- **Piotroski (2000):** Financial-statement strength helped separate stronger and weaker companies within a value-stock sample.
-- **Asness, Frazzini & Pedersen (2019):** Their *Quality Minus Junk* long-short factor documents a historical relationship between financial quality and risk-adjusted returns; it does not validate our long-only screen.
-- **Campbell, Hilscher & Szilagyi (2008):** Financial distress is a serious risk; depressed businesses do not automatically offer attractive future returns.
+**Do not combine these figures with the 10%-per-position Backtrader test or interpret them as independently confirmed profitability.**
+""")
+
+    with st.expander("Academic research: where an additional edge might come from", expanded=False):
+        st.markdown("""
+A regression deviation measures unusual **price movement**, not a company's true business value. Research suggests several possible methods for improving the **next stage of selecting investments**:
+
+- **De Bondt & Thaler (1985):** Some extreme historical stock losers subsequently experienced return reversals. This is not the same as testing −3σ or −4σ rules.
+- **Benou & Richie (2003):** Studied subsequent returns following large declines in large firms, providing context for the recovery hypothesis.
+- **Piotroski (2000):** Financial strength helped distinguish higher-quality investments within cheap-stock portfolios.
+- **Asness, Frazzini & Pedersen (2019):** Quality Minus Junk examines differences in returns associated with business quality.
+- **Campbell, Hilscher & Szilagyi (2008):** Financial distress can make apparently cheap or badly beaten-down stocks dangerous.
+
+**What we would test:** Whether knowing a company's profitability, cash flow, debt, competitive situation, valuation, and plausible recovery event *before purchasing* improves future portfolio returns relative to SPY.
 
 **Sources:** [De Bondt & Thaler](https://doi.org/10.1111/j.1540-6261.1985.tb05004.x) · [Benou & Richie](https://ideas.repec.org/a/spr/jecfin/v27y2003i1p19-38.html) · [Piotroski](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=249455) · [Quality Minus Junk](https://link.springer.com/article/10.1007/s11142-018-9470-2) · [In Search of Distress Risk](https://doi.org/10.1111/j.1540-6261.2008.01416.x)
 
-**Data-quality note:** The original QuantConnect export included a suspicious historical DOW entry price; the stock universe and prices need point-in-time and corporate-action verification before any performance claim can be treated as reliable.
+**Key limitation:** These studies support the research direction. They do **not** independently validate our particular scanner or prove business analysis can reliably add alpha.
 """)
 
-    with st.expander("Why we cannot assume the historical winners will repeat", expanded=False):
+    with st.expander("Why we avoid continually optimizing historical results", expanded=False):
         st.markdown("""
-**Our main research limitations**
+**Overfitting** means creating rules that explain past winners and losers very well but do not predict new outcomes.
 
-| Risk | Why it matters |
-|:--|:--|
-| **2020–2022 market disruption** | COVID-era crashes and recoveries may have helped some trades; normal markets can behave differently. |
-| **Survivorship bias** | Selecting stocks based on companies worth at least USD 50B *today* can exclude companies that later shrank, failed, or disappeared. Historical eligibility should be checked at each entry date. |
-| **Overfitting** | Trying many entry/exit rules and choosing the winner can make a strategy look better on old data than it will perform on new data. |
-| **Taxes and trading costs** | Realizing gains and repeatedly rotating out of SPY can consume any apparent advantage. |
-| **Holding-period assumptions** | Some later portfolio simulations capped positions at 52 weeks. That is a test assumption, not a proven optimal holding time. |
+We have tested numerous regression entry and exit conditions. Choosing rules because they keep historical winners while excluding historical losers risks making the apparent edge disappear in live investing.
 
-**Why we avoid endless optimization:** Repeatedly tuning a strategy to past trades can make it excellent at describing history without improving predictions. We should not choose filters solely because they exclude a known historical loser (such as UNH) or retain a known winner (such as META).
+A better evaluation records **the rules and fundamental decision before knowing the outcome**, includes stocks that disappeared from the market, uses financial statements available on the original signal date, and measures new results against a dividend-reinvested SPY benchmark.
 
-A better test records **rules and investment judgments before the outcome**, uses financial statements that were available on the relevant historical date, and evaluates new periods that were not used to design the strategy.
+Our next Backtrader experiments should assess **whole-portfolio compound growth, drawdowns, taxes, turnover, and unused capital**—not just successful trades. Any genuine improvement must survive out-of-sample testing.
 """)
 
     st.markdown("#### OUR RESEARCH PROCESS")
@@ -362,7 +372,7 @@ A better test records **rules and investment judgments before the outcome**, use
         "A return to the regression line is not automatically a fair-value signal."
     )
 
-    with st.expander("What we will test next with Backtrader", expanded=False):
+    with st.expander("Next steps: validating exits and fundamental selection", expanded=False):
         st.markdown("""
 **Separate the tests so we can learn what helps:**
 
