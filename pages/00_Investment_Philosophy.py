@@ -221,6 +221,18 @@ with event:
         "Bad headlines do not imply a reliable rebound."
     )
 
+
+    with st.expander("Recent event-driven research", expanded=False):
+        st.markdown("""
+**Hirshleifer, Peng & Wang (2025, *Review of Financial Studies*)** find that earnings information diffusing through more connected communities generates **stronger initial stock-price reactions and weaker subsequent drift**. This is consistent with the opportunity shrinking as information becomes widespread.
+
+A **2025 *Journal of Financial Economics*** study of price jumps around earnings announcements finds that returns from one post-announcement strategy were consistent with **efficient price formation after 2016**. Thus, a predictable post-news profit should not be assumed.
+
+**Implication:** An event must be evaluated for what it changes about future cash flows and market expectations; a strong positive/negative sentiment reading alone is not an edge.
+
+**Sources:** [News diffusion (2025)](https://academic.oup.com/rfs/article-abstract/38/3/883/7698199) · [Warp speed price moves (2025)](https://www.sciencedirect.com/science/article/pii/S0304405X25000182)
+""")
+
 st.divider()
 st.markdown("## INVESTMENT DISCIPLINE & EXITS")
 st.markdown("""
