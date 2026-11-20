@@ -138,68 +138,142 @@ with regression:
     st.markdown(
         "Stocks sometimes fall because investors become too pessimistic. "
         "Other times, the business is truly getting worse. Our regression scanner "
-        "measures how far a stock is below its historical price trend. A "
-        "**standard deviation (σ)** measures how unusual that gap is compared "
-        "with the variations in the model's historical data. Larger negative "
-        "numbers indicate more unusually depressed prices."
+        "measures how far a stock is below its historical price trend. "
+        "A **standard deviation (σ)** measures how unusual the gap is compared "
+        "with the variations in the model's historical data."
     )
     st.markdown("""
 | Company size (market value) | Experimental screening level |
 |:--|--:|
-| `$50B or larger` | −3σ |
-| `$25B up to $50B` | −3.5σ |
-| `$2B up to $25B` | −4σ |
+| <code>At least $50B</code> | −3σ |
+| <code>$25B to below $50B</code> | −3.5σ |
+| <code>$2B to below $25B</code> | −4σ |
 """)
     st.markdown(
-        "These levels are **experimental screens, not proven buying rules**. "
-        "Being far below a trend does not show whether the company is truly cheap."
+        "**The important distinction:** These are experimental screening levels, "
+        "**not buy signals**. A share price can fall far below a historical trend "
+        "because the company's financial outlook has permanently changed."
+    )
+    st.markdown("#### WHAT OUR BACKTEST ACTUALLY FOUND")
+    st.markdown(
+        "We reviewed **30 completed trades** from the QuantConnect "
+        "large-company (50B+) −3σ experiment and compared each trade with "
+        "**dividend-adjusted SPY over the same entry and exit dates**."
+    )
+    st.markdown("""
+<style>
+.si-backtest-results { display:flex; gap:9px; flex-wrap:wrap; margin:.3rem 0 .65rem; }
+.si-backtest-chip {
+    min-width:120px; max-width:162px; flex:0 0 auto;
+    padding:9px 11px; border:1px solid #1d3854;
+    border-radius:9px; background:#091726;
+}
+.si-backtest-chip .label { font-size:.71rem; color:#A9C2D8; line-height:1.35; }
+.si-backtest-chip .value { font-weight:700; font-size:1.24rem; color:#DAEBFF; }
+</style>
+<div class="si-backtest-results">
+  <div class="si-backtest-chip"><div class="label">Profitable trades</div><div class="value">26 / 30</div></div>
+  <div class="si-backtest-chip"><div class="label">Beat matched SPY</div><div class="value">17 / 30</div></div>
+  <div class="si-backtest-chip"><div class="label">Average vs. SPY</div><div class="value">−4.5 pp</div></div>
+  <div class="si-backtest-chip"><div class="label">Median vs. SPY</div><div class="value">+6.3 pp</div></div>
+</div>
+""", unsafe_allow_html=True)
+    st.markdown(
+        "**What looks promising:** Most of the stocks eventually made money, "
+        "and the median trade beat SPY by about 6.3 percentage points. "
+        "Some recovered dramatically. "
+        "**What looks unfavorable:** Only 17 of 30 outperformed SPY, "
+        "and the **average** stock trade underperformed SPY by 4.5 percentage points. "
+        "A few very large relative losers hurt the results."
     )
     st.markdown(
-        "**Our belief:** There may be opportunities beyond what stock-price "
-        "statistics alone can show. Understanding a company's products, "
-        "financial health, competitors, and chance of recovery may help us "
-        "separate temporary setbacks from lasting business problems."
-    )
-    st.markdown(
-        "**Our approach:** Use the scanner to find companies to study, then "
-        "investigate their financial strength, a reasonable estimate of what "
-        "they're worth, and whether recovery is realistic."
-    )
-    st.markdown(
-        "**When to sell:** Reconsider the investment when the stock reaches "
-        "a reasonable estimate of its true value, the business gets weaker, "
-        "or a better opportunity appears. Returning to its historical "
-        "trend is **not automatically** the same as reaching a fair price."
+        "**Our conclusion:** The scanner may be a useful way to **find candidates "
+        "for further research**, but the current test **does not demonstrate a "
+        "repeatable market-beating trading strategy**. Its high win rate alone "
+        "is not enough to establish an advantage over buying and holding SPY."
     )
     st.caption(
-        "Research: [De Bondt & Thaler (1985)]"
-        "(https://doi.org/10.1111/j.1540-6261.1985.tb05004.x) · "
-        "[Piotroski (2000)]"
-        "(https://papers.ssrn.com/sol3/papers.cfm?abstract_id=249455)"
+        "Provisional trade-level comparison, not a portfolio backtest. "
+        "Original trade prices and the SPY dividend-adjusted series are not "
+        "fully like-for-like, and some historical ticker/corporate-action "
+        "prices require checking. Overlapping trade periods, unused cash, "
+        "taxes and costs are not modeled as a complete portfolio."
     )
-    with st.expander("Further research: do fallen stocks recover?", expanded=False):
-        st.markdown("""
-**What academic studies found**
 
-De Bondt and Thaler found that groups of especially poor-performing stocks later beat the market by about **19.6 percentage points over 36 months** in their historical study.
-
-Piotroski found that choosing financially stronger companies from a group of cheap stocks improved average annual returns by **at least 7 percentage points** in his historical sample.
-
-**Neither study tested our particular regression rules.**
-
-**Our preliminary QuantConnect experiment**
-
-| Result | What happened |
+    st.markdown("#### WHERE COULD AN ADDITIONAL EDGE COME FROM?")
+    st.markdown(
+        "**Our hypothesis:** The scanner may find unusually depressed stocks, "
+        "but the real advantage, if one exists, may come from deciding "
+        "**which businesses deserve investment and when to exit**. "
+        "Understanding the company could help distinguish a temporary "
+        "setback from lasting damage; this has **not yet been proven "
+        "in our backtest**."
+    )
+    st.markdown("""
+| Candidate advantage to test | What we would look for |
 |:--|:--|
-| **26 of 30** | Trades that made money |
-| **17 of 30** | Trades that beat SPY over approximately matching entry-to-exit dates |
-| **−4.5 percentage points** | Average trade return relative to matched-date SPY |
+| **Financial strength** | Sustainable profits and free cash flow, manageable debt, adequate cash, and limited dilution. |
+| **Real undervaluation** | A conservative estimate of future cash flows supports a higher value than today's price. |
+| **Temporary rather than lasting damage** | The core product, customer relationships, and competitive position remain intact. |
+| **Clear recovery catalyst** | Evidence of improving sales, margins, earnings, contracts, or industry conditions. |
+| **Better exit discipline** | Recoveries can happen without returning to the old trend; earlier exits might reduce idle capital and large relative losses. |
+""")
+    st.markdown(
+        "**When to sell:** Reconsider the investment when the stock approaches "
+        "a defensible estimate of fair value, the recovery becomes less likely, "
+        "or its expected return is no longer attractive compared with SPY. "
+        "**Reaching the regression line is not automatically reaching fair value.**"
+    )
 
-Many stocks recovered, but **making money is different from beating the market**. These figures are provisional: the 30 trades do not constitute a full portfolio backtest, and some old stock prices, corporate actions, and dividend adjustments need checking.
+    with st.expander("Detailed evidence: the 30 trades and academic studies", expanded=False):
+        st.markdown("""
+**The benchmark comparison (completed trades, before investor-level taxes)**
 
-**Our next experiment: Backtrader.** We plan to compare selling at the historical trend line, −2σ, −1.5σ, or −1σ. We'll check full-portfolio results against an S&P 500 investment over the same time, including idle cash, trading costs, losses along the way, and results on data not used to choose the rules.
+| Statistic | Stock trades | Matched SPY |
+|:--|--:|--:|
+| **Average trade return** | +29.4% | +33.9% |
+| **Median time held** | 579 days | Same dates |
+| **Profitable stock trades** | 26 of 30 | Not a separate SPY win-count test |
+| **Beat SPY** | 17 of 30 | Reference benchmark |
 
-**Sources:** [Long-term reversals (1985)](https://onlinelibrary.wiley.com/doi/10.1111/j.1540-6261.1985.tb05004.x) · [Financial strength in value stocks (2000)](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=249455)
+The **average excess return was −4.5 percentage points** per trade, while the **median was +6.3 percentage points**. These averages do not represent a fully invested strategy's return.
+
+**Examples showing the difference between winning and outperforming**
+
+| Stock | Stock return | SPY over same dates | Difference |
+|:--|--:|--:|--:|
+| **NFLX** | +167.0% | +17.9% | +149.1 pp |
+| **WFC** | +92.9% | +33.7% | +59.2 pp |
+| **UPS** | +56.3% | +7.5% | +48.8 pp |
+| **IBM** | +25.3% | +92.9% | −67.6 pp |
+| **MMM** | −7.5% | +96.7% | −104.2 pp |
+
+This shows why **the ability to find a recovering stock is not the same as the ability to beat the market**.
+
+**How sensitive are the averages?** Excluding the questionable DOW trade alone leaves the mean relative return at about **−1.8 percentage points** across 29 trades. Excluding both DOW and MMM moves it to about **+1.9 percentage points** across 28 trades. That does **not** justify dropping those losing trades after seeing the results; it shows that this small sample is strongly affected by a few outliers and needs proper historical-data validation.
+
+**Research outside our test**
+
+- **De Bondt & Thaler (1985):** In their historical study, portfolios of extreme losers beat the market by roughly **19.6 percentage points over the following 36 months**. Their methodology was *not* our regression-Z-score scanner.
+- **Piotroski (2000):** Selecting financially stronger companies within a cheap-stock universe improved average annual returns by **at least 7.5 percentage points** in his historical sample. This supports testing business quality, **not** assuming it improves our own screen by that amount.
+- **Fama & French (1996):** Part of long-term stock-return reversal can be related to other characteristics such as company size and value exposure rather than a pure price-reversal effect.
+
+**Sources:** [De Bondt & Thaler (1985)](https://doi.org/10.1111/j.1540-6261.1985.tb05004.x) · [Piotroski (2000)](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=249455) · [Fama & French (1996)](https://doi.org/10.1111/j.1540-6261.1996.tb05202.x)
+
+**Data-quality warning:** The original QuantConnect export includes a suspicious DOW trade recorded with an April 2019 entry price of 341.73, inconsistent with Dow Inc.'s historical trading range. Corporate actions, historical symbol identity, and adjusted prices need to be audited. The figures here are therefore **provisional research**, not verified live-trading performance.
+""")
+
+    with st.expander("Next research: what could prove or disprove an edge?", expanded=False):
+        st.markdown("""
+**Separate two experiments rather than changing many things at once:**
+
+**1. Better company selection.** Hold the regression entry signal constant, then compare all screened candidates with a version that also uses information available **at entry**: profitability, debt, free cash flow, valuation, and a documented recovery catalyst. Require better returns **relative to SPY**, not just a higher percentage of profitable trades.
+
+**2. Better exits with Backtrader.** Keep entries and the investable stock universe fixed. Compare exits at the regression line, −2σ, −1.5σ, and −1σ. Measure whole-portfolio growth, drawdowns, holding time, unused capital, transaction costs, taxes where relevant, and returns versus SPY over identical dates.
+
+**Avoid hindsight:** Do not choose filters because they exclude known losing trades. Validate on a fresh period and include companies that disappeared, merged, or went bankrupt. Use historical market capitalization and financial statements as they would have been known on the original screening date.
+
+**What would change our conclusion?** Repeated out-of-sample outperformance after costs, with realistic capital deployment and acceptable downside risk. Until then, a −3σ/−4σ alert is an **idea generator**, not a validated trading edge.
 """)
     st.page_link(
         "regression_scanner/app.py",
