@@ -168,6 +168,60 @@ with regression:
         "filters. They are not research-proven trading thresholds."
     )
 
+    st.markdown("#### WHAT STANDARD DEVIATION TELLS US")
+    st.markdown(
+        "**Standard deviation** is a way of measuring how unusual a price "
+        "movement is compared with past variation. Our scanner looks at how "
+        "far today's price sits **below its fitted historical trend**, rather "
+        "than only looking for one unusually bad trading day. "
+        "A −4σ reading is more extreme than −2σ **for this model**—but "
+        "does not mean the stock must recover or is statistically guaranteed "
+        "to be undervalued."
+    )
+    with st.expander("How our regression Z-score is calculated", expanded=False):
+        st.markdown(
+            "**Z-score = (Current price − Fitted trend price) "
+            "÷ Historical standard deviation of regression residuals**"
+        )
+        st.markdown(
+            "A *residual* is the difference between an observed price and "
+            "the fitted trend price. This is **different from** the "
+            "standard deviation of day-to-day percentage returns used in "
+            "some academic studies. A fitted price trend may stop being "
+            "economically relevant after major changes in a company's business."
+        )
+        st.markdown(
+            "The familiar bell-curve probabilities for 2σ, 3σ, or 4σ "
+            "**cannot be treated as reliable stock-market probabilities**. "
+            "Stock prices can have sharp jumps, changing volatility, "
+            "heavy-tailed movements, and permanent changes in their trend. "
+            "A more extreme reading does not imply a known probability of "
+            "recovery—or even a known chance of beating SPY."
+        )
+
+    st.markdown(
+        "**What the research suggests:** Some large price deviations are "
+        "followed by reversals, but results depend on **how deviation is "
+        "measured**, which stocks are traded, the holding period, and costs. "
+        "Academic evidence for daily-loss reversals, pairs trading, or "
+        "market-neutral statistical arbitrage does **not directly validate** "
+        "our long-only, ten-year price-trend regression screen."
+    )
+    with st.expander("Academic evidence: standard deviations and trading", expanded=False):
+        st.markdown("""
+| Research | Reported finding | Why it is not the same as our strategy |
+|:--|:--|:--|
+| **Guo, Dong & Patterson (2024), extreme daily losses** | Average next-day return **+0.85%** and cumulative five-day return **+1.81%** following their extreme daily-loss events | Their signal uses unusually bad **daily returns**, not distance below a multi-year fitted price trend; returns are not our after-tax SPY excess return |
+| **Avellaneda & Lee (2010), statistical arbitrage** | PCA-based strategy reported a historical annual Sharpe ratio of **1.44 after transaction costs** in 1997–2007 | Uses market-factor residuals, long and short positions, and a different trading and risk model |
+| **Gatev, Goetzmann & Rouwenhorst (2006), pairs trading** | Historical self-financing paired portfolios reported **up to ~11% annualized excess return** | Relies on divergence between *related securities*, not a company's old price trend |
+| **Lento, Gradojevic & Wright (2007), Bollinger Bands** | Conventional band signals **did not consistently beat buy-and-hold after costs**; contrarian variations improved performance | Bands are based on moving averages and price variability, not our long-horizon regression residuals |
+| **Harvey, Liu & Zhu (2016), multiple testing** | Demonstrates why testing many apparent predictors requires stronger evidence | Relevant to our **32 entry/exit combinations**, but does not identify an optimal trading threshold |
+
+**Our interpretation:** Academic evidence supports looking for temporary price dislocations, but also shows why a statistical threshold is not automatically an investing edge.
+
+**Sources:** [Guo et al. (2024)](https://digitalcommons.newhaven.edu/americanbusinessreview/vol27/iss1/7/) · [Avellaneda & Lee (2010)](https://doi.org/10.1080/14697680903124632) · [Gatev et al. (2006)](https://doi.org/10.1093/rfs/hhj020) · [Lento et al. (2007)](https://doi.org/10.1080/17446540701206576) · [Harvey et al. (2016)](https://doi.org/10.1093/rfs/hhv059)
+""")
+
     st.markdown("#### TWO TYPES OF REGRESSION OPPORTUNITIES")
     short_col, value_col = st.columns(2, gap="small")
     with short_col:
@@ -368,58 +422,27 @@ Our statistical signal detects **unusual price behavior**, not intrinsic busines
 **Sources:** [De Bondt & Thaler](https://doi.org/10.1111/j.1540-6261.1985.tb05004.x) · [Benou & Richie](https://ideas.repec.org/a/spr/jecfin/v27y2003i1p19-38.html) · [Piotroski](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=249455) · [Quality Minus Junk](https://link.springer.com/article/10.1007/s11142-018-9470-2) · [In Search of Distress Risk](https://doi.org/10.1111/j.1540-6261.2008.01416.x)
 """)
 
-    with st.expander("Next steps: realistic SPY-funded testing without overfitting", expanded=False):
+    with st.expander("Future research: identifying a repeatable edge", expanded=False):
         st.markdown("""
-**Use the intended portfolio first:** Start invested in SPY. Allocate a small amount to a researched stock only when it passes both a regression screen and a predeclared fundamental review. Restore proceeds to SPY afterward. Compare against buy-and-hold SPY on the same dates.
+Our next ideas are **questions for testing**, not improvements we have already proven. We should decide on the rules *before* reviewing the results, rather than fitting them to known winners.
 
-**Improve the evidence before optimizing thresholds again:**
+| Research hypothesis | Testable question | What must remain fair |
+|:--|:--|:--|
+| **Market- and industry-adjusted deviation** | Does a stock falling much further than its sector or SPY recover more reliably than a stock simply far below its own trend? | Preserve the current scanner signal as a baseline; separately test market/industry adjustment |
+| **Financial strength** | Do positive free cash flow, manageable debt, and durable competitive advantages improve screened-stock outcomes? | Use only financial information already available on the entry date |
+| **Short-term reversal vs. long-term repair** | Are quick rebounds after panic different from multi-quarter business turnarounds? | Examine distinct horizons such as five trading days, 13, 26, 52 and 104 weeks |
+| **How negative should the Z-score be?** | Do −4σ stocks genuinely do better than −3σ stocks outside crisis years? | Compare comparable time periods and account for smaller, overlapping samples |
+| **Fundamental value plus statistical dislocation** | Does a conservative discount to future cash flows improve stock selection beyond regression alone? | Use historically available valuation inputs and realistic uncertainty ranges |
 
-1. Rebuild a **point-in-time eligible universe**, including companies that disappeared, merged, shrank or failed.
-2. Use only financial statements, news, market capitalization, and analyst expectations **available at the time** each signal occurred.
-3. Define candidate business-quality/valuation filters **before** examining their results; do not reverse-engineer them from META or UNH.
-4. Test multiple economic environments and longer horizons, not merely the 52-week cap.
-5. Track full-portfolio **after-tax terminal wealth, CAGR, drawdowns, exposure, turnover, and opportunity cost** versus an identical-period SPY investment.
-6. Reserve untouched dates for out-of-sample tests and document live decisions before their outcomes are known.
+**Preferred portfolio experiment:** Begin fully invested in SPY; rotate a small, capped amount into a screened company *only when an entry-date fundamental review also supports it*; return proceeds to SPY after the exit. Compare the **whole portfolio** with a same-period dividend-reinvested SPY investment, after comparable trading costs and realistic taxes.
 
-**Research conclusion: Promising screening framework; investable market-beating edge not yet proven.**
-""")
+**Why we should stop endlessly optimizing:** Repeatedly selecting the best settings from the same historical data can produce rules that explain the past without predicting new outcomes. The **32 tested exit/entry combinations are related trials**, not independent confirmations. Harvey, Liu & Zhu's research on multiple testing illustrates why stronger standards are necessary.
 
-    st.markdown("#### OUR RESEARCH PROCESS")
-    st.markdown(
-        "**Regression alert → Understand the business → Check financial health "
-        "→ Estimate fair value → Identify recovery path → Decide whether to invest**"
-    )
-    st.markdown("""
-| Research outcome | What it means |
-|:--|:--|
-| **Recovery candidate** | Healthy underlying company with a potentially temporary setback |
-| **Long-term value candidate** | Real but potentially recoverable problems and an attractive conservative valuation |
-| **Watchlist** | Interesting business, but insufficient evidence or margin of safety so far |
-| **Rejected** | Excessive risk, worsening finances, or unattractive expected return versus SPY |
-""")
-    st.markdown("**No investment is required simply because a regression signal appears.**")
-    st.markdown(
-        "SPY remains the default alternative. In some experiments we considered "
-        "moving only a small portion of the existing SPY portfolio into a "
-        "qualified opportunity while limiting total individual-stock exposure. "
-        "That position-sizing approach is still a hypothesis to test."
-    )
-    st.markdown(
-        "**Exit discipline:** Reassess fair value, new business information, "
-        "recovery time, and expected performance relative to SPY. "
-        "A return to the regression line is not automatically a fair-value signal."
-    )
+**Minimum research safeguards:** Rebuild a point-in-time market-cap universe including delisted and bankrupt companies; audit corporate actions; freeze selection rules before out-of-sample evaluation; use contemporaneous news and company filings; compare both recent and older cohorts; track turnover, taxes, unused capital, drawdowns, and full-portfolio ending wealth.
 
-    with st.expander("Next steps: validating exits and fundamental selection", expanded=False):
-        st.markdown("""
-**Separate the tests so we can learn what helps:**
+**Sources:** [Harvey, Liu & Zhu (2016)](https://doi.org/10.1093/rfs/hhv059) · [Piotroski, historical financial quality in value investing (2000)](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=249455)
 
-1. **Selection:** Keep the regression screen fixed. Test whether financial strength, conservative valuation, or a documented recovery catalyst improves results using information available at the time.
-2. **Exit:** Compare the historical regression line, −2σ, −1.5σ, and −1σ as exit candidates using consistent entry rules.
-3. **Full portfolio:** Compare total portfolio growth, drawdowns, unused capital, costs, and (where modeled) taxes with a dividend-reinvested SPY investment over the exact same period.
-4. **Out-of-sample evaluation:** Freeze the chosen rules before testing an untouched period or new alerts. Keep delisted, bankrupt, and acquired companies in the historical universe where applicable.
-
-**The result we need:** Repeated outperformance after realistic costs and risk, not a high win rate or one impressive historical trade. Until that is demonstrated, regression is a **screening indicator**, not a proven trading advantage.
+**Research conclusion: Promising screening framework; repeatable market-beating edge not yet established.**
 """)
 
     st.page_link(
