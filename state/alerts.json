@@ -1,0 +1,81 @@
+{
+  "schema_version": 2,
+  "last_email": {
+    "sent_at": "2026-11-20T05:48:00.947018-05:00",
+    "scan_started_at": "2026-11-20T05:43:17.222151-05:00",
+    "stocks": [
+      {
+        "ticker": "NOW",
+        "session": "2026-11-19",
+        "z_score": -3.1414,
+        "bucket": "50B+",
+        "alert_level": "-3σ",
+        "new_or_worsened": true
+      },
+      {
+        "ticker": "INTU",
+        "session": "2026-11-19",
+        "z_score": -2.9787,
+        "bucket": "50B+",
+        "alert_level": "-2.75σ",
+        "new_or_worsened": true
+      },
+      {
+        "ticker": "ALNY",
+        "session": "2026-11-19",
+        "z_score": -3.1902,
+        "bucket": "10-25B",
+        "alert_level": "-3σ",
+        "new_or_worsened": true
+      },
+      {
+        "ticker": "ROL",
+        "session": "2026-11-19",
+        "z_score": -3.0831,
+        "bucket": "10-25B",
+        "alert_level": "-3σ",
+        "new_or_worsened": true
+      },
+      {
+        "ticker": "SCI",
+        "session": "2026-11-19",
+        "z_score": -3.2975,
+        "bucket": "5-10B",
+        "alert_level": "-3σ",
+        "new_or_worsened": true
+      },
+      {
+        "ticker": "DOX",
+        "session": "2026-11-19",
+        "z_score": -4.2653,
+        "bucket": "2-5B",
+        "alert_level": "-4σ",
+        "new_or_worsened": true
+      },
+      {
+        "ticker": "PFSI",
+        "session": "2026-11-19",
+        "z_score": -3.5727,
+        "bucket": "2-5B",
+        "alert_level": "-3σ",
+        "new_or_worsened": true
+      },
+      {
+        "ticker": "POST",
+        "session": "2026-11-19",
+        "z_score": -3.0058,
+        "bucket": "2-5B",
+        "alert_level": "-3σ",
+        "new_or_worsened": true
+      }
+    ],
+    "displayed_count": 8,
+    "total_active_signals": 8,
+    "new_or_worsened_count": 8,
+    "scan_complete": false,
+    "failed_buckets": [
+      "2-5B",
+      "5-10B"
+    ]
+  }
+}
