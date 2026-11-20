@@ -86,6 +86,21 @@ st.caption(
     "[Asness et al., size and quality (2018)](https://doi.org/10.1016/j.jfineco.2018.05.006)"
 )
 
+
+with st.expander("Research evidence: factors and the S&P 500 benchmark", expanded=False):
+    st.markdown("""
+| Finding | Interpretation |
+|:--|:--|
+| **Fama–French (2015): 71–94%** | Share of cross-sectional average-return variation explained in portfolios examined by the five-factor model, **not** an investor return. |
+| **Momentum (Baltussen et al., 2026): up to 150 years** | Evidence across long historical equity samples and many specifications. These are factor results, not SPMO or swing-trade profits. |
+| **AQR's 2026 assumptions: +0.5 to +1.0 percentage points/year** | *Modeled* expected net active return for diversified value and combined factor tilts, respectively—not achieved returns or guarantees. |
+| **SPIVA 2025: 79%** | Proportion of U.S. active large-cap equity funds that underperformed the S&P 500 that year. |
+
+The historical **size premium is inconsistent**; controlling for low-quality small firms strengthens the evidence. That supports examining small-cap value and quality, not buying small stocks indiscriminately.
+
+**Sources:** [CFA Institute on Fama–French (2015)](https://rpc.cfainstitute.org/research/cfa-digest/2015/04/a-five-factor-asset-pricing-model-digest-summary) · [Baltussen et al., *Journal of Portfolio Management* (2026)](https://pure.eur.nl/en/publications/momentum-factor-investing-evidence-and-evolution/) · [AQR, 2026 Capital Market Assumptions](https://www.aqr.com/-/media/AQR/Documents/Alternative-Thinking/AQR-Alternative-Thinking---2026-Capital-Market-Assumptions.pdf?sc_lang=en) · [S&P SPIVA 2025](https://www.spglobal.com/spdji/en/spiva/article/spiva-us-year-end-2025/) · [Asness et al., quality-adjusted size (2018)](https://www.aqr.com/Insights/Research/Working-Paper/Size-Matters-If-You-Control-Your-Junk)
+""")
+
 st.divider()
 st.markdown("## INDIVIDUAL-STOCK STRATEGIES")
 st.markdown(
