@@ -1,0 +1,9 @@
+yfinance>=1.0,<2.0
+numpy==1.26.4  # Preserve tested NumPy 1.x regression/Windows build
+pyarrow==23.0.1  # Compatible with NumPy 1.26.4; Streamlit dataframe rendering
+pandas>=2.2,<3.0
+pandas_market_calendars>=5.0,<6.0
+python-dotenv>=1.0,<2.0
+pytest>=8.0,<10.0
+streamlit>=1.40,<2.0
+plotly>=5.24,<7.0
