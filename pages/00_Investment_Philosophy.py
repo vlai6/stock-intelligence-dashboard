@@ -223,6 +223,11 @@ with regression:
         "**The goal is not to buy every stock that falls. It is to identify "
         "businesses whose long-term value may be greater than the market currently expects.**"
     )
+    st.caption(
+        "This five-part business checklist is our proposed fundamental "
+        "research framework. It has **not yet been backtested as a systematic "
+        "selection rule** within the regression strategy."
+    )
 
     st.markdown("#### WHAT OUR REGRESSION RESEARCH HAS SHOWN")
     st.markdown(
