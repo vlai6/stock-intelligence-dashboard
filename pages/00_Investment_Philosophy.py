@@ -188,6 +188,17 @@ with momentum:
         "Factor evidence does not automatically validate discretionary long-only swing trading."
     )
 
+    with st.expander("Recent momentum research", expanded=False):
+        st.markdown("""
+**Baltussen et al. (2026, *Journal of Portfolio Management*)** examine equity momentum in samples spanning **up to 150 years** and across many implementation choices. This is evidence for persistent factor behavior, **not** proof that our long-only swing entries will beat SPY.
+
+A **2025 CFA Institute research review** emphasizes that price strength alone is incomplete. We may test industry-relative strength, earnings revisions, and trend persistence independently rather than assuming that a bull market or positive sentiment is required.
+
+**Counterpoint:** Momentum can suffer abrupt reversals, and recent winners can become expensive or crowded. We should evaluate prospective upside and valuation rather than chase a stock because it has risen.
+
+**Sources:** [Baltussen et al. (2026)](https://pure.eur.nl/en/publications/momentum-factor-investing-evidence-and-evolution/) · [CFA Institute (2025)](https://rpc.cfainstitute.org/blogs/enterprising-investor/2025/momentum-investing-a-stronger-more-resilient-framework-for-long-term-allocators)
+""")
+
 with event:
     st.markdown(
         "**Thesis.** An important event may trigger **overreaction** to temporary "
