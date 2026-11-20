@@ -56,6 +56,9 @@ jobs:
       PYTHONUNBUFFERED: '1'
 
     steps:
+      - name: Check out Stock Intelligence Dashboard source
+        uses: actions/checkout@v6
+
       - name: Diagnose scheduled trigger
         shell: bash
         run: |
@@ -65,9 +68,6 @@ jobs:
           echo "Actual start UTC: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
           echo "Actual start Eastern: $(TZ=America/New_York date '+%Y-%m-%d %I:%M:%S %p %Z')"
           echo "NOTE: 8:30 AM ET is workflow trigger time; SMTP send is logged separately."
-
-      - name: Check out Stock Intelligence Dashboard source
-        uses: actions/checkout@v6
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v6
