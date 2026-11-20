@@ -1,0 +1,40 @@
+list_picker, manage_lists = st.columns([3.5, 1.35], vertical_alignment='bottom')
+with list_picker:
+    selected_name = st.selectbox('Saved watchlist', list(st.session_state['ns_lists']),
+                                 index=list(st.session_state['ns_lists']).index(st.session_state['ns_active_list']),
+                                 key='ns_named_watchlist_select')
+with manage_lists:
+    with st.popover('Manage watchlists', use_container_width=True):
+        st.caption('Watchlists are saved in this browser, separately for each website.')
+        with st.form('ns_new_list_form',clear_on_submit=True):
+            new_list_name=st.text_input('Save current stocks as',max_chars=32,placeholder='e.g. Semiconductors')
+            create_list=st.form_submit_button('Save new watchlist',type='primary')
+        if create_list:
+            name=new_list_name.strip()
+            if not name or len(name)>32:
+                st.error('Enter a name with 1–32 characters.')
+            elif name in st.session_state['ns_lists']:
+                st.error('A watchlist with that name already exists.')
+            elif len(st.session_state['ns_lists']) >= 12:
+                st.error('You can save up to 12 watchlists.')
+            else:
+                st.session_state['ns_lists'][name]=list(st.session_state['ns_watchlist'])
+                st.session_state['ns_active_list']=name
+                st.session_state['ns_watchlist']=list(st.session_state['ns_lists'][name])
+                mark_watchlist_dirty()
+                st.rerun()
+        if len(st.session_state['ns_lists'])>1:
+            if st.button('Delete selected watchlist',key='ns_delete_named_list'):
+                st.session_state['ns_lists'].pop(st.session_state['ns_active_list'],None)
+                st.session_state['ns_active_list']=next(iter(st.session_state['ns_lists']))
+                st.session_state['ns_watchlist']=list(st.session_state['ns_lists'][st.session_state['ns_active_list']])
+                mark_watchlist_dirty()
+                st.rerun()
+if selected_name != st.session_state['ns_active_list']:
+    # Persist the previously active list before switching.
+    st.session_state['ns_lists'][st.session_state['ns_active_list']] = list(st.session_state['ns_watchlist'])
+    st.session_state['ns_active_list']=selected_name
+    st.session_state['ns_watchlist']=list(st.session_state['ns_lists'][selected_name])
+    mark_watchlist_dirty()
+    st.rerun()
+

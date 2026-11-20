@@ -7,24 +7,37 @@ finbert_sentiment.analyze_finbert when available. No new API keys required.
 from __future__ import annotations
 
 import html
-import json
+import os
 import math
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
 import pandas as pd
+import requests
+from dotenv import load_dotenv
 import streamlit as st
 import yfinance as yf
-from streamlit_js_eval import streamlit_js_eval
 
 # Multipage scripts live inside pages/, but project helper modules live next to app.py.
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+
+from dashboard_theme import apply_dashboard_theme, render_page_header
+from etf_holdings import ETFHoldings, fetch_etf_holdings
+from etf_scan_results import load_etf_scores, etf_score_map
+from custom_watchlists import render_custom_list
+from scanner_email_watchlist import (
+    AlertSnapshot,
+    load_email_alerts,
+    saved_regression_zscores,
+    sigma_label,
+)
+load_dotenv(PROJECT_ROOT / ".env")
 
 try:
     from news_sentiment import fetch_stock_news as existing_fetch_stock_news
@@ -36,15 +49,8 @@ try:
 except ImportError:
     analyze_finbert = None
 
-st.set_page_config(
-    page_title="News Screen | Stock Intelligence",
-    page_icon="📰",
-    layout="wide",
-    initial_sidebar_state="collapsed",
-)
 
 MARKET_TZ = ZoneInfo("America/New_York")
-DEFAULT_WATCHLIST = ["NVDA", "AAPL", "GOOG", "MSFT", "AMZN", "TSM", "SPCX", "META"]
 COMPANY_NAMES = {
     "NVDA": "NVIDIA Corporation",
     "AAPL": "Apple Inc.",
@@ -54,139 +60,119 @@ COMPANY_NAMES = {
     "AMZN": "Amazon.com, Inc.",
     "TSM": "Taiwan Semiconductor Manufacturing",
     "META": "Meta Platforms, Inc.",
+    "AVGO": "Broadcom Inc.",
+    "TSLA": "Tesla Inc.",
+    "BRK-B": "Berkshire Hathaway Inc. (Class B)",
+    "TXN": "Texas Instruments Inc.",
+    "AMD": "Advanced Micro Devices Inc.",
+    "ADI": "Analog Devices Inc.",
+    "ASML": "ASML Holding N.V.",
+    "QCOM": "QUALCOMM Inc.",
+    "KLAC": "KLA Corporation",
+    "MU": "Micron Technology Inc.",
     "SPCX": "Space Exploration Technologies Corp.",
 }
-MAX_TICKERS = 12
-BROWSER_WATCHLIST_KEY = "stock_intelligence_news_watchlist_v1"
 MAX_HEADLINES = 6
+LOOKBACK_DAYS = 7
 TICKER_PATTERN = re.compile(r"^[A-Z0-9^][A-Z0-9.\-^=]{0,14}$")
+# Only headlines that explicitly mention one of these company names may appear.
+# Corporate affiliates/products are intentionally NOT a substitute for the name.
+HEADLINE_ALIASES = {
+    "NVDA": ("NVIDIA",),
+    "AAPL": ("Apple",),
+    "GOOG": ("Google", "Alphabet"),
+    "GOOGL": ("Google", "Alphabet"),
+    "MSFT": ("Microsoft",),
+    "AMZN": ("Amazon",),
+    "TSM": ("TSMC", "Taiwan Semiconductor"),
+    "META": ("Meta", "Facebook"),
+    "SPCX": ("SpaceX", "Space Exploration Technologies"),
+    "MU": ("Micron", "Micron Technology"),
+    "INTC": ("Intel",),
+    "AMD": ("AMD", "Advanced Micro Devices"),
+    "TSLA": ("Tesla",),
+    "PLTR": ("Palantir",),
+    "AVGO": ("Broadcom",),
+    "ARM": ("Arm Holdings", "Arm"),
+    "ASML": ("ASML",),
+    "BABA": ("Alibaba",),
+    "BRK-B": ("Berkshire Hathaway",),
+    "TXN": ("Texas Instruments",),
+    "ADI": ("Analog Devices",),
+    "QCOM": ("Qualcomm",),
+    "KLAC": ("KLA", "KLA Corporation"),
+}
 
 
-# --- Presentation -----------------------------------------------------------
-st.markdown(
-    """
+# --- Shared theme + News Screen-specific responsive five-column cards -----------------
+apply_dashboard_theme()
+st.markdown(r"""
 <style>
-:root {
-  --ns-bg: #090a08;
-  --ns-panel: #11130e;
-  --ns-border: #292b20;
-  --ns-ink: #e7e6d2;
-  --ns-muted: #77796b;
-  --ns-gold: #d8b343;
-  --ns-green: #51bb86;
-  --ns-red: #e56a73;
-}
-.stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
-  background: var(--ns-bg) !important;
-}
 [data-testid="stAppViewBlockContainer"] {
-  padding-top: 1.4rem !important;
-  max-width: 1800px !important;
-  padding-left: 1.15rem !important;
-  padding-right: 1.15rem !important;
+  max-width:1840px !important;
+  padding:1.25rem 1.3rem 2.8rem !important;
 }
-[data-testid="stSidebar"] { background: #11130e !important; }
-[data-testid="stMarkdownContainer"] p { margin-bottom: 0; }
-[data-testid="stButton"] button[kind="secondary"],
-[data-testid="stPopover"] button {
-  border-radius: 30px;
-  background: #14160f;
-  border: 1px solid #343426;
-  color: #b9a254;
-  font-size: .78rem;
-  font-weight: 600;
-  min-height: 34px;
-  padding: .23rem .6rem;
-  white-space: nowrap;
-}
-[data-testid="stButton"] button[kind="secondary"]:hover,
-[data-testid="stPopover"] button:hover {
-  border-color: var(--ns-gold);
-  color: #edce68;
-}
-[data-testid="stButton"] button[kind="primary"] {
-  background: #c9a33b;
-  color: #171409;
-  border: 1px solid #c9a33b;
-  font-weight: 700;
-  border-radius: 8px;
-  min-height: 40px;
-}
-[data-testid="stButton"] button[kind="primary"]:hover {
-  background: #efc65a;
-  border-color: #efc65a;
-  color: #0d0c07;
-}
-.ns-masthead { display:flex; align-items:center; gap:13px; min-height:56px; }
-.ns-icon {
-  background:#d5af42; color:#181405; width:32px; height:32px;
-  border-radius:7px; display:flex; align-items:center; justify-content:center;
-  font-size:20px; font-weight:800;
-}
-.ns-title {
-  font-weight:900; color:#e6ca6b; font-size:20px; letter-spacing:.28em;
-  line-height:1.15;
-}
-.ns-subtitle {color:var(--ns-muted); font-size:12px; margin-top:4px;}
-.ns-toprule { height:1px; background:linear-gradient(90deg,#292a1c,#7b6426,#292a1c); margin:8px 0 16px; }
-.ns-section-label {color:#77796b; font-size:11px; letter-spacing:.15em; font-weight:800; padding-top:10px; }
-.ns-agent-label {color:#858475; font-size:11px; padding-top:12px; text-align:right;}
-.ns-agent-label b {color:#d7c16a; font-weight:700;}
-.ns-grid {
-  display:grid; grid-template-columns:repeat(4,minmax(0,1fr));
-  align-items:stretch; gap:12px; margin:15px 0 8px;
-}
-.ns-card {
-  min-width:0; min-height:417px; padding:16px 16px 10px;
-  background:linear-gradient(135deg,#11130e 0%, #10110c 100%);
-  border:1px solid #282b1e; border-radius:13px;
-  display:flex; flex-direction:column;
-}
-.ns-card.ns-featured {border-color:#5d5021; box-shadow:0 0 0 1px rgba(205,174,68,.05) inset;}
-.ns-cardtop {display:flex; align-items:flex-start; justify-content:space-between; gap:7px;}
-.ns-symbol {font-size:21px; line-height:1.08; color:var(--ns-gold); font-weight:900; letter-spacing:-.035em;}
-.ns-company {font-size:11px; color:#818274; margin-top:4px; min-height:26px; line-height:1.3; overflow:hidden;}
-.ns-quote {text-align:right; font-variant-numeric:tabular-nums; min-width:86px;}
-.ns-price {font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:16px; color:#d8d7bc; font-weight:700;}
-.ns-change {font-size:10px; margin-top:3px; font-weight:700;}
-.ns-dollar {color:#646657; font-size:10px; margin-top:3px;}
-.ns-pos {color:var(--ns-green) !important;}
-.ns-neg {color:var(--ns-red) !important;}
-.ns-neutral {color:#a9a99b !important;}
-.ns-status {
-  display:inline-flex; align-items:center; max-width:100%; width:fit-content;
-  background:#1b1d15; border-radius:30px; color:#969a88;
-  font-size:11px; padding:6px 10px; margin:7px 0 9px;
-  font-weight:650; gap:7px;
-}
-.ns-status.ns-ready {background:#282210;color:#e2bf58;}
-.ns-status.ns-positive {background:#10271b;color:#82d0a0;}
-.ns-status.ns-negative {background:#311b1b;color:#f09999;}
-.ns-status.ns-mixed {background:#22221d;color:#c6c6b0;}
+.ns-masthead {display:flex;align-items:center;gap:14px;min-height:57px;}
+.ns-icon {display:flex;align-items:center;justify-content:center;flex:none;background:#1585C8;
+  color:#F4FBFF;width:37px;height:37px;border-radius:9px;font-size:22px;font-weight:900;
+  box-shadow:0 0 24px rgba(18,138,224,.15);}
+.ns-title {font-size:22px;letter-spacing:.2em;font-weight:900;color:#CCEDFF;line-height:1.12;}
+.ns-subtitle {color:#8AA9C2;font-size:12px;margin-top:6px;}
+.ns-toprule {height:1px;background:linear-gradient(90deg,#18324A,#218CCE,#18324A);margin:12px 0 16px;}
+.ns-section-label {color:#91A9BF;font-size:11px;letter-spacing:.14em;font-weight:800;padding-top:9px;}
+.ns-agent-label {color:#88A5BC;font-size:11px;padding-top:11px;text-align:right;}
+.ns-agent-label b {color:#78CDFF;font-weight:700;}
+.ns-grid {display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:13px;margin:16px 0 9px;align-items:stretch;}
+.ns-card {background:linear-gradient(150deg,#081422 0%,#070F1B 100%);
+  border:1px solid #19344D;border-radius:13px;padding:17px 15px 11px;
+  display:flex;flex-direction:column;min-width:0;min-height:420px;
+  box-shadow:0 12px 32px rgba(0,0,0,.12);}
+.ns-card.ns-featured {border-color:#287FB8;box-shadow:0 0 0 1px rgba(35,154,224,.1) inset,0 12px 32px rgba(0,0,0,.12);}
+.ns-cardtop {display:flex;justify-content:space-between;align-items:flex-start;gap:7px;}
+.ns-symbol {color:#4DC5FF;font-size:21px;font-weight:900;letter-spacing:-.025em;line-height:1.13;}
+.ns-sigma {font-size:10px;color:#95C8EB;margin:3px 0 7px;white-space:nowrap;}
+.ns-etf-weight {font-size:10px;color:#75D3BA;margin:3px 0 5px;white-space:nowrap;}
+.ns-auto-pills {display:flex;gap:7px;flex-wrap:wrap;align-items:center;padding:7px 0;}
+.ns-auto-pill {border:1px solid #244461;background:#101F30;border-radius:7px;padding:7px 10px;color:#9FD3F6;font-size:11px;}
+.ns-company {font-size:11px;color:#8FA9BF;margin-top:5px;line-height:1.3;min-height:28px;overflow:hidden;}
+.ns-quote {text-align:right;font-variant-numeric:tabular-nums;min-width:92px;}
+.ns-price {color:#E1F2FC;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:16px;font-weight:750;}
+.ns-change {font-size:10px;margin-top:3px;font-weight:800;}
+.ns-dollar {color:#7593AC;font-size:10px;margin-top:3px;}
+.ns-pos {color:#4AD9AA !important;} .ns-neg {color:#FB798F !important;}
+.ns-neutral {color:#8FA9BF !important;}
+.ns-status {display:inline-flex;align-items:center;gap:7px;width:fit-content;max-width:100%;
+  margin:6px 0 9px;padding:6px 10px;border-radius:30px;background:#142536;
+  font-size:11px;color:#96B0C5;font-weight:650;}
+.ns-status.ns-ready {background:#102E49;color:#71CEFF;}
+.ns-status.ns-positive {background:#123527;color:#67DBB3;}
+.ns-status.ns-negative {background:#381B2A;color:#FF9AB0;}
+.ns-status.ns-mixed {background:#1A3041;color:#B4D4ED;}
 .ns-dot {width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block;flex:none;}
-.ns-article {display:grid;grid-template-columns:48px minmax(0,1fr); gap:7px;
-  border-top:1px solid #24271d; padding:10px 0 9px; text-decoration:none !important; min-height:53px;
-  color:var(--ns-ink) !important;
-}
-.ns-article:hover .ns-headline {color:#f4d978;}
-.ns-date {font-size:10px;color:#838477;padding-top:2px;font-weight:600;white-space:nowrap;}
-.ns-headline {font-size:12px;line-height:1.34;display:-webkit-box;-webkit-box-orient:vertical;
-  -webkit-line-clamp:2;overflow:hidden;color:#d6d5be;transition:color .12s;overflow-wrap:anywhere;}
-.ns-source {font-size:10px;color:#74766a;margin-top:4px;white-space:nowrap;
+.ns-article {display:grid;grid-template-columns:45px minmax(0,1fr);gap:8px;
+  border-top:1px solid #1B3246;padding:10px 0 10px;text-decoration:none !important;
+  min-height:53px;color:#D5E6F2 !important;}
+.ns-article:hover .ns-headline {color:#64CEFF;}
+.ns-date {font-size:10px;color:#91ADC2;padding-top:2px;font-weight:600;white-space:nowrap;}
+.ns-headline {font-size:12px;color:#DEEAF4;line-height:1.37;display:-webkit-box;
+  -webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere;}
+.ns-source {color:#6E98B6;font-size:10px;margin-top:4px;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;}
-.ns-none {color:#858678;font-size:12px; border-top:1px solid #28291e; padding:16px 0; line-height:1.55;}
-.ns-footer {font-size:11px;color:#757769;margin:12px 0 20px;line-height:1.6;}
-@media (max-width:1200px) {.ns-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
-@media (max-width:640px) {
-  .ns-grid{grid-template-columns:1fr;}
-  .ns-title{font-size:17px;letter-spacing:.19em;}
-  .ns-card{min-height:0;}
+.ns-none {color:#95B4CB;font-size:12px;line-height:1.55;padding:16px 0;
+  border-top:1px solid #1D3447;}
+.ns-footer {color:#8BA8C0;font-size:11px;line-height:1.65;margin:12px 0 18px;}
+@media(max-width:1350px){.ns-grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
+@media(max-width:850px){.ns-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:650px){
+  .ns-grid{grid-template-columns:1fr;}.ns-card{min-height:0;}
+  .ns-title{font-size:17px;letter-spacing:.14em;}
   [data-testid="stAppViewBlockContainer"]{padding-left:.75rem !important;padding-right:.75rem !important;}
 }
+
+.ns-card {min-height:425px;}
+
 </style>
-""",
-    unsafe_allow_html=True,
-)
+""", unsafe_allow_html=True)
 
 
 # --- Data helpers -----------------------------------------------------------
@@ -254,7 +240,7 @@ def normalize_articles(records: list[dict]) -> list[dict]:
             "source": format_source(record.get("source"), link),
         })
     articles.sort(key=lambda x: x["date"] or datetime.min.replace(tzinfo=MARKET_TZ), reverse=True)
-    return articles[:MAX_HEADLINES]
+    return articles[:200]
 
 
 def from_existing_dataframe(df: pd.DataFrame) -> list[dict]:
@@ -279,12 +265,10 @@ def from_existing_dataframe(df: pd.DataFrame) -> list[dict]:
     return normalize_articles(out)
 
 
-def from_yfinance_feed(symbol: str) -> list[dict]:
-    """Fallback for projects without news_sentiment.py (handles both API shapes)."""
-    stock = yf.Ticker(symbol)
-    feed = stock.news or []
+def from_yahoo_items(feed: list) -> list[dict]:
+    """Both Yahoo Search and ticker news can return old and new response shapes."""
     out = []
-    for item in feed:
+    for item in feed or []:
         if not isinstance(item, dict):
             continue
         content = item.get("content") or {}
@@ -298,26 +282,168 @@ def from_yfinance_feed(symbol: str) -> list[dict]:
             url_obj = {}
         out.append({
             "title": content.get("title") or item.get("title"),
-            "date": content.get("pubDate") or item.get("providerPublishTime"),
-            "link": url_obj.get("url") or item.get("link"),
-            "source": provider.get("displayName") or item.get("publisher"),
+            "date": content.get("pubDate") or item.get("providerPublishTime") or item.get("date"),
+            "link": url_obj.get("url") or item.get("link") or item.get("url"),
+            "source": provider.get("displayName") or item.get("publisher") or item.get("source"),
         })
     return normalize_articles(out)
 
 
-@st.cache_data(ttl=1200, show_spinner=False)
+@st.cache_data(ttl=86400, show_spinner=False)
+def company_aliases(symbol: str) -> tuple[str, ...]:
+    """Resolve names for newly added tickers; default watchlist uses curated names."""
+    if symbol in HEADLINE_ALIASES:
+        return HEADLINE_ALIASES[symbol]
+    aliases = []
+    try:
+        info = yf.Ticker(symbol).info or {}
+        for field in ("shortName", "longName", "displayName"):
+            name = str(info.get(field) or "").strip()
+            if not name:
+                continue
+            name = re.sub(r"(?i)\s+(?:incorporated|inc\.?|corp\.?|corporation|ltd\.?|limited|plc|co\.?|holdings?)$", "", name).strip(" ,.-")
+            # A one-word generic value like 'Technology' produces weak matches.
+            if len(name) >= 4 and name.lower() not in {"technology", "industries", "holdings", "group"}:
+                aliases.append(name)
+    except Exception:
+        pass
+    # A standalone distinctive first brand word (e.g., 'Micron') may appear
+    # where the full corporate name does not. Skip generic corporate adjectives.
+    generic = {"global", "international", "general", "american", "united",
+               "first", "new", "advanced", "applied", "digital", "technology",
+               "financial", "capital", "systems", "national", "group", "the"}
+    for name in list(aliases):
+        first = name.split()[0].strip(".,-'\"")
+        if len(first) >= 5 and first.lower() not in generic:
+            aliases.append(first)
+    return tuple(dict.fromkeys(aliases))
+
+
+def company_in_headline(title: str, symbol: str, aliases: tuple[str, ...]) -> bool:
+    """STRICT: no broad sector headlines merely associated with the ticker feed."""
+    for name in aliases:
+        if re.search(r"(?<![\w])" + re.escape(name) + r"(?![\w])", title, re.IGNORECASE):
+            return True
+    # An explicit exchange-style ticker identifier in the actual headline also qualifies.
+    escaped = re.escape(symbol)
+    if re.search(r"\$" + escaped + r"(?![\w])", title, re.IGNORECASE):
+        return True
+    if re.search(r"\(" + escaped + r"\)", title):
+        return True
+    # If Yahoo can't resolve a company's name, accept an all-caps stock ticker
+    # only when accompanied by a stock-market context word in the title.
+    if not aliases and len(symbol) >= 3 and re.search(r"(?<![A-Za-z0-9])" + escaped + r"(?![A-Za-z0-9])", title):
+        return bool(re.search(r"\b(stock|stocks|shares|earnings|investors|IPO)\b", title, re.IGNORECASE))
+    return False
+
+
+def filter_company_week(articles: list[dict], symbol: str, aliases: tuple[str, ...]) -> list[dict]:
+    now = datetime.now(MARKET_TZ)
+    earliest = now - timedelta(days=LOOKBACK_DAYS)
+    kept = []
+    for item in articles:
+        date = item.get("date")
+        if date is None or not (earliest <= date <= now + timedelta(minutes=10)):
+            continue  # No date = cannot claim it was published in the past 7 days.
+        if not company_in_headline(item.get("title", ""), symbol, aliases):
+            continue
+        kept.append(item)
+    # Re-normalize to deduplicate across ticker feed, company Search and GNews.
+    return normalize_articles(kept)
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def yahoo_ticker_feed(symbol: str) -> list[dict]:
+    try:
+        ticker = yf.Ticker(symbol)
+        # 80 instead of default 10: find named-company titles further back in the feed.
+        if hasattr(ticker, "get_news"):
+            return from_yahoo_items(ticker.get_news(count=80, tab="news"))
+        return from_yahoo_items(ticker.news or [])
+    except Exception:
+        return []
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def yahoo_company_search(query: str) -> list[dict]:
+    try:
+        # Dedicated company-name search; still independently filter headline + date.
+        result = yf.Search(query, news_count=50, max_results=0, raise_errors=False)
+        return from_yahoo_items(result.news or [])
+    except Exception:
+        return []
+
+
+def gnews_key() -> str:
+    # Never hard-code or print keys. Support deployed Streamlit secrets and local .env.
+    try:
+        secret = st.secrets.get("GNEWS_API_KEY", "")
+        if secret:
+            return str(secret).strip()
+    except Exception:
+        pass
+    return os.getenv("GNEWS_API_KEY", "").strip()
+
+
+@st.cache_data(ttl=21600, show_spinner=False)
+def gnews_company_search(query: str, api_key: str) -> list[dict]:
+    if not api_key:
+        return []
+    since = datetime.now(timezone.utc) - timedelta(days=LOOKBACK_DAYS)
+    try:
+        response = requests.get(
+            "https://gnews.io/api/v4/search",
+            params={
+                "q": f'"{query}"',
+                "in": "title", "lang": "en", "max": 10,
+                "from": since.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "sortby": "publishedAt", "apikey": api_key,
+            },
+            timeout=12,
+        )
+        response.raise_for_status()
+        entries = response.json().get("articles", [])
+    except (requests.RequestException, ValueError):
+        # The free GNews tier has limits and may delay articles; Yahoo still works.
+        return []
+    out = []
+    for item in entries:
+        if not isinstance(item, dict):
+            continue
+        source = item.get("source") or {}
+        source_name = source.get("name") if isinstance(source, dict) else source
+        out.append({"title": item.get("title"), "date": item.get("publishedAt"),
+                    "link": item.get("url"), "source": source_name})
+    return normalize_articles(out)
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
 def fetch_news(symbol: str) -> list[dict]:
+    aliases = company_aliases(symbol)
+    # 1. Existing Yahoo feed — avoid changing your main dashboard's news logic.
+    records = []
     if existing_fetch_stock_news is not None:
         try:
-            records = from_existing_dataframe(existing_fetch_stock_news(symbol))
-            if records:
-                return records
+            records.extend(from_existing_dataframe(existing_fetch_stock_news(symbol)))
         except Exception:
-            pass  # Fall back to Yahoo's direct feed.
-    try:
-        return from_yfinance_feed(symbol)
-    except Exception:
-        return []  # Show an explicit no-data message instead of invented headlines.
+            pass
+    records.extend(yahoo_ticker_feed(symbol))
+    clean = filter_company_week(records, symbol, aliases)
+
+    # 2. Search by actual company name to fill in the last 7 days.
+    if len(clean) < MAX_HEADLINES:
+        query = aliases[0] if aliases else symbol
+        records.extend(yahoo_company_search(query))
+        clean = filter_company_week(records, symbol, aliases)
+
+    # 3. Optional GNews fallback if the user's EXISTING key is set.
+    # Search is cached 6h to avoid exhausting free-tier daily requests.
+    key = gnews_key()
+    if key and len(clean) < MAX_HEADLINES:
+        query = aliases[0] if aliases else symbol
+        records.extend(gnews_company_search(query, key))
+        clean = filter_company_week(records, symbol, aliases)
+    return clean[:MAX_HEADLINES]
 
 
 @st.cache_data(ttl=420, show_spinner=False)
@@ -420,6 +546,23 @@ def scan_sentiment(watchlist: list[str], news_by_symbol: dict[str, list[dict]]) 
     return outcome
 
 
+
+def automatic_stock_scan(symbol, records):
+    from news_ai_shared import score_titles
+    titles=tuple(str(item['title']) for item in records)
+    if not titles:
+        return {'status':'empty'}
+    try:
+        scores=score_titles(titles)
+        counts={label:sum(1 for item in scores if item[0].lower()==label)
+                for label in ('positive','neutral','negative')}
+        status=('positive' if counts['positive']>counts['negative']
+                else 'negative' if counts['negative']>counts['positive'] else 'mixed')
+        return {'status':status,'counts':counts}
+    except Exception:
+        return {'status':'unavailable'}
+
+
 def make_status(scan: dict | None) -> tuple[str, str]:
     if scan is None:
         return "", "waiting for the agent"
@@ -436,9 +579,9 @@ def make_status(scan: dict | None) -> tuple[str, str]:
     return "", "sentiment unavailable"
 
 
-def make_card(symbol: str, quote: dict, items: list[dict], scan: dict | None, first: bool = False) -> str:
+def make_card(symbol: str, quote: dict, items: list[dict], scan: dict | None, first: bool = False, sigma_text: str = "", holding_weight: float | None = None) -> str:
     name = html.escape(COMPANY_NAMES.get(symbol, symbol))
-    safe_symbol = html.escape(symbol)
+    safe_symbol = html.escape("BRK.B" if symbol == "BRK-B" else symbol)
     featured = " ns-featured" if first else ""
     price = quote.get("price")
     value = f"${price:,.2f}" if price is not None else "—"
@@ -473,12 +616,15 @@ def make_card(symbol: str, quote: dict, items: list[dict], scan: dict | None, fi
         else:
             article_rows.append(f'<div class="ns-article">{inside}</div>')
     if not article_rows:
-        article_rows.append('<div class="ns-none">No recent headlines returned by the news source for this ticker.</div>')
+        article_rows.append('<div class="ns-none">No headlines naming this company were found in the past 7 days.</div>')
     articles_html = "".join(article_rows)
+    sigma_html = f'<div class="ns-sigma">{html.escape(sigma_text)}</div>' if sigma_text else ""
+    weight_html = (f'<div class="ns-etf-weight">ETF weight {holding_weight:.2f}%</div>'
+                   if holding_weight is not None else "")
     return (
         f'<section class="ns-card{featured}">'
         '<div class="ns-cardtop">'
-        f'<div><div class="ns-symbol">{safe_symbol}</div><div class="ns-company">{name}</div></div>'
+        f'<div><div class="ns-symbol">{safe_symbol}</div><div class="ns-company">{name}</div>{weight_html}{sigma_html}</div>'
         f'<div class="ns-quote"><div class="ns-price">{value}</div>{delta_html}{dollar_html}{cap_line}</div>'
         '</div>'
         f'<div class="ns-status {status_cls}"><span class="ns-dot"></span>{html.escape(status_label)}</div>'
@@ -487,164 +633,133 @@ def make_card(symbol: str, quote: dict, items: list[dict], scan: dict | None, fi
     )
 
 
-# --- Persistent watchlist (browser-local; per user and per website) ---------
-def valid_saved_watchlist(raw: object) -> list[str] | None:
-    """A missing value means defaults; an empty saved list is a valid choice."""
-    if raw is None:
-        return None
-    try:
-        parsed = json.loads(raw) if isinstance(raw, str) else raw
-    except (json.JSONDecodeError, TypeError, ValueError):
-        return None
-    if not isinstance(parsed, list):
-        return None
-    cleaned = []
-    for value in parsed:
-        if isinstance(value, str):
-            ticker = clean_ticker(value)
-            if ticker and ticker not in cleaned:
-                cleaned.append(ticker)
-        if len(cleaned) >= MAX_TICKERS:
-            break
-    return cleaned
+
+# --- Read-only scanner + ETF presets, and browser-persisted custom lists ------
+# Old Main/POST storage is left untouched and intentionally not loaded here.
+TODAYS_SCAN_LABEL = "Today's Regression Scan's Stocks"
+SP500_LABEL = "S&P 500 Top 10 Holdings"
+CUSTOM_ETF_LABEL = "Other ETF — Top 10 Holdings"
+CUSTOM_STOCK_LABEL = "Custom List"
+SCREEN_OPTIONS = [TODAYS_SCAN_LABEL, SP500_LABEL, CUSTOM_ETF_LABEL, CUSTOM_STOCK_LABEL]
+
+# User-provided SPY starter tickers, used only if Yahoo's holdings feed fails.
+ETF_STARTERS = {
+    "SPY": ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "AVGO", "GOOG", "META", "TSLA", "BRK-B"],
+}
 
 
-def browser_watchlist_read() -> dict | None:
-    """Returns None only while the JS component is awaiting its first result."""
-    # Wrap absent values in a JSON envelope, so missing storage is distinct
-    # from the component's initial (not-ready) Python None result.
-    key_js = json.dumps(BROWSER_WATCHLIST_KEY)
-    expression = (
-        "(function(){try{return JSON.stringify({ok:true,stored:"
-        f"window.localStorage.getItem({key_js})"
-        "});}catch(e){return JSON.stringify({ok:false});}})()"
-    )
-    result = streamlit_js_eval(
-        js_expressions=expression,
-        want_output=True,
-        key="ns_restore_saved_watchlist",
-    )
-    if result is None:
-        return None
-    try:
-        value = json.loads(result) if isinstance(result, str) else result
-    except (json.JSONDecodeError, TypeError, ValueError):
-        value = {"ok": False}
-    return value if isinstance(value, dict) else {"ok": False}
+@st.cache_data(ttl=6 * 3600, show_spinner=False)
+def cached_etf_holdings(ticker: str) -> ETFHoldings:
+    """Provider holdings update periodically; avoid refetching on every rerun."""
+    return fetch_etf_holdings(ticker, limit=10)
 
 
-def save_watchlist_on_next_render() -> None:
-    """Mount a JS write component after a ticker edit and acknowledge success."""
-    pending = st.session_state.get("ns_pending_watchlist_save")
-    if not pending:
-        return
-    serialized = json.dumps(st.session_state["ns_watchlist"], separators=(",", ":"))
-    key_js = json.dumps(BROWSER_WATCHLIST_KEY)
-    value_js = json.dumps(serialized)
-    expression = (
-        f"(function(){{try{{window.localStorage.setItem({key_js},"
-        f"{value_js});return 'saved';}}catch(e){{return 'error';}}}})()"
-    )
-    result = streamlit_js_eval(
-        js_expressions=expression,
-        want_output=True,
-        key=f"ns_write_watchlist_{pending}",
-    )
-    if result == "saved":
-        st.session_state.pop("ns_pending_watchlist_save", None)
-    elif result == "error":
-        st.session_state.pop("ns_pending_watchlist_save", None)
-        st.warning("Browser storage is blocked, so this watchlist may not survive closing your tab.")
+# Keep the selected source when navigating to other Streamlit pages.
+if st.session_state.get('ns_group_select') not in SCREEN_OPTIONS:
+    st.session_state['ns_group_select'] = TODAYS_SCAN_LABEL
+
+render_page_header('General News Screen',
+                   'AI news agent · scan signals, ETF holdings, or custom lists',
+                   current='general')
+
+# Keep the selector compact, with a shortcut directly into editable lists.
+def choose_custom_stock_list():
+    # Button callbacks run before Streamlit widgets are rebuilt.
+    st.session_state['ns_group_select'] = CUSTOM_STOCK_LABEL
 
 
-def mark_watchlist_dirty() -> None:
-    st.session_state["ns_save_revision"] = st.session_state.get("ns_save_revision", 0) + 1
-    st.session_state["ns_pending_watchlist_save"] = st.session_state["ns_save_revision"]
+selector_col, custom_button_col, unused_space = st.columns(
+    [2.5, 1.6, 5.9], gap='small', vertical_alignment='bottom'
+)
+with selector_col:
+    mode = st.selectbox('Stock group', SCREEN_OPTIONS, key='ns_group_select')
+with custom_button_col:
+    st.button('Create custom list', key='ns_go_to_custom_list',
+              use_container_width=True, on_click=choose_custom_stock_list,
+              help='Open the Custom List editor to create or edit a saved stock list.')
+selected_etf = ''
+if mode == CUSTOM_ETF_LABEL:
+    if 'ns_selected_etf' not in st.session_state:
+        st.session_state['ns_selected_etf'] = 'QQQ'
+    with st.form('ns_etf_ticker_form'):
+        requested = st.text_input('ETF ticker', value=st.session_state['ns_selected_etf'],
+                                  max_chars=15, placeholder='QQQ, VOO, VGT, SOXX, SMH, etc.')
+        load_etf = st.form_submit_button('Load ETF top holdings', type='primary')
+    if load_etf:
+        ticker = clean_ticker(requested)
+        if not ticker:
+            st.error('Enter a valid ETF ticker, for example QQQ, VOO, or SMH.')
+        else:
+            st.session_state['ns_selected_etf'] = ticker
+            st.rerun()
+    selected_etf = st.session_state['ns_selected_etf']
+elif mode == SP500_LABEL:
+    selected_etf = 'SPY'  # Tradable S&P 500 proxy; not the index itself.
 
-
-# --- Page -------------------------------------------------------------------
-# Initialize from localStorage *before* creating buttons or loading news.
-# Do not overwrite a saved watchlist with defaults while JS is still loading.
-if "ns_watchlist_loaded_from_browser" not in st.session_state:
-    restored = browser_watchlist_read()
-    if restored is None:
-        st.caption("Restoring your saved News Screen watchlist…")
-        st.stop()
-    if not restored.get("ok"):
-        st.error("This browser is blocking local storage. Enable site storage to save your watchlist.")
-        st.stop()
-    existing = valid_saved_watchlist(restored.get("stored"))
-    # One-time migration of a watchlist from the previous session-only page.
-    # If a browser-saved list exists, it always takes precedence.
-    prior_session_list = st.session_state.get("ns_watchlist")
-    if existing is not None:
-        st.session_state["ns_watchlist"] = existing
-    elif isinstance(prior_session_list, list):
-        st.session_state["ns_watchlist"] = (
-            valid_saved_watchlist(prior_session_list) or []
-        )
-        mark_watchlist_dirty()
+email_snapshot = AlertSnapshot()
+etf_data = ETFHoldings(etf=selected_etf)
+if mode == TODAYS_SCAN_LABEL:
+    email_snapshot = load_email_alerts()
+    watchlist = list(email_snapshot.symbols)
+    if email_snapshot.error:
+        st.warning("Today's Regression Scan's Stocks could not load: " + email_snapshot.error)
+    elif email_snapshot.latest_email_date:
+        st.caption('Last successful scanner email: ' + email_snapshot.latest_email_time
+                   + ' · ' + str(len(watchlist)) + ' stock(s). '
+                   'This is the last emailed scan; it may be from an earlier trading day.')
     else:
-        st.session_state["ns_watchlist"] = DEFAULT_WATCHLIST.copy()
-    st.session_state["ns_watchlist_loaded_from_browser"] = True
+        st.info('No successfully emailed regression scan has been published yet.')
+elif mode == CUSTOM_STOCK_LABEL:
+    watchlist = render_custom_list()
+else:
+    etf_data = cached_etf_holdings(selected_etf)
+    if etf_data.tickers:
+        watchlist = list(etf_data.tickers)
+        st.caption(f'{selected_etf} top holdings · {len(watchlist)} tickers from Yahoo Finance. '
+                   'Weights and constituents can change; provider data may be delayed.')
+    elif selected_etf in ETF_STARTERS:
+        watchlist = ETF_STARTERS[selected_etf].copy()
+        st.warning(f'Live {selected_etf} holdings are unavailable. Showing your supplied '
+                   'starter ticker list instead (not verified current holdings or weights). '
+                   'Use Refresh to retry Yahoo Finance.')
+    else:
+        watchlist = []
+        st.warning(etf_data.error or f'No holdings were found for {selected_etf}. '
+                   'The data provider does not cover every ETF.')
 
-st.session_state.setdefault("ns_scans", {})
-save_watchlist_on_next_render()
-watchlist = st.session_state["ns_watchlist"]
-
-head_left, head_right = st.columns([4, 1.1], vertical_alignment="center")
-with head_left:
-    st.markdown(
-        f'<div class="ns-masthead"><div class="ns-icon">≡</div>'
-        '<div><div class="ns-title">NEWS SCREEN</div>'
-        f'<div class="ns-subtitle">AI news agent · {len(watchlist)} stocks on the watchlist</div>'
-        '</div></div>', unsafe_allow_html=True,
-    )
-with head_right:
-    scan_clicked = st.button("Scan headlines", type="primary", use_container_width=True, key="ns_scan_button")
+# The initial user-provided weights were deliberately not hardcoded: they can
+# become stale or differ between the index and ETF tracking it.
+st.session_state['ns_watchlist'] = watchlist.copy()
+st.session_state.setdefault('ns_scans', {})
 
 st.markdown('<div class="ns-toprule"></div>', unsafe_allow_html=True)
+if watchlist:
+    st.markdown('<div class="ns-section-label">' +
+                ('REGRESSION SCAN STOCKS' if mode == TODAYS_SCAN_LABEL
+                 else ('CUSTOM STOCKS' if mode == CUSTOM_STOCK_LABEL
+                       else 'ETF CONSTITUENTS · ' + html.escape(selected_etf))) +
+                '</div>', unsafe_allow_html=True)
+    tags = ''.join('<span class="ns-auto-pill">' + html.escape(symbol.replace('BRK-B', 'BRK.B'))
+                   + '</span>' for symbol in watchlist)
+    st.markdown('<div class="ns-auto-pills">' + tags + '</div>', unsafe_allow_html=True)
 
-# Ticker chips are Streamlit buttons rather than custom JS: safe and interactive.
-chip_sizes = [1.1] + [0.91] * len(watchlist) + [1.65]
-chip_cols = st.columns(chip_sizes, gap="small", vertical_alignment="center")
-with chip_cols[0]:
-    st.markdown('<div class="ns-section-label">WATCHLIST</div>', unsafe_allow_html=True)
-for i, symbol in enumerate(watchlist):
-    with chip_cols[i + 1]:
-        if st.button(f"{symbol} ×", key=f"ns_remove_{symbol}", use_container_width=True, help=f"Remove {symbol} from watchlist"):
-            st.session_state["ns_watchlist"] = [s for s in watchlist if s != symbol]
-            st.session_state["ns_scans"].pop(symbol, None)
-            mark_watchlist_dirty()
-            st.rerun()
-with chip_cols[-1]:
-    with st.popover("+ add ticker", use_container_width=True):
-        with st.form("ns_add_form", clear_on_submit=True):
-            raw_symbol = st.text_input("Ticker symbol", max_chars=15, placeholder="e.g. MU", label_visibility="visible")
-            added = st.form_submit_button("Add stock", type="primary", use_container_width=True)
-        if added:
-            new_symbol = clean_ticker(raw_symbol)
-            if not new_symbol:
-                st.error("Enter a valid ticker symbol (letters, digits, '.', '-', '^', '=').")
-            elif new_symbol in watchlist:
-                st.info(f"{new_symbol} is already on your watchlist.")
-            elif len(watchlist) >= MAX_TICKERS:
-                st.warning(f"The watchlist supports up to {MAX_TICKERS} tickers.")
-            else:
-                st.session_state["ns_watchlist"].append(new_symbol)
-                mark_watchlist_dirty()
-                st.rerun()
-
-control_left, control_right = st.columns([3.8, 1.2], vertical_alignment="center")
+control_left, sigma_col, control_right = st.columns([3.15, 0.7, 1.15], vertical_alignment="center")
+with sigma_col:
+    show_sigma = st.checkbox('Show σ', key='ns_show_sigma',
+                             help='Regression Z-score from saved scanner results, or emailed crossing band. N/A if unavailable.')
 with control_left:
     st.markdown(
         '<div class="ns-agent-label" style="text-align:left">'
-        'Yahoo Finance news · prices are latest available daily closes · click a headline to read'
+        'Company-name headlines only · past 7 days · Yahoo + optional GNews · prices are latest daily closes'
         '</div>', unsafe_allow_html=True,
     )
 with control_right:
     if st.button("↻ Refresh news & prices", key="ns_refresh", use_container_width=True):
+        cached_etf_holdings.clear()
         fetch_news.clear()
+        yahoo_ticker_feed.clear()
+        yahoo_company_search.clear()
+        gnews_company_search.clear()
         fetch_quotes.clear()
         fetch_market_cap.clear()
         if existing_fetch_stock_news is not None and callable(getattr(existing_fetch_stock_news, "clear", None)):
@@ -653,21 +768,45 @@ with control_right:
         st.rerun()
 
 if not watchlist:
-    st.info("Your watchlist is empty. Use '+ add ticker' to get started.")
+    st.info("No stock tickers to display for this selection. Choose another group or ETF.")
     st.stop()
 
-with st.spinner("Loading prices and latest headlines..."):
-    quotes = fetch_quotes(tuple(watchlist))
-    news_by_symbol = {symbol: fetch_news(symbol) for symbol in watchlist}
-    # Cap is optional, so Yahoo's throttling doesn't hide prices or news.
-    for symbol in watchlist:
-        if quotes.get(symbol, {}).get("price") is not None:
-            quotes[symbol]["cap"] = fetch_market_cap(symbol)
+# Show visible progress while loading each ticker and scoring its headlines.
+si_news_loading_bar = st.progress(5, text="Loading watchlist prices…")
+quotes = fetch_quotes(tuple(watchlist))
+si_news_loading_bar.progress(20, text="Prices loaded · retrieving company headlines…")
+news_by_symbol = {}
+for _i, _symbol in enumerate(watchlist, 1):
+    news_by_symbol[_symbol] = fetch_news(_symbol)
+    si_news_loading_bar.progress(20 + int(45 * _i / len(watchlist)),
+                                 text=f"Checking headlines: {_symbol} ({_i}/{len(watchlist)})")
+# Market capitalization is optional; quote/news failures remain isolated by ticker.
+for _symbol in watchlist:
+    if quotes.get(_symbol, {}).get("price") is not None:
+        quotes[_symbol]["cap"] = fetch_market_cap(_symbol)
+si_news_loading_bar.progress(70, text="Analyzing headlines with FinBERT…")
+# Automatic FinBERT scan, without a manual scan button or per-stock Gemini calls.
+for _i, _symbol in enumerate(watchlist, 1):
+    st.session_state['ns_scans'][_symbol] = automatic_stock_scan(_symbol, news_by_symbol.get(_symbol, []))
+    si_news_loading_bar.progress(70 + int(30 * _i / len(watchlist)),
+                                 text=f"FinBERT: {_symbol} ({_i}/{len(watchlist)})")
+si_news_loading_bar.empty()
+st.session_state['ns_scanned_at']=datetime.now(MARKET_TZ).strftime('%d %b %Y, %I:%M %p ET')
 
-if scan_clicked:
-    st.session_state["ns_scans"].update(scan_sentiment(watchlist, news_by_symbol))
-    st.session_state["ns_scanned_at"] = datetime.now(MARKET_TZ).strftime("%d %b %Y, %I:%M %p ET")
-
+sigma_scores = saved_regression_zscores(str(PROJECT_ROOT)) if show_sigma else {}
+if show_sigma and mode in (SP500_LABEL, CUSTOM_ETF_LABEL) and selected_etf:
+    # Prefer regression on THIS ETF's holdings over a separate filtered market scan.
+    # The ETF scan saves evaluated constituents even when they fail strategy filters.
+    etf_scores_frame, etf_scores_meta = load_etf_scores(selected_etf, PROJECT_ROOT)
+    etf_scores = etf_score_map(etf_scores_frame)
+    sigma_scores.update(etf_scores)
+    if not etf_scores:
+        st.caption(f'For ETF Z-scores, run Regression Scanner → Universe: ETF holdings → '
+                   f'{selected_etf}. Yahoo holdings and market history must be available.')
+    else:
+        st.caption(f'{len(etf_scores)} saved {selected_etf} regression scores · '
+                   f'market session {etf_scores_meta.get("session", "unknown")}. '
+                   'Stocks with insufficient history may still show N/A.')
 cards = [
     make_card(
         symbol,
@@ -675,20 +814,26 @@ cards = [
         news_by_symbol.get(symbol, []),
         st.session_state["ns_scans"].get(symbol),
         first=(i == 0),
+        sigma_text=(sigma_label(symbol, sigma_scores, email_snapshot,
+                               mode == TODAYS_SCAN_LABEL) if show_sigma else ''),
+        holding_weight=(etf_data.weights_pct.get(symbol) if mode in (SP500_LABEL, CUSTOM_ETF_LABEL) else None),
     )
     for i, symbol in enumerate(watchlist)
 ]
 st.markdown('<div class="ns-grid">' + "".join(cards) + '</div>', unsafe_allow_html=True)
+if show_sigma:
+    st.caption('σ = regression-channel Z-score versus the fitted trend, not daily-return volatility. '
+               'Email alerts show the crossed band if no exact matching Z-score is available.')
 
 last_scan = st.session_state.get("ns_scanned_at")
 scan_note = (
     f"Last FinBERT scan: {html.escape(last_scan)}. "
-    if last_scan else "Select 'Scan headlines' for FinBERT sentiment per ticker. "
+    if last_scan else 'FinBERT scores are calculated automatically. '
 )
 st.markdown(
     '<div class="ns-footer">'
     f'{scan_note}Headline sentiment is an estimate, not a trading recommendation. '
-    'News and price availability depend on Yahoo Finance. '
-    'Your watchlist is saved in this browser and restored when you reopen the page.'
+    'News comes from Yahoo Finance, with GNews fallback when configured; coverage varies. '
+    'ETF holdings are provided by Yahoo Finance where available; regression stocks come from the last successful email. Custom lists are browser-local.'
     '</div>', unsafe_allow_html=True,
 )

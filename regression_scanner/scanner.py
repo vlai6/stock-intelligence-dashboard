@@ -9,6 +9,8 @@ The dashboard imports scan_market() directly, allowing live table updates.
 """
 from __future__ import annotations
 
+from skip_reasons import describe_skipped_reason
+
 import argparse
 import csv
 import json
@@ -74,6 +76,8 @@ class ScanSettings:
     close_delay_minutes: int = 75  # scheduled 5 PM runs can use 45; UI stays 75
     output_dir: Path | None = None  # automated buckets must not overwrite dashboard reports
     hard_timeout_seconds: int | None = None  # subprocess watchdog for scheduled Yahoo batches
+    record_all_zscores: bool = False  # ETF mode: keep evaluated stocks even if strategy filter fails
+    universe_source: str = ""  # Provenance only; not part of the stock-selection math
 
 
 @dataclass(frozen=True)
@@ -371,6 +375,7 @@ def scan_market(settings: ScanSettings) -> Iterator[ScanProgress]:
 
     start = price_history_start(target, settings.years)
     rows: list[dict] = []
+    all_regression_rows: list[dict] = []
     skipped_rows: list[dict] = []
     analyzed = data_errors = cache_hits = completed = 0
     total = len(stocks)
@@ -432,7 +437,17 @@ def scan_market(settings: ScanSettings) -> Iterator[ScanProgress]:
                 data_errors += 1
                 continue
             analyzed += 1
-            if not passes_filters(cur):
+            eligible = passes_filters(cur)
+            if settings.record_all_zscores:
+                all_regression_rows.append({
+                    "session": target, "ticker": stock.symbol, "name": stock.name,
+                    "close": round(cur.close, 4), "regression": round(cur.line, 4),
+                    "sigma": round(cur.sigma, 4), "z_score": round(cur.z, 4),
+                    "lower_3": round(cur.lower3, 4), "lower_4": round(cur.lower4, 4),
+                    "slope_per_session": round(cur.slope, 8),
+                    "strategy_eligible": eligible,
+                })
+            if not eligible:
                 skipped_rows.append(skipped_record(stock, "trend_or_band_filter"))
                 continue
             rows.append({
@@ -462,6 +477,7 @@ def scan_market(settings: ScanSettings) -> Iterator[ScanProgress]:
             "min_cap_b": settings.min_cap_b, "max_cap_b": settings.max_cap_b,
             "regression_years": settings.years, "regression_sessions": length,
             "custom_symbols": bool(settings.symbols), "top_n_limit": settings.limit,
+            "etf_source": settings.universe_source if settings.record_all_zscores else None,
         },
         "download_or_data_errors": data_errors, "skipped": len(skipped_rows),
         "cache_hits": cache_hits, "new_crossing_rows": sum(bool(row["new_crossings"]) for row in rows),
@@ -472,8 +488,18 @@ def scan_market(settings: ScanSettings) -> Iterator[ScanProgress]:
     if analyzed == 0:
         raise RuntimeError("No valid price histories found. Latest successful report was not overwritten.")
     report_dir = Path(settings.output_dir) if settings.output_dir is not None else ROOT / "results"
+    if settings.record_all_zscores:
+        # Separate from the strategy-filtered results and from email alert history.
+        # These are daily-close regression Z-scores, NOT buy or sell signals.
+        all_fields = ["session", "ticker", "name", "close", "regression", "sigma",
+                      "z_score", "lower_3", "lower_4", "slope_per_session", "strategy_eligible"]
+        write_csv(report_dir / "all_regression_scores.csv", all_regression_rows, all_fields)
     write_csv(report_dir / "latest_scan.csv", rows, FIELDS)
-    write_csv(report_dir / "skipped.csv", skipped_rows, ["symbol", "company_name", "reason"])
+    # Keep stable raw codes for tools, with a separate human-readable explanation.
+    for skipped in skipped_rows:
+        skipped["explanation"] = describe_skipped_reason(skipped.get("reason"), target)
+    write_csv(report_dir / "skipped.csv", skipped_rows,
+              ["symbol", "company_name", "reason", "explanation"])
     report_dir.mkdir(parents=True, exist_ok=True)
     (report_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     yield ScanProgress("finished", "Scan finished" if summary["complete"] else "Scan finished with data-quality warnings",

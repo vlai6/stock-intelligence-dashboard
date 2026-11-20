@@ -1,0 +1,103 @@
+# --- Browser-local named watchlists, with migration from the original single list ---
+SAVED_LISTS_KEY = 'stock_intelligence_named_watchlists_v1'
+
+def valid_saved_watchlist(raw: object) -> list[str] | None:
+    if raw is None:
+        return None
+    try:
+        parsed = json.loads(raw) if isinstance(raw, str) else raw
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(parsed, list):
+        return None
+    cleaned = []
+    for item in parsed:
+        if isinstance(item, str):
+            symbol = clean_ticker(item)
+            if symbol and symbol not in cleaned:
+                cleaned.append(symbol)
+    return cleaned[:MAX_TICKERS]
+
+
+def browser_saved_lists_read():
+    js_new = json.dumps(SAVED_LISTS_KEY)
+    js_old = json.dumps(BROWSER_WATCHLIST_KEY)
+    expression = (
+        "(function(){try{return JSON.stringify({ok:true,"
+        f"modern:window.localStorage.getItem({js_new}),"
+        f"legacy:window.localStorage.getItem({js_old})"
+        "});}catch(e){return JSON.stringify({ok:false});}})()"
+    )
+    result = streamlit_js_eval(js_expressions=expression, want_output=True,
+                              key='ns_saved_lists_restore_v1')
+    if result is None:
+        return None
+    try:
+        return json.loads(result) if isinstance(result, str) else result
+    except (ValueError, TypeError):
+        return {'ok':False}
+
+
+def mark_watchlist_dirty():
+    active = st.session_state['ns_active_list']
+    st.session_state['ns_lists'][active] = list(st.session_state['ns_watchlist'])
+    st.session_state['ns_save_revision'] = st.session_state.get('ns_save_revision', 0) + 1
+    st.session_state['ns_pending_watchlist_save'] = st.session_state['ns_save_revision']
+
+
+def save_watchlist_on_next_render():
+    pending = st.session_state.get('ns_pending_watchlist_save')
+    if not pending:
+        return
+    payload = json.dumps({'active':st.session_state['ns_active_list'],
+                          'lists':st.session_state['ns_lists']}, separators=(',',':'))
+    script = ("(function(){try{window.localStorage.setItem("
+              + json.dumps(SAVED_LISTS_KEY) + ',' + json.dumps(payload)
+              + ");return 'saved';}catch(e){return 'error';}})()")
+    result=streamlit_js_eval(js_expressions=script, want_output=True,
+                            key=f'ns_save_named_lists_{pending}')
+    if result=='saved':
+        st.session_state.pop('ns_pending_watchlist_save',None)
+    elif result=='error':
+        st.session_state.pop('ns_pending_watchlist_save',None)
+        st.warning('Browser storage is disabled; watchlists may not persist after closing this tab.')
+
+
+if 'ns_named_lists_restored' not in st.session_state:
+    saved=browser_saved_lists_read()
+    if saved is None:
+        st.caption('Restoring your saved watchlists…')
+        st.stop()
+    if not saved.get('ok'):
+        st.error('Browser local storage is blocked. Enable site storage to save watchlists.')
+        st.stop()
+    modern=None
+    try:
+        modern=json.loads(saved.get('modern') or 'null')
+    except (TypeError, ValueError):
+        pass
+    lists={}
+    active='Main'
+    if isinstance(modern,dict):
+        for name, symbols in (modern.get('lists') or {}).items():
+            if isinstance(name,str) and name.strip() and len(name)<=32:
+                valid=valid_saved_watchlist(symbols)
+                if valid is not None and len(lists)<12:
+                    lists[name]=valid
+        active=modern.get('active') if modern.get('active') in lists else 'Main'
+    if not lists:
+        old=valid_saved_watchlist(saved.get('legacy'))
+        from_session=valid_saved_watchlist(st.session_state.get('ns_watchlist'))
+        lists={'Main':old if old is not None else (from_session if from_session is not None else DEFAULT_WATCHLIST.copy())}
+        active='Main'
+    st.session_state['ns_lists']=lists
+    st.session_state['ns_active_list']=active if active in lists else next(iter(lists))
+    st.session_state['ns_watchlist']=list(lists[st.session_state['ns_active_list']])
+    st.session_state['ns_named_lists_restored']=True
+    if not isinstance(modern,dict):
+        mark_watchlist_dirty()
+
+st.session_state.setdefault('ns_scans',{})
+save_watchlist_on_next_render()
+watchlist=st.session_state['ns_watchlist']
+

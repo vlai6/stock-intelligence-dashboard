@@ -1,0 +1,3 @@
+FIX: The installer now accepts UTF-16 BOM-marked requirements.txt/.gitignore as well as UTF-8.
+Replace the old integrate_regression_page.py with this version, keep integration_assets unchanged, and run the same installer command.
+The project requirements.txt will be written as UTF-8 during installation.

@@ -1,177 +1,159 @@
+"""Gemini event grouping from existing headlines only.
+
+No stock/news fetching here. A single Gemini REST call groups supplied headlines.
+The caller (news_ai_shared.py) caches results and allows FinBERT to work if this fails.
+Reads GEMINI_API_KEY from .streamlit/secrets.toml or the local .env environment.
+"""
+from __future__ import annotations
 
 import json
 import os
+import re
+from pathlib import Path
 
 import pandas as pd
-import streamlit as st
+import requests
 from dotenv import load_dotenv
-from google import genai
-from google.genai import types
+
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 
-load_dotenv()
+def _api_key() -> str:
+    for key in ("GEMINI_API_KEY", "GOOGLE_API_KEY", "GOOGLE_GENAI_API_KEY"):
+        try:
+            import streamlit as st
+            secret = st.secrets.get(key, "")
+            if secret:
+                return str(secret).strip()
+        except Exception:
+            pass
+        if os.getenv(key):
+            return os.environ[key].strip()
+    return ""
 
-# Use the same working model as your ai_peers.py file.
-MODEL_NAME = "gemini-3.5-flash-lite"
+
+def _unpack_content(data: dict) -> dict:
+    try:
+        parts = data["candidates"][0]["content"]["parts"]
+        text = "".join(part.get("text", "") for part in parts if isinstance(part, dict))
+    except (KeyError, IndexError, TypeError) as exc:
+        raise RuntimeError("Gemini returned no text; check model availability and quota") from exc
+    text = text.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.I).strip()
+    try:
+        result = json.loads(text)
+    except (ValueError, TypeError) as exc:
+        raise RuntimeError("Gemini did not return valid event JSON") from exc
+    if not isinstance(result, dict):
+        raise RuntimeError("Gemini returned an unexpected event format")
+    return result
 
 
-def group_news_events(news_df, symbol):
-    """
-    Group articles that describe the same underlying event.
-    Gemini identifies relationships; Python calculates dates.
-    """
-    if news_df.empty:
-        return pd.DataFrame(), {}
-
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        raise ValueError("GEMINI_API_KEY missing from .env")
-
-    articles = []
-    for i, (_, row) in enumerate(news_df.iterrows()):
-        articles.append({
-            "id": i,
-            "title": str(row["Title"]),
-            "source": str(row["Source"]),
-            "published": str(row["Date"])
-        })
-
-    prompt = f"""
-You are a financial news event-grouping analyst.
-
-Target stock: {symbol}
-
-Group the articles below into distinct underlying news events.
-
-Rules:
-1. Group articles ONLY when they describe the same specific
-   development, announcement, incident, or disclosure.
-2. Similar topics are not necessarily the same event.
-3. A broad market roundup is not the same event as a
-   company-specific announcement.
-4. Never assume an unverified claim is true.
-5. A reported or rumored event must remain labeled as such.
-6. Do not invent events or article IDs.
-7. Every article ID must appear in exactly one group.
-8. Give each group a concise, neutral event name.
-9. Include a short explanation of why articles belong together.
-10. Assign a report_status:
-    "Confirmed", "Reported", "Speculative", or "Unclear".
-    This is an assessment based on headlines only, not
-    independent fact-checking.
-11. Do not generate event dates. Python will calculate them.
-
-Return JSON only, with this structure:
-{{
-  "events": [
-    {{
-      "name": "Concise event description",
-      "article_ids": [0, 2],
-      "reason": "Both headlines describe the same announcement.",
-      "report_status": "Reported"
-    }}
-  ]
-}}
-
-Articles:
-{json.dumps(articles, ensure_ascii=False)}
-"""
-
-    client = genai.Client(api_key=api_key)
-
-    response = client.models.generate_content(
-        model=MODEL_NAME,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            temperature=0
+def _request_gemini(payload: dict, key: str, model: str) -> dict:
+    if not re.fullmatch(r"[a-zA-Z0-9_.-]{3,64}", model):
+        raise RuntimeError("Invalid GEMINI_MODEL configuration")
+    try:
+        response = requests.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+            headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+            json=payload, timeout=(12, 50),
         )
+    except requests.RequestException as exc:
+        raise RuntimeError(f"Gemini connection unavailable ({type(exc).__name__})") from exc
+    if not response.ok:
+        # Do not log headers, API keys or full request/response bodies.
+        diagnostic = {
+            400: "invalid request or model configuration",
+            401: "API key not accepted",
+            403: "API key restricted or not authorized",
+            404: "model unavailable for this API key",
+            429: "free-tier quota or rate limit reached",
+            503: "Gemini temporarily overloaded",
+        }.get(response.status_code, "API request rejected")
+        raise RuntimeError(f"Gemini HTTP {response.status_code}: {diagnostic}. Model: {model}")
+    try:
+        return response.json()
+    except ValueError as exc:
+        raise RuntimeError("Gemini returned non-JSON API output") from exc
+
+
+def make_group_tables(titles: list[str], output: dict) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Use only article indexes from our supplied list, never fabricated titles."""
+    incoming = output.get("events", [])
+    if not isinstance(incoming, list):
+        raise RuntimeError("Gemini response has no event list")
+    events = []
+    assignments = []
+    used = set()
+    for i, item in enumerate(incoming[:50], 1):
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name") or item.get("event") or "").strip()[:100]
+        ids = item.get("article_ids") or item.get("article_indices") or []
+        if not name or not isinstance(ids, list):
+            continue
+        matched = []
+        for idx in ids:
+            if isinstance(idx, bool):
+                continue
+            try:
+                index = int(idx)
+            except (TypeError, ValueError):
+                continue
+            if 0 <= index < len(titles) and index not in used:
+                matched.append(index)
+                used.add(index)
+        if not matched:
+            continue
+        event_id = str(i)
+        events.append({"Event ID": event_id, "Event": name, "Articles": len(matched)})
+        assignments.extend({"Event ID": event_id, "Title": titles[idx]} for idx in matched)
+    # Preserve EVERY sourced headline. The previous adapter silently dropped
+    # articles not assigned to a cluster by Gemini, artificially reducing the
+    # number of events shown. A singleton is a real source headline, not a
+    # fabricated article; it simply had no matching partner in this response.
+    next_id = len(incoming[:50]) + 1
+    for idx, title in enumerate(titles):
+        if idx in used:
+            continue
+        event_id = str(next_id)
+        next_id += 1
+        events.append({"Event ID": event_id, "Event": title[:100], "Articles": 1})
+        assignments.append({"Event ID": event_id, "Title": title})
+    return (pd.DataFrame(events, columns=["Event ID", "Event", "Articles"]),
+            pd.DataFrame(assignments, columns=["Event ID", "Title"]))
+
+
+def group_news_events(frame: pd.DataFrame, symbol: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Cluster the supplied Yahoo headlines into same-event groups."""
+    empty_events = pd.DataFrame(columns=["Event ID", "Event", "Articles"])
+    empty_articles = pd.DataFrame(columns=["Event ID", "Title"])
+    if frame is None or frame.empty:
+        return empty_events, empty_articles
+    if "Title" not in frame:
+        raise RuntimeError("Gemini grouping input is missing Title column")
+    titles = [str(t).strip()[:350] for t in frame["Title"].tolist() if str(t).strip()]
+    if not titles:
+        return empty_events, empty_articles
+    key = _api_key()
+    if not key:
+        raise RuntimeError("GEMINI_API_KEY not found: add it to .streamlit/secrets.toml or your local .env file")
+    model = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite").strip()
+    prompt = (
+        "Cluster these real headlines about the stock " + str(symbol)[:16] + ". "
+        "Cluster articles describing the SAME underlying real news event, as in a news digest. "
+        "Do not group based solely on sentiment, generic market performance, or the same company. "
+        "Assign EVERY input headline to exactly ONE event. "
+        "For a headline with no close match, create a SINGLE-ARTICLE event. "
+        "Use concise factual event names, avoiding claims not stated in the headlines. "
+        "Return exactly JSON: {\"events\":[{\"name\":\"event summary\",\"article_ids\":[0,1]}]}. "
+        "Use zero-based indices from the list below. Do not invent indices or headlines.\n\n"
+        + "\n".join(f"{i}: {title}" for i, title in enumerate(titles[:90]))
     )
-
-    if not response.text:
-        raise ValueError("Gemini returned an empty response.")
-
-    result = json.loads(response.text)
-    proposed_events = result.get("events", [])
-
-    if not isinstance(proposed_events, list):
-        raise ValueError("Invalid event grouping response.")
-
-    used_ids = set()
-    valid_events = []
-
-    for event in proposed_events:
-        if not isinstance(event, dict):
-            continue
-
-        ids = []
-        for article_id in event.get("article_ids", []):
-            if (
-                type(article_id) is int
-                and 0 <= article_id < len(news_df)
-                and article_id not in used_ids
-                and article_id not in ids
-            ):
-                ids.append(article_id)
-
-        if not ids:
-            continue
-
-        used_ids.update(ids)
-
-        valid_events.append({
-            "name": str(event.get("name", "News event")),
-            "article_ids": ids,
-            "reason": str(event.get("reason", "")),
-            "report_status": str(
-                event.get("report_status", "Unclear")
-            )
-        })
-
-    # Preserve any articles Gemini omitted as separate events.
-    for i in range(len(news_df)):
-        if i not in used_ids:
-            valid_events.append({
-                "name": articles[i]["title"],
-                "article_ids": [i],
-                "reason": "Article not assigned to another event.",
-                "report_status": "Unclear"
-            })
-
-    rows = []
-    event_articles = {}
-    working = news_df.reset_index(drop=True)
-
-    for event_number, event in enumerate(valid_events, start=1):
-        group = working.iloc[event["article_ids"]].copy()
-        group = group.sort_values("Date")
-
-        event_id = f"E{event_number:03d}"
-        first_seen = group["Date"].min()
-
-        # Use the active FinBERT/VADER classifications.
-        sentiment_counts = group["Sentiment"].value_counts()
-        sentiment = (
-            sentiment_counts.idxmax()
-            if not sentiment_counts.empty
-            else "Unknown"
-        )
-
-        rows.append({
-            "Event ID": event_id,
-            "Event": event["name"],
-            "First Seen": first_seen,
-            "Sentiment": sentiment,
-            "Articles": len(group),
-            "Report Status": event["report_status"],
-            "Reason": event["reason"]
-        })
-
-        event_articles[event_id] = group
-
-    events_df = pd.DataFrame(rows)
-    events_df = events_df.sort_values(
-        "First Seen", ascending=False
-    ).reset_index(drop=True)
-
-    return events_df, event_articles
+    payload = {
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.15, "responseMimeType": "application/json", "maxOutputTokens": 4500},
+    }
+    result = _request_gemini(payload, key, model)
+    return make_group_tables(titles[:90], _unpack_content(result))

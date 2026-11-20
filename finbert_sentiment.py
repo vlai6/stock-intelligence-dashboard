@@ -59,8 +59,8 @@ def analyze_finbert(headlines):
         neutral = scores.get("neutral", 0.0)
 
         sentiment = max(
-            scores,
-            key=scores.get
+            ["positive", "neutral", "negative"],
+            key=lambda label: scores.get(label, 0.0)
         ).capitalize()
 
         rows.append({

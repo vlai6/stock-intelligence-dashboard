@@ -279,30 +279,24 @@ def estimate(symbol: str, price: float, *, assumptions: Assumptions | None = Non
 
 def enrich_signals(rows: list[dict], *, limit: int | None = None, fetcher=None,
                    assumptions: Assumptions | None = None) -> list[dict]:
-    """Attempt DCF for every qualifying email signal, regardless of Z-score."""
+    """Add DCF columns to ALL signals. Rate-limit costly Yahoo requests; N/A remains visible."""
     a = assumptions or get_assumptions()
     a.validate()
     if limit is not None and limit < 0:
         raise ValueError("DCF limit cannot be negative")
     count = 0
     enriched = []
-    # Incoming rows have already passed their market-cap-specific alert threshold.
-    # A $50B+ company at -2.75sigma must receive the same valuation attempt
-    # as a company at -3sigma or -4sigma.
     for row in sorted(rows, key=lambda x: float(x["z_score"])):
         new = dict(row)
-        if limit is not None and count >= limit:
+        if float(row["z_score"]) <= -3 and (limit is None or count < limit):
+            count += 1
+            v = estimate(str(row["ticker"]), float(row["close"]), assumptions=a, fetcher=fetcher)
+        elif float(row["z_score"]) <= -3:
             v = unavailable("Valuation lookup limit reached; still included as regression signal")
         else:
-            count += 1
-            try:
-                v = estimate(str(row["ticker"]), float(row["close"]),
-                             assumptions=a, fetcher=fetcher)
-            except Exception as exc:
-                v = unavailable(f"Financial data unavailable ({type(exc).__name__})")
+            v = unavailable("Valuation reserved for stocks at/below −3σ")
         enriched.append({**new, **v})
     return enriched
-
 
 
 def enrich_table_rows(rows: list[dict], *, fetcher=None,
@@ -310,7 +304,7 @@ def enrich_table_rows(rows: list[dict], *, fetcher=None,
                       on_progress=None) -> list[dict]:
     """On-demand dashboard DCF for EVERY visible stock, regardless of Z-score.
 
-    The email enrichment pathway also evaluates all incoming qualifying signals.
+    The separate `enrich_signals` pathway remains limited to <=−3σ alerts.
     Preserve input order and all scanner columns; never discard a stock because
     its financial statements cannot support the illustrative DCF model.
     """

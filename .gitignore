@@ -1,11 +1,10 @@
-
 # Python environment
 .venv/
 venv/
 __pycache__/
 *.pyc
 
-# API keys and credentials
+# Credentials
 .env
 .env.*
 !.env.example
@@ -18,5 +17,22 @@ __pycache__/
 .cache/
 .pytest_cache/
 
+# Local scanner output
+/regression_scanner/results/
+/regression_scanner/state/
+/regression_scanner/scheduled_scans/
+/regression_scanner/logs/
+
 # Editor files
 .vscode/
+
+# Local backups
+/.layout_update_backups/
+/.scanner_integration_backups/
+/.ui_backups/
+/.ui_compact_backups/
+/.ui_finishing_touch_backups/
+/.ui_fix_backups/
+/.ui_nav_popover_backups/
+/.ui_top_navigation_backup/
+*.bak
