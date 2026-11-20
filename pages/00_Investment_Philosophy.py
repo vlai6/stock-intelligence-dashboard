@@ -42,12 +42,28 @@ st.markdown(
 )
 st.divider()
 
-st.markdown("## 1. INVESTMENT FOUNDATION")
-core, active = st.columns(2)
-with core:
-    st.metric("Diversified ETFs", "90–95%")
-with active:
-    st.metric("Individual stocks", "5–10%")
+st.markdown("## INVESTMENT FOUNDATION")
+st.markdown("""
+<style>
+.si-allocation-row { display:flex; flex-wrap:wrap; gap:10px; margin:.45rem 0 .35rem; }
+.si-allocation-chip {
+  min-width:130px; max-width:165px; border:1px solid #19334d;
+  border-radius:9px; background:#071321; padding:7px 11px;
+}
+.si-allocation-label { color:#a8c3db; font-size:.73rem; line-height:1.3; }
+.si-allocation-number { color:#c3e7ff; font-size:1.4rem; line-height:1.3; font-weight:700; }
+</style>
+<div class="si-allocation-row">
+  <div class="si-allocation-chip">
+    <div class="si-allocation-label">Diversified ETFs</div>
+    <div class="si-allocation-number">90–95%</div>
+  </div>
+  <div class="si-allocation-chip">
+    <div class="si-allocation-label">Individual stocks</div>
+    <div class="si-allocation-number">5–10%</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 st.caption(
     "Targets are shares of invested equity capital. Liquidity and fixed-income reserves are managed separately."
 )
@@ -71,13 +87,13 @@ st.caption(
 )
 
 st.divider()
-st.markdown("## 2. INDIVIDUAL-STOCK STRATEGIES")
+st.markdown("## INDIVIDUAL-STOCK STRATEGIES")
 st.markdown(
     "Three **independent, long-only** strategies. Each requires a clear thesis "
     "and comparison with a diversified ETF alternative."
 )
 regression, momentum, event = st.tabs(
-    ["A · Regression Recovery", "B · Momentum Swing", "C · Event-Driven"]
+    ["Regression Recovery", "Momentum Swing", "Event-Driven"]
 )
 
 with regression:
@@ -165,7 +181,7 @@ with event:
     )
 
 st.divider()
-st.markdown("## 3. INVESTMENT DISCIPLINE & EXITS")
+st.markdown("## INVESTMENT DISCIPLINE & EXITS")
 st.markdown("""
 | Strategy | Primary reason to reduce or exit |
 |:--|:--|
@@ -181,7 +197,7 @@ st.markdown(
 )
 
 st.divider()
-st.markdown("## 4. LIQUIDITY & CAPITAL PRESERVATION")
+st.markdown("## LIQUIDITY & CAPITAL PRESERVATION")
 st.markdown("""
 | Vehicle | Best-suited purpose | Main trade-off |
 |:--|:--|:--|
