@@ -146,9 +146,9 @@ with regression:
     st.markdown("""
 | Company size (market value) | Experimental screening level |
 |:--|--:|
-| $50 billion or larger | −3σ |
-| $25 billion up to $50 billion | −3.5σ |
-| $2 billion up to $25 billion | −4σ |
+| `$50B or larger` | −3σ |
+| `$25B up to $50B` | −3.5σ |
+| `$2B up to $25B` | −4σ |
 """)
     st.markdown(
         "These levels are **experimental screens, not proven buying rules**. "
