@@ -43,7 +43,7 @@ jobs:
       SMTP_PORT: ${{ secrets.SMTP_PORT }}
       SMTP_USER: ${{ secrets.SMTP_USER }}
       SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-      ALERT_TO: ${{ secrets.ALERT_TO }}
+      ALERT_TO: ${{ vars.ALERT_TO || secrets.ALERT_TO }}
       SEND_EVERY_SCAN: '1'
       AUTO_REGRESSION_YEARS: '10'
       AUTO_BATCH_HARD_TIMEOUT_SECONDS: '20'
