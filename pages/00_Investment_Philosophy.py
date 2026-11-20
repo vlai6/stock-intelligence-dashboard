@@ -160,8 +160,8 @@ with regression:
 | Company size | Experimental screening level |
 |:--|--:|
 | At least USD 50 billion | −3σ |
-| USD 25B up to USD 50B | −3.5σ |
-| USD 2B up to USD 25B | −4σ |
+| USD 25B to below USD 50B | −3.5σ |
+| USD 2B to below USD 25B | −4σ |
 """)
     st.caption(
         "These market-cap levels and Z-score cutoffs are experimental candidate "
@@ -262,6 +262,12 @@ with regression:
         "avoiding financial distress, estimating fair value, finding catalysts, "
         "or managing exits better—but **our tests have not yet proven which "
         "of these adds performance**."
+    )
+    st.markdown(
+        "A **separate set of SPY-funded portfolio simulations** summarized in "
+        "our research reported some better after-tax outcomes, but the results "
+        "are in-sample and have not been independently rechecked here. "
+        "See the detailed portfolio-rotation section below."
     )
     st.caption(
         "The 30-trade comparison is provisional and is not a full portfolio "
