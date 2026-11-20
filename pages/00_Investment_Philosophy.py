@@ -42,12 +42,28 @@ st.markdown(
 )
 st.divider()
 
-st.markdown("## 1. INVESTMENT FOUNDATION")
-core, active = st.columns(2)
-with core:
-    st.metric("Diversified ETFs", "90–95%")
-with active:
-    st.metric("Individual stocks", "5–10%")
+st.markdown("## INVESTMENT FOUNDATION")
+st.markdown("""
+<style>
+.si-allocation-row { display:flex; flex-wrap:wrap; gap:10px; margin:.45rem 0 .35rem; }
+.si-allocation-chip {
+  min-width:130px; max-width:165px; border:1px solid #19334d;
+  border-radius:9px; background:#071321; padding:7px 11px;
+}
+.si-allocation-label { color:#a8c3db; font-size:.73rem; line-height:1.3; }
+.si-allocation-number { color:#c3e7ff; font-size:1.4rem; line-height:1.3; font-weight:700; }
+</style>
+<div class="si-allocation-row">
+  <div class="si-allocation-chip">
+    <div class="si-allocation-label">Diversified ETFs</div>
+    <div class="si-allocation-number">90–95%</div>
+  </div>
+  <div class="si-allocation-chip">
+    <div class="si-allocation-label">Individual stocks</div>
+    <div class="si-allocation-number">5–10%</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 st.caption(
     "Targets are shares of invested equity capital. Liquidity and fixed-income reserves are managed separately."
 )
@@ -70,14 +86,29 @@ st.caption(
     "[Asness et al., size and quality (2018)](https://doi.org/10.1016/j.jfineco.2018.05.006)"
 )
 
+
+with st.expander("Research evidence: factors and the S&P 500 benchmark", expanded=False):
+    st.markdown("""
+| Finding | Interpretation |
+|:--|:--|
+| **Fama–French (2015): 71–94%** | Share of cross-sectional average-return variation explained in portfolios examined by the five-factor model, **not** an investor return. |
+| **Momentum (Baltussen et al., 2026): up to 150 years** | Evidence across long historical equity samples and many specifications. These are factor results, not SPMO or swing-trade profits. |
+| **AQR's 2026 assumptions: +0.5 to +1.0 percentage points/year** | *Modeled* expected net active return for diversified value and combined factor tilts, respectively—not achieved returns or guarantees. |
+| **SPIVA 2025: 79%** | Proportion of U.S. active large-cap equity funds that underperformed the S&P 500 that year. |
+
+The historical **size premium is inconsistent**; controlling for low-quality small firms strengthens the evidence. That supports examining small-cap value and quality, not buying small stocks indiscriminately.
+
+**Sources:** [CFA Institute on Fama–French (2015)](https://rpc.cfainstitute.org/research/cfa-digest/2015/04/a-five-factor-asset-pricing-model-digest-summary) · [Baltussen et al., *Journal of Portfolio Management* (2026)](https://pure.eur.nl/en/publications/momentum-factor-investing-evidence-and-evolution/) · [AQR, 2026 Capital Market Assumptions](https://www.aqr.com/-/media/AQR/Documents/Alternative-Thinking/AQR-Alternative-Thinking---2026-Capital-Market-Assumptions.pdf?sc_lang=en) · [S&P SPIVA 2025](https://www.spglobal.com/spdji/en/spiva/article/spiva-us-year-end-2025/) · [Asness et al., quality-adjusted size (2018)](https://www.aqr.com/Insights/Research/Working-Paper/Size-Matters-If-You-Control-Your-Junk)
+""")
+
 st.divider()
-st.markdown("## 2. INDIVIDUAL-STOCK STRATEGIES")
+st.markdown("## INDIVIDUAL-STOCK STRATEGIES")
 st.markdown(
     "Three **independent, long-only** strategies. Each requires a clear thesis "
     "and comparison with a diversified ETF alternative."
 )
 regression, momentum, event = st.tabs(
-    ["A · Regression Recovery", "B · Momentum Swing", "C · Event-Driven"]
+    ["Regression Recovery", "Momentum Swing", "Event-Driven"]
 )
 
 with regression:
@@ -116,6 +147,21 @@ with regression:
         "(https://papers.ssrn.com/sol3/papers.cfm?abstract_id=249455). "
         "Neither paper validates these exact regression thresholds."
     )
+
+    with st.expander("Research evidence and our preliminary backtest", expanded=False):
+        st.markdown("""
+| Evidence | What it demonstrates |
+|:--|:--|
+| **De Bondt & Thaler (1985): +19.6 percentage points** | Prior-loser portfolios' cumulative *market-adjusted* return over the following **36 months** in a historical sample; not this scanner's Z-score rules. |
+| **Piotroski (2000): at least +7 percentage points annually** | Historical improvement in mean return from identifying financially strong companies *within a cheap book-to-market universe*. Not a predicted return for our strategy. |
+| **Our experiment: 26 of 30 profitable trades** | An earlier provisional matched-date analysis found **17 of 30** beat SPY and mean relative performance of **−4.5 percentage points per trade**. |
+
+**Limitations:** Our 30-trade export is not a portfolio backtest. Historical price and corporate-action data require reconciliation (including DOW), and stock-dividend adjustments may differ from SPY. **These results do not establish an exploitable edge.**
+
+**Planned Backtrader test:** Hold entries constant and compare exits at the regression line, −2σ, −1.5σ, and −1σ. Measure portfolio CAGR, drawdown, turnover, idle cash, and dividend-adjusted SPY on identical dates; reserve untouched out-of-sample data.
+
+**Sources:** [De Bondt & Thaler (1985)](https://onlinelibrary.wiley.com/doi/10.1111/j.1540-6261.1985.tb05004.x) · [Piotroski (2000)](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=249455)
+""")
     st.page_link("regression_scanner/app.py", label="Open Regression Scanner", icon="📉")
 
 with momentum:
@@ -142,6 +188,17 @@ with momentum:
         "Factor evidence does not automatically validate discretionary long-only swing trading."
     )
 
+    with st.expander("Recent momentum research", expanded=False):
+        st.markdown("""
+**Baltussen et al. (2026, *Journal of Portfolio Management*)** examine equity momentum in samples spanning **up to 150 years** and across many implementation choices. This is evidence for persistent factor behavior, **not** proof that our long-only swing entries will beat SPY.
+
+A **2025 CFA Institute research review** emphasizes that price strength alone is incomplete. We may test industry-relative strength, earnings revisions, and trend persistence independently rather than assuming that a bull market or positive sentiment is required.
+
+**Counterpoint:** Momentum can suffer abrupt reversals, and recent winners can become expensive or crowded. We should evaluate prospective upside and valuation rather than chase a stock because it has risen.
+
+**Sources:** [Baltussen et al. (2026)](https://pure.eur.nl/en/publications/momentum-factor-investing-evidence-and-evolution/) · [CFA Institute (2025)](https://rpc.cfainstitute.org/blogs/enterprising-investor/2025/momentum-investing-a-stronger-more-resilient-framework-for-long-term-allocators)
+""")
+
 with event:
     st.markdown(
         "**Thesis.** An important event may trigger **overreaction** to temporary "
@@ -164,8 +221,20 @@ with event:
         "Bad headlines do not imply a reliable rebound."
     )
 
+
+    with st.expander("Recent event-driven research", expanded=False):
+        st.markdown("""
+**Hirshleifer, Peng & Wang (2025, *Review of Financial Studies*)** find that earnings information diffusing through more connected communities generates **stronger initial stock-price reactions and weaker subsequent drift**. This is consistent with the opportunity shrinking as information becomes widespread.
+
+A **2025 *Journal of Financial Economics*** study of price jumps around earnings announcements finds that returns from one post-announcement strategy were consistent with **efficient price formation after 2016**. Thus, a predictable post-news profit should not be assumed.
+
+**Implication:** An event must be evaluated for what it changes about future cash flows and market expectations; a strong positive/negative sentiment reading alone is not an edge.
+
+**Sources:** [News diffusion (2025)](https://academic.oup.com/rfs/article-abstract/38/3/883/7698199) · [Warp speed price moves (2025)](https://www.sciencedirect.com/science/article/pii/S0304405X25000182)
+""")
+
 st.divider()
-st.markdown("## 3. INVESTMENT DISCIPLINE & EXITS")
+st.markdown("## INVESTMENT DISCIPLINE & EXITS")
 st.markdown("""
 | Strategy | Primary reason to reduce or exit |
 |:--|:--|
@@ -180,8 +249,20 @@ st.markdown(
     "Assess risk, taxes, transaction costs, and opportunity cost versus ETFs."
 )
 
+
+with st.expander("Valuation example: price outpacing fundamentals", expanded=False):
+    st.markdown(
+        "If a stock gains **60%** while its revenue grows **20%**, its "
+        "price-to-sales multiple increases by roughly **33%** "
+        "(1.60 ÷ 1.20 − 1). This may justify a reassessment, "
+        "**not automatic selling**. Higher expected margins, earnings, "
+        "and cash flow could still support the price. "
+        "Consider next-year earnings expectations, business durability, "
+        "and the risk-adjusted return available from VOO or another ETF."
+    )
+
 st.divider()
-st.markdown("## 4. LIQUIDITY & CAPITAL PRESERVATION")
+st.markdown("## LIQUIDITY & CAPITAL PRESERVATION")
 st.markdown("""
 | Vehicle | Best-suited purpose | Main trade-off |
 |:--|:--|:--|
@@ -215,6 +296,18 @@ st.caption(
     "[Vanguard — Capital Markets Model forecasts (Oct. 2026)]"
     "(https://corporate.vanguard.com/content/corporatesite/us/en/corp/vemo/vemo-return-forecasts.html)"
 )
+
+with st.expander("Vanguard research and the trade-off in holding additional cash", expanded=False):
+    st.markdown("""
+Vanguard's **2026 outlook** used a *time-varying asset-allocation model* to favor **40% stocks / 60% bonds** versus 60/40 under its assumptions, reflecting stretched equity valuations and relatively attractive bond yields. This was a **conditional model preference**, not a universal target.
+
+In **October 2026**, Vanguard explicitly warned that valuation is a **poor predictor of short- and even intermediate-term returns**. For our philosophy, that means keeping any extra discretionary cash within a **predefined allocation range**, rather than trying to identify a precise market top.
+
+**Liquidity trade-off:** Treasury bills or CDs held to maturity better match known nominal cash needs; VTES and especially VTEB can fluctuate in price. Municipal tax-exempt income can be appealing at higher tax rates, but after-tax yield should be compared with Treasury interest and the investor's state-tax treatment.
+
+**Sources:** [Vanguard's time-varying allocation view](https://corporate.vanguard.com/content/corporatesite/us/en/corp/vemo/why-were-underweight-stocks.html) · [Vanguard, Oct. 2026 return forecasts and warning](https://corporate.vanguard.com/content/corporatesite/us/en/corp/vemo/vemo-return-forecasts.html)
+""")
+
 st.caption(
     "Research and educational context only. Historical premiums and backtests "
     "do not guarantee future results."
