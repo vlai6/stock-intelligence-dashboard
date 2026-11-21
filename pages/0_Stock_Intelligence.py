@@ -187,6 +187,17 @@ def add_custom_comparison_ticker(primary_symbol):
 st.markdown(
     """
     <style>
+    /* Match the Regression Scanner's full-width primary action, but cap the
+       stock search button to a similar ~240px width within its form. */
+    [class*="st-key-stock_search"] [data-testid="stFormSubmitButton"] {
+        width: min(240px, 100%) !important;
+        max-width: 100%;
+    }
+    [class*="st-key-stock_search"] [data-testid="stFormSubmitButton"] button {
+        width: 100% !important;
+        min-height: 40px;
+        border-radius: 10px !important;
+    }
     /* Make the two top-level peer/metrics cards as tall as their taller neighbor.
        No fixed height: the table and expanders can grow without clipping. */
     .st-key-peer_metrics_equal_height div[data-testid="stHorizontalBlock"]:has(> div[data-testid="stColumn"]) {
@@ -229,7 +240,8 @@ with st.form("stock_search"):
 
     submitted = st.form_submit_button(
         "Load Stock",
-        type="primary"
+        type="primary",
+        use_container_width=True,
     )
 
 if submitted:
