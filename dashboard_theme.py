@@ -44,9 +44,9 @@ def style_blue_figure(figure):
 
         plot_bgcolor='rgba(0,0,0,0)',
 
-        font=dict(family='Inter, Segoe UI, Arial, sans-serif', color='#DEEAF7'),
+        font=dict(family='Inter, Segoe UI, Arial, sans-serif', color='#DEEAF7', size=13),
 
-        hoverlabel=dict(bgcolor='#101F32', font_color='#F4F9FF'),
+        hoverlabel=dict(bgcolor='#101F32', font_color='#F4F9FF', font_size=14),
 
         legend=dict(bgcolor='rgba(0,0,0,0)'),
 
@@ -95,6 +95,13 @@ def apply_dashboard_theme():
   --si-card-alt:#0B1A2D; --si-border:#172C43;
 
   --si-accent:#4EB7FF; --si-text:#E9F2FD; --si-muted:#B9CDE0;
+  /* Shared type roles across every Streamlit section and embedded HTML card. */
+  --si-type-page:2rem; --si-type-section:1.5rem;
+  --si-type-subsection:1.3rem; --si-type-small-heading:1.12rem;
+  --si-type-body:.95rem; --si-type-data:.9rem;
+  --si-type-label:.875rem; --si-type-caption:.8rem;
+  --si-type-nav:.85rem; --si-type-metric:1.4rem;
+  --si-type-ticker:1.2rem;
 
 }
 
@@ -120,19 +127,49 @@ html, body, .stApp, [data-testid="stSidebar"] {
 
 [data-testid="stMainBlockContainer"] {max-width:1900px;}
 
+/* Match size by semantic role, independent of which page renders it. */
 [data-testid="stMarkdownContainer"] p,
-
-[data-testid="stMarkdownContainer"] li {color:#D9E7F4;}
-
+[data-testid="stMarkdownContainer"] li {
+  color:#D9E7F4; font-size:var(--si-type-body); line-height:1.55;
+}
 [data-testid="stMarkdownContainer"] h1,
-
 [data-testid="stMarkdownContainer"] h2,
-
 [data-testid="stMarkdownContainer"] h3,
-
-[data-testid="stMarkdownContainer"] h4 {color:#EFF7FF; letter-spacing:-.02em;}
-
-[data-testid="stCaptionContainer"] p {color:var(--si-muted) !important;}
+[data-testid="stMarkdownContainer"] h4 {
+  color:#EFF7FF; letter-spacing:-.02em; line-height:1.26; font-weight:720;
+}
+[data-testid="stMarkdownContainer"] h1 {font-size:var(--si-type-page);}
+[data-testid="stMarkdownContainer"] h2 {font-size:var(--si-type-section);}
+[data-testid="stMarkdownContainer"] h3 {font-size:var(--si-type-subsection);}
+[data-testid="stMarkdownContainer"] h4 {font-size:var(--si-type-small-heading);}
+[data-testid="stCaptionContainer"] p {
+  color:var(--si-muted) !important;
+  font-size:var(--si-type-caption) !important; line-height:1.45;
+}
+[data-testid="stWidgetLabel"] p,
+label[data-testid="stWidgetLabel"] p,
+[data-testid="stMetricLabel"] p {
+  font-size:var(--si-type-label) !important; line-height:1.35 !important;
+}
+[data-testid="stTextInput"] input,
+[data-testid="stNumberInput"] input,
+[data-testid="stTextArea"] textarea,
+[data-baseweb="select"] input,
+[data-baseweb="select"] [role="combobox"] {
+  font-size:var(--si-type-body) !important;
+}
+[data-testid="stButton"] button,
+[data-testid="stFormSubmitButton"] button,
+[data-testid="stDownloadButton"] button,
+[data-testid="stPopover"] button,
+[data-testid="stSegmentedControl"] button {
+  font-size:var(--si-type-label) !important;
+}
+[data-testid="stDataFrame"], [data-testid="stTable"],
+[data-testid="stDataEditor"] {font-size:var(--si-type-data);}
+[data-testid="stMetricValue"] {
+  font-size:var(--si-type-metric) !important; line-height:1.18 !important;
+}
 
 .st-key-si_header_stock,
 
@@ -144,13 +181,13 @@ html, body, .stApp, [data-testid="stSidebar"] {
 
 .si-page-title {font-family:Inter,"Segoe UI",Arial,sans-serif !important;
 
-  margin:0 !important;padding:0 !important;font-size:2.05rem !important;
+  margin:0 !important;padding:0 !important;font-size:var(--si-type-page) !important;
 
   font-weight:750 !important;letter-spacing:-.035em !important;
 
   line-height:1.24 !important;color:#F2F8FF !important;}
 
-.si-page-subtitle {font-size:.93rem;line-height:1.42;color:#A5BBD0;margin:.36rem 0 .65rem;}
+.si-page-subtitle {font-size:var(--si-type-body);line-height:1.45;color:#A5BBD0;margin:.36rem 0 .65rem;}
 
 [class*="st-key-si_header_"] [data-testid="stPageLink"] a {
 
@@ -160,7 +197,7 @@ html, body, .stApp, [data-testid="stSidebar"] {
 
   color:#BDE3FF !important;text-decoration:none !important;
 
-  font-size:.89rem !important;font-weight:650;padding:8px 9px;
+  font-size:var(--si-type-label) !important;font-weight:650;padding:8px 9px;
 
   white-space:normal;text-align:center;
 
@@ -254,7 +291,7 @@ hr {border-color:#19324C !important;}
 
 a {color:#7EC9FF;}
 
-@media (max-width:760px){.si-page-title{font-size:1.7rem !important;}}
+@media (max-width:760px){:root {--si-type-page:1.75rem;--si-type-section:1.35rem;--si-type-subsection:1.2rem;}}
 
 /* SI icon font repair */
 

@@ -33,8 +33,8 @@ st.markdown("""
 .si-simple-chips {display:flex;flex-wrap:wrap;gap:9px;margin:.45rem 0 .4rem;}
 .si-simple-chip {flex:0 0 auto;min-width:125px;max-width:155px;padding:8px 11px;
   border:1px solid #1d3854;border-radius:9px;background:#091726;}
-.si-simple-chip .label {font-size:.72rem;color:#a7c1d6;line-height:1.3;}
-.si-simple-chip .value {font-size:1.26rem;font-weight:700;color:#d9ecff;line-height:1.5;}
+.si-simple-chip .label {font-size:var(--si-type-caption);color:#a7c1d6;line-height:1.3;}
+.si-simple-chip .value {font-size:var(--si-type-metric);font-weight:700;color:#d9ecff;line-height:1.5;}
 </style>
 <div class="si-simple-chips">
   <div class="si-simple-chip"><div class="label">Diversified ETFs</div><div class="value">90–95%</div></div>

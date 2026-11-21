@@ -183,18 +183,10 @@ def add_custom_comparison_ticker(primary_symbol):
     st.session_state[message_key] = ("success", f"{new_ticker} added to Comparison Stocks.")
 
 
-# Slightly larger typography while preserving the original Streamlit theme.
+# Dashboard-wide typography comes from dashboard_theme, not page overrides.
 st.markdown(
     """
     <style>
-    div[data-testid="stMarkdownContainer"] p,
-    div[data-testid="stMarkdownContainer"] li { font-size: 1.06rem; }
-    div[data-testid="stWidgetLabel"] p,
-    label[data-testid="stWidgetLabel"] p { font-size: 1.04rem; }
-    div[data-testid="stCaptionContainer"] p { font-size: 0.94rem; }
-    div[data-baseweb="select"] { font-size: 1.04rem; }
-    div[data-testid="stButton"] button,
-    div[data-testid="stFormSubmitButton"] button { font-size: 1.04rem; }
     /* Make the two top-level peer/metrics cards as tall as their taller neighbor.
        No fixed height: the table and expanders can grow without clipping. */
     .st-key-peer_metrics_equal_height div[data-testid="stHorizontalBlock"]:has(> div[data-testid="stColumn"]) {
@@ -525,10 +517,10 @@ if st.session_state.loaded:
                 yaxis_title="Price (USD)",
                 hovermode="closest",
                 hoverlabel=dict(
-                    font=dict(size=17),
+                    font=dict(size=14),
                     bordercolor="#888888",
                 ),
-                font=dict(size=14),
+                font=dict(size=13),
                 margin=dict(l=10, r=10, t=30, b=10)
             )
 
@@ -679,7 +671,7 @@ if st.session_state.loaded:
                         xaxis_title="Date",
                         hovermode="closest",
                         hoverlabel=dict(
-                            font=dict(size=21),
+                            font=dict(size=14),
                         ),
                         margin=dict(l=10, r=10, t=30, b=10)
                     )
@@ -1008,7 +1000,7 @@ if st.session_state.loaded:
                             width: 100%;
                             border-collapse: collapse;
                             font-family: Inter, 'Segoe UI', Arial, sans-serif;
-                            font-size: 15px;
+                            font-size: 0.9rem;
                             color: #f1f5f9;
                             background: #0E1A29;
                         }

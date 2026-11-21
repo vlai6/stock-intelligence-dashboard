@@ -99,7 +99,7 @@ apply_dashboard_theme()
 
 # si_event_articles_original_style_v1
 st.markdown("""<style>
-.si-event-meta {font-size:0.89rem;line-height:1.58;color:#B6C9D8;margin:0.35rem 0 0.8rem;}
+.si-event-meta {font-size:var(--si-type-data);line-height:1.58;color:#B6C9D8;margin:0.35rem 0 0.8rem;}
 .si-event-meta p {margin:0 0 0.52rem;}
 .si-event-meta strong {color:#DEE9F3;font-weight:700;}
 .si-event-articles {padding-left:1.22rem;margin:0.45rem 0 0.6rem;line-height:1.6;}
@@ -116,12 +116,12 @@ st.markdown("""<style>
 }
 .st-key-si_compact_sentiment_metrics [data-testid="stMetricValue"],
 .st-key-si_compact_event_metric [data-testid="stMetricValue"] {
-    font-size: 1.55rem !important;
+    font-size: var(--si-type-metric) !important;
     line-height: 1.1 !important;
 }
 .st-key-si_compact_sentiment_metrics [data-testid="stMetricLabel"] p,
 .st-key-si_compact_event_metric [data-testid="stMetricLabel"] p {
-    font-size: .76rem !important;
+    font-size: var(--si-type-caption) !important;
     line-height: 1.25 !important;
 }
 </style>""", unsafe_allow_html=True)
@@ -385,10 +385,10 @@ if _compact_rows:
         '.si-compact-headlines{border:1px solid #18314B;border-radius:10px;overflow:hidden}'
         '.si-compact-row{padding:9px 14px;border-bottom:1px solid #142739;line-height:1.35}'
         '.si-compact-row:last-child{border-bottom:0}'
-        '.si-compact-title{font-size:.91rem;font-weight:550;margin-bottom:3px}'
+        '.si-compact-title{font-size:var(--si-type-data);font-weight:550;margin-bottom:3px}'
         '.si-compact-title a{color:#8DD3FF;text-decoration:none}'
         '.si-compact-title a:hover{text-decoration:underline;color:#CBEBFF}'
-        '.si-compact-meta{font-size:.76rem;color:#91A9C0}'
+        '.si-compact-meta{font-size:var(--si-type-caption);color:#91A9C0}'
         '</style><div class="si-compact-headlines">' + ''.join(_compact_rows) + '</div>',
         unsafe_allow_html=True,
     )
