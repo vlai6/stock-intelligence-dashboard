@@ -103,6 +103,20 @@ jobs:
           philosophy = Path('pages/00_Investment_Philosophy.py').read_text()
           assert 'label="Open Regression Scanner"' not in philosophy
           assert 'with st.expander("Backtest details and limitations"' in philosophy
+          # The front page must clearly distinguish the actual SPY-funded
+          # backtest from an *untested* fundamentals-assisted strategy.
+          assert 'HOW THE ROTATING STRATEGY WORKED' in philosophy
+          assert 'SPY-funded regression rotation' in philosophy
+          assert 'shifted 1% of portfolio capital from SPY' in philosophy
+          assert 'maximum of 20% allocated' in philosophy
+          assert 'returned ' in philosophy and 'to SPY' in philosophy
+          assert '11 of 32' in philosophy
+          assert '$374,922' in philosophy and '$370,264' in philosophy
+          assert 'WHY THE SCREEN IS STILL WORTH RESEARCHING' in philosophy
+          assert 'De Bondt & Thaler (1985)' in philosophy
+          assert 'Piotroski (2000)' in philosophy
+          assert 'Demerjian, Lev & McVay (2012)' in philosophy
+          assert 'This combined screening process is **not yet validated**' in philosophy
           assert 'uirevision=' in chart
           assert 'fig.update_xaxes(autorange=True' in chart
           # Plotly's native autoscale remains the first, prominent toolbar
