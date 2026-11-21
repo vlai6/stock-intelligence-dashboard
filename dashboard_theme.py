@@ -95,6 +95,12 @@ def apply_dashboard_theme():
   --si-card-alt:#0B1A2D; --si-border:#172C43;
 
   --si-accent:#4EB7FF; --si-text:#E9F2FD; --si-muted:#B9CDE0;
+  /* Glassy surfaces reveal the Earth background without fading content. */
+  --si-panel-glass:rgba(5,17,32,.52);
+  --si-input-glass:rgba(7,22,39,.56);
+  --si-popover-glass:rgba(7,21,39,.86);
+  --si-glass-blur:blur(9px);
+  --si-glass-border:rgba(87,145,190,.36);
   /* Shared type roles across every Streamlit section and embedded HTML card. */
   --si-type-page:2rem; --si-type-section:1.5rem;
   --si-type-subsection:1.3rem; --si-type-small-heading:1.12rem;
@@ -120,7 +126,7 @@ html, body, [data-testid="stApp"], .stApp,
 [data-testid="stAppViewContainer"] {
   background-color:var(--si-bg) !important;
   background-image:
-    linear-gradient(180deg, rgba(3,7,17,.25) 0%, rgba(3,7,17,.42) 100%),
+    linear-gradient(180deg, rgba(3,7,17,.12) 0%, rgba(3,7,17,.22) 100%),
     url("https://images.pexels.com/photos/30596231/pexels-photo-30596231.jpeg?auto=compress&cs=tinysrgb&w=1920") !important;
   background-position:center center !important;
   background-size:cover !important;
@@ -226,7 +232,7 @@ label[data-testid="stWidgetLabel"] p,
 
   display:flex;align-items:center;justify-content:center;min-height:44px;
 
-  background:#091B2D;border:1px solid #21466D;border-radius:10px;
+  background:rgba(9,27,45,.48);border:1px solid #21466D;border-radius:10px;
 
   color:#BDE3FF !important;text-decoration:none !important;
 
@@ -240,7 +246,7 @@ label[data-testid="stWidgetLabel"] p,
 
 [class*="st-key-si_header_"] [data-testid="stPageLink"] a:hover {
 
-  background:#102B46;border-color:#4EB7FF;color:#FFFFFF !important;
+  background:rgba(16,43,70,.75);border-color:#4EB7FF;color:#FFFFFF !important;
 
 }
 
@@ -258,8 +264,10 @@ label[data-testid="stWidgetLabel"] p,
 
 [data-testid="stForm"], [data-testid="stExpander"], [data-testid="stPopoverBody"] {
 
-  background:rgba(8,20,35,.52);
-
+  background:var(--si-panel-glass) !important;
+  backdrop-filter:var(--si-glass-blur);
+  -webkit-backdrop-filter:var(--si-glass-blur);
+  border-color:var(--si-glass-border) !important;
 }
 
 [data-testid="stTextInput"] input,
@@ -270,7 +278,9 @@ label[data-testid="stWidgetLabel"] p,
 
 [data-testid="stTextArea"] textarea {
 
-  background:#0C1B2A !important;color:#EBF3FE !important;border-color:#254463 !important;
+  background:var(--si-input-glass) !important;color:#EBF3FE !important;border-color:#254463 !important;
+  backdrop-filter:blur(5px);
+
 
 }
 
@@ -292,7 +302,7 @@ label[data-testid="stWidgetLabel"] p,
 
 [data-testid="stFormSubmitButton"] button[kind="primary"] {
 
-  background:#175C9B !important;color:white !important;border-color:#3084C8 !important;
+  background:rgba(23,92,155,.84) !important;color:white !important;border-color:#3084C8 !important;
 
 }
 
@@ -300,19 +310,28 @@ label[data-testid="stWidgetLabel"] p,
 
 [data-testid="stFormSubmitButton"] button[kind="primary"]:hover {
 
-  background:#1E79BC !important;border-color:#50B6FC !important;
+  background:rgba(30,121,188,.9) !important;border-color:#50B6FC !important;
 
 }
 
 [data-testid="stButton"] button[kind="secondary"],
-
-[data-testid="stPopover"] button {color:#BBDFFD;background:rgba(10,28,48,.8);}
+[data-testid="stDownloadButton"] button,
+[data-testid="stPopover"] button {
+  color:#BBDFFD;
+  background:rgba(10,28,48,.49) !important;
+  backdrop-filter:blur(5px);
+  -webkit-backdrop-filter:blur(5px);
+}
 
 [data-testid="stButton"] button[kind="secondary"]:hover,
 
 [data-testid="stPopover"] button:hover {color:white;border-color:#48A9ED;}
 
-[data-testid="stMetric"] {background:rgba(7,23,40,.75);padding:12px;
+[data-testid="stMetric"] {
+  background:var(--si-panel-glass) !important;
+  backdrop-filter:var(--si-glass-blur);
+  -webkit-backdrop-filter:var(--si-glass-blur);
+  padding:12px;
 
   border:1px solid #1B344E;border-radius:11px;}
 
@@ -349,30 +368,38 @@ a {color:#7EC9FF;}
 
 
 
-/* SI opaque watchlist popovers v2 */
-/* The actual popover is portaled outside the button's parent column. */
+/* Portaled dropdowns and popovers are translucent too, but less transparent
+   than large cards so typed values, menus and buttons remain clearly legible. */
 div[data-baseweb="popover"] { z-index: 10000 !important; }
 div[data-baseweb="popover"] > div,
 div[data-baseweb="popover"] [data-testid="stPopoverBody"],
 [data-testid="stPopoverBody"] {
-  background: #0B1B2E !important;
-  background-color: #0B1B2E !important;
-  background-image: none !important;
-  opacity: 1 !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  border: 1px solid #285075 !important;
-  border-radius: 12px !important;
-  box-shadow: 0 18px 48px rgba(0, 0, 0, .83) !important;
+  background:var(--si-popover-glass) !important;
+  background-color:var(--si-popover-glass) !important;
+  background-image:none !important;
+  backdrop-filter:blur(16px) !important;
+  -webkit-backdrop-filter:blur(16px) !important;
+  border:1px solid #285075 !important;
+  border-radius:12px !important;
+  box-shadow:0 18px 48px rgba(0,0,0,.54) !important;
 }
 div[data-baseweb="popover"] [data-testid="stPopoverBody"] > div {
-  background: #0B1B2E !important;
-  background-color: #0B1B2E !important;
-  opacity: 1 !important;
+  background:transparent !important;
 }
 [data-testid="stPopoverBody"] [data-testid="stForm"] {
-  background: #0D2238 !important;
-  border-color: #244968 !important;
+  background:rgba(13,34,56,.56) !important;
+  border-color:#244968 !important;
+}
+
+/* Select menus and date pickers can render in separate portals. */
+[data-baseweb="popover"] [role="listbox"],
+[data-baseweb="menu"],
+[data-baseweb="popover"] [role="dialog"] {
+  background:var(--si-popover-glass) !important;
+  backdrop-filter:blur(14px);
+}
+[data-baseweb="popover"] [role="option"]:hover {
+  background:rgba(35,85,123,.58) !important;
 }
 [data-testid="stPopoverBody"] [data-testid="stMarkdownContainer"] p,
 [data-testid="stPopoverBody"] label { color: #E5F2FF !important; }
