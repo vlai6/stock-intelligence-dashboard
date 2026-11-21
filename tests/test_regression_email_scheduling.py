@@ -1,15 +1,16 @@
 """Offline test of New York schedule gating and unique Gmail report subjects."""
 import ast
+import sys
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 from regression_scanner.schedule_guard import (
     EDT_CRON, EST_CRON, should_send,
 )
-
-ROOT = Path(__file__).resolve().parents[1]
 
 def at(year, month, day, hour, minute, second=0):
     return datetime(year, month, day, hour, minute, second, tzinfo=timezone.utc)
