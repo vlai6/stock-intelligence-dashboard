@@ -89,7 +89,7 @@ const {default: mount} = await import(pathToFileURL(process.argv[2]).href);
 const data = {
   sections: [
     ["philosophy", "Investment Philosophy"],
-    ["news", "General News Screen"],
+    ["news", "News Screener"],
     ["scanner", "Regression Scanner"],
     ["metrics", "Metrics & Competition"],
     ["sentiment", "Recent Sentiment"],
