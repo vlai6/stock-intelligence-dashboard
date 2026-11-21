@@ -53,6 +53,50 @@ Broad-market ETFs provide the foundation. Factor tilts may include **momentum** 
 **Research:** [Fama & French (2015)](https://doi.org/10.1016/j.jfineco.2014.10.010) · [Value and Momentum Everywhere](https://doi.org/10.1111/jofi.12021) · [Quality and Small Companies](https://doi.org/10.1016/j.jfineco.2018.05.006) · [SPIVA (2025)](https://www.spglobal.com/spdji/en/spiva/article/spiva-us-year-end-2025/)
 """)
 
+st.markdown("#### FEATURED ETF FACTORS")
+st.caption(
+    "Momentum and value are the two factor tilts emphasized here. "
+    "The ETFs below are examples of different implementations, not buy signals."
+)
+
+with st.expander("Momentum ETFs — SPMO and XMMO", expanded=False):
+    st.markdown("""
+**The idea:** Own a diversified basket of stocks with relatively strong recent price performance, rather than trying to identify a single winning company. Momentum is a documented return pattern, but its strength changes over time.
+
+| ETF | What it emphasizes |
+|:--|:--|
+| **SPMO** — Invesco S&P 500 Momentum ETF | Higher-momentum companies selected from the S&P 500; a **large-cap momentum** tilt. |
+| **XMMO** — Invesco S&P MidCap Momentum ETF | Higher-momentum stocks from the S&P MidCap 400; adds **mid-cap momentum** exposure. |
+
+**Why use a momentum ETF?** Systematic stock selection and rebalancing can capture the momentum factor without continually monitoring and trading individual names.
+
+**Main risks:** Sudden reversals after market leadership changes, concentration in previously strong sectors, portfolio turnover, and overlap with broad-market ETFs such as SPY or VOO. **High momentum is not the same as undervaluation.**
+
+**Fund references:** [SPMO — Invesco](https://www.invesco.com/us/en/financial-products/etfs/invesco-sp-500-momentum-etf.html) · [XMMO — Invesco](https://www.invesco.com/us/en/financial-products/etfs/invesco-sp-midcap-momentum-etf.html)
+""")
+
+with st.expander("Value ETFs — AVLV and VTV", expanded=False):
+    st.markdown("""
+**The idea:** Favor stocks with relatively attractive prices compared with business fundamentals. A diversified value ETF expresses this factor without betting the entire thesis on one apparently cheap company.
+
+| ETF | What it emphasizes |
+|:--|:--|
+| **AVLV** — Avantis U.S. Large Cap Value ETF | An **actively managed large-cap value** approach that evaluates company valuations and other investment characteristics. |
+| **VTV** — Vanguard Value ETF | Broad **U.S. large-cap value** exposure through an index-tracking approach. |
+
+**Why use a value ETF?** It spreads company-specific value-trap risk across many holdings and offers a systematic complement to momentum and the S&P 500 core.
+
+**Main risks:** Low valuations may reflect genuine business deterioration; value can underperform for years, and a value ETF is not automatically cheap on an absolute basis. Review portfolio overlap, costs, profitability, and sector exposures.
+
+**Fund references:** [AVLV — Avantis](https://www.avantisinvestors.com/avantis-investments/en-us/avantis-us-large-cap-value-etf/) · [VTV — Vanguard](https://advisors.vanguard.com/investments/products/vtv/vanguard-value-etf)
+""")
+
+st.caption(
+    "Momentum and value can diversify one another because they select stocks differently, "
+    "but they are not guaranteed to move in opposite directions or outperform SPY. "
+    "Evaluate the combined portfolio after fees and taxes."
+)
+
 st.divider()
 st.markdown("## INDIVIDUAL-STOCK STRATEGIES")
 regression, momentum, event = st.tabs(
