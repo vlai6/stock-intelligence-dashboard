@@ -248,7 +248,7 @@ DRAFT_KEY = "ns_working_stocks_v1"
 
 
 def parse_working_tickers(raw: str) -> tuple[list[str], list[str]]:
-    parts = [v for v in re.split(r"[,;\\s]+", str(raw or "").strip()) if v]
+    parts = [v for v in re.split(r"[,;\s]+", str(raw or "").strip()) if v]
     normalized = [valid_symbol(p) for p in parts]
     return (list(dict.fromkeys(x for x in normalized if x)),
             [part for part, symbol in zip(parts, normalized) if not symbol])
