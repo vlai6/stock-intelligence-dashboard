@@ -283,7 +283,7 @@ def _single_ticker_history(symbol: str, start: str, target: str) -> pd.Series:
     return _clean_daily_closes(frame, target)
 
 
-def _download_batch(batch: list[Stock], start: str, target: str, hard_timeout_seconds: int | None = None, *, bypass_cache: bool = False) -> tuple[dict[str, pd.Series], int]:
+def _download_batch(batch: list[Stock], start: str, target: str, hard_timeout_seconds: int | None = None, *, bypass_cache: bool = False, recover_individual: bool = True) -> tuple[dict[str, pd.Series], int]:
     """Download Yahoo closes, cautiously recovering isolated bulk failures.
 
     The scheduled email scanner keeps its original hard-timeout path unchanged.
@@ -327,6 +327,11 @@ def _download_batch(batch: list[Stock], start: str, target: str, hard_timeout_se
             if attempt == 0:
                 time.sleep(2)
 
+    # The scheduled email worker uses a separate 20-second watchdog. Preserve
+    # its original bulk-only failure behavior; do not add individual requests.
+    if not recover_individual and bulk_failure is not None:
+        raise bulk_failure
+
     unavailable: list[Stock] = []
     for stock in missing:
         try:
@@ -352,7 +357,7 @@ def _download_batch(batch: list[Stock], start: str, target: str, hard_timeout_se
             result[stock.symbol] = pd.Series(dtype=float)
             unavailable.append(stock)
 
-    if hard_timeout_seconds is not None or not unavailable:
+    if hard_timeout_seconds is not None or not recover_individual or not unavailable:
         return result, cache_hits
 
     # Yahoo/Streamlit Cloud may reject bulk requests while permitting a small
