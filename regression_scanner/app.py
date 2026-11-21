@@ -710,28 +710,33 @@ def render_selected_channel(view: pd.DataFrame, summary: dict, session: str) -> 
             """,
             unsafe_allow_html=True,
         )
-        st.plotly_chart(
-            style_blue_figure(channel_figure(chart, ticker, visible_bands)),
-            use_container_width=True,
-            key=f"channel_chart_{ticker}",
-            config={
-                "displaylogo": False,
-                "displayModeBar": True,
-                # First group is Autoscale; other built-in chart tools remain
-                # available in a predictable order, including camera export.
-                "modeBarButtons": [
-                    ["autoScale2d"],
-                    ["zoom2d", "pan2d", "zoomIn2d", "zoomOut2d", "resetScale2d"],
-                    ["toImage"],
-                ],
-                # Native Plotly wheel zoom: gradual per-scroll zooming.
-                "scrollZoom": True,
-                "doubleClick": "reset",
-                # Permit independent X/Y scaling from the tick-label/axis areas.
-                "showAxisDragHandles": True,
-                "showAxisRangeEntryBoxes": False,
-            },
-        )
+        # Put the regression plot on a frosted surface with whitespace on the
+        # right, rather than stretching it across an ultrawide monitor.
+        chart_width_col, _chart_right_space = st.columns([0.87, 0.13], gap="small")
+        with chart_width_col:
+            with st.container(key="regression_chart_glass"):
+                st.plotly_chart(
+                    style_blue_figure(channel_figure(chart, ticker, visible_bands)),
+                    use_container_width=True,
+                    key=f"channel_chart_{ticker}",
+                    config={
+                        "displaylogo": False,
+                        "displayModeBar": True,
+                        # First group is Autoscale; other built-in chart tools remain
+                        # available in a predictable order, including camera export.
+                        "modeBarButtons": [
+                            ["autoScale2d"],
+                            ["zoom2d", "pan2d", "zoomIn2d", "zoomOut2d", "resetScale2d"],
+                            ["toImage"],
+                        ],
+                        # Native Plotly wheel zoom: gradual per-scroll zooming.
+                        "scrollZoom": True,
+                        "doubleClick": "reset",
+                        # Permit independent X/Y scaling from the tick-label/axis areas.
+                        "showAxisDragHandles": True,
+                        "showAxisRangeEntryBoxes": False,
+                    },
+                )
         scanner_z = pd.to_numeric(chosen.get("z_score"), errors="coerce")
         st.caption(
             f"**{snapshot_title}:** Daily-close regression ({chart.lookback_bars:,} sessions, "
@@ -847,7 +852,9 @@ def render_saved_results(scope: str, top_n: int, min_cap: float,
     # itself is displayed directly above the stock table, below the chart.
     # Read its widget state here so it can filter the data and selected chart
     # before the input is rendered later in this same Streamlit rerun.
-    c_filter, c_sort = st.columns([2, 1.5])
+    # Keep these relatively short selectors to the left; leave open space
+    # on the right rather than stretching options across the whole page.
+    c_filter, c_sort, _filter_deadspace = st.columns([2.5, 2.1, 5.4], gap="small")
     with c_filter:
         selected = st.selectbox(
             "Show stocks", ["All qualifying", "At or below −3σ", "At or below −4σ"]
@@ -1150,7 +1157,7 @@ if scope == ETF_SCOPE and current_etf_symbol:
 
 # Reuse the exact same results container once the scan finishes (or on reload).
 # The live preview is replaced, not followed by another results table.
-with results_slot.container():
+with results_slot.container(key="regression_results_surface"):
     if scope == ETF_SCOPE and REPORT_FILE.exists():
         existing, _summary = read_results()
         if existing is not None and existing.empty:
