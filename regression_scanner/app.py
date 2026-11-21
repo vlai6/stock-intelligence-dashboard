@@ -293,6 +293,13 @@ def regression_table_height(row_count: int, max_height: int = 760) -> int:
     return min(max_height, 43 + 35 * max(1, row_count))
 
 
+def change_results_page(delta: int) -> None:
+    """Page through already-filtered saved results without modifying the scan."""
+    st.session_state["regression_results_page"] = max(
+        1, int(st.session_state.get("regression_results_page", 1)) + delta
+    )
+
+
 def show_live_table(rows: list[dict]) -> None:
     if not rows:
         st.caption("No stocks passing the trend/history filters yet in the processed batches.")
@@ -406,6 +413,11 @@ with st.container(border=True):
         st.caption("All available: large universes may hit Yahoo's discovery safeguard or download limits.")
 
     st.caption(f"Daily closes only · {length:,} trading sessions · not a live intraday feed")
+    st.markdown(
+        '<hr style="border:0;border-top:1px solid rgba(155,167,184,0.16);'
+        'margin:0.55rem 0 0.1rem;">',
+        unsafe_allow_html=True,
+    )
 
 if launch:
     st.session_state.pop("last_scan_error", None)
@@ -581,6 +593,7 @@ def graph_checkbox_changed(editor_key: str, tickers: tuple[str, ...]) -> None:
 def render_selected_channel(view: pd.DataFrame, summary: dict, session: str) -> None:
     """Show a compact daily-regression chart above the Graph-selection table."""
     st.subheader("REGRESSION ANALYSIS")
+    st.caption("Graph: Check one stock in the results table below to display its regression analysis here.")
     ticker = selected_chart_ticker(view)
     if ticker is None:
         st.caption("No qualifying stocks in this selection. Change the table filter below.")
@@ -676,21 +689,7 @@ def render_saved_results(scope: str, top_n: int, min_cap: float,
     file_time = datetime.fromtimestamp(REPORT_FILE.stat().st_mtime, TZ).strftime("%b %d, %Y %I:%M %p ET")
     report_session = str(summary.get("session") or (df["session"].iloc[0] if len(df) and "session" in df else "unknown"))
     saved = summary.get("filters", {})
-    if saved:
-        if saved.get("custom_symbols"):
-            changed = scope not in (CUSTOM_SCOPE, ETF_SCOPE)
-        else:
-            lo = saved.get("min_cap_b", 50.0)
-            hi = saved.get("max_cap_b")
-            cap_range = f"${lo:g}B–${hi:g}B" if hi is not None else f"${lo:g}B+"
-            n = saved.get("top_n_limit")
-            changed = (scope == CUSTOM_SCOPE or float(lo) != float(min_cap) or
-                       hi != max_cap or n != (top_n if scope == TOP_N_SCOPE else None))
-        if saved.get("regression_sessions") != length:
-            changed = True
-        if changed:
-            st.info("Settings above differ from this saved scan. Press **Run Scan** to apply them.")
-    else:
+    if not saved:
         st.caption("This report predates recorded filters. Run a fresh scan for provenance.")
 
     try:
@@ -797,11 +796,9 @@ def render_saved_results(scope: str, top_n: int, min_cap: float,
         render_saved_scan_parameters(summary, report_session, len(view), len(df), selected, search, sorting)
     render_selected_channel(view, summary, report_session)
 
-    # Place BOTH the Graph instruction and ticker/company search directly
-    # ABOVE the stock results table, not above the regression chart.
-    graph_instructions_col, graph_search_col = st.columns([3, 1.6], vertical_alignment="center")
-    with graph_instructions_col:
-        st.markdown("**Graph:** Check one stock to display its regression analysis above.")
+    # Keep the ticker search above the results table; the compact Graph
+    # instruction now appears directly beneath REGRESSION ANALYSIS.
+    _, graph_search_col = st.columns([6.6, 3.4], vertical_alignment="center")
     with graph_search_col:
         st.text_input(
             "Search ticker or company",
@@ -927,17 +924,67 @@ def render_saved_results(scope: str, top_n: int, min_cap: float,
     # Graph column header. Only that checkbox is editable; financial data
     # and TradingView links remain read-only and preserve Styler highlights.
     visible_view.insert(0, "Graph", visible_view["ticker"].astype(str).eq(active_ticker))
+
+    layout_col, paging_col = st.columns([3.0, 6.0], vertical_alignment="bottom", gap="small")
+    with layout_col:
+        table_layout = st.segmented_control(
+            "Results display",
+            options=["Pages of 10", "Scroll"],
+            default="Pages of 10",
+            key="regression_results_layout",
+            help="Show 10 stocks at a time or scroll through all filtered stock results.",
+        )
+    page_view = visible_view
+    page_no = 1
+    if table_layout == "Pages of 10":
+        pages = max(1, (len(visible_view) + 9) // 10)
+        # Reset to the first page if the scan, search, ordering, or filters change.
+        signature = (
+            f"{scan_identity}|{selected}|{search}|{sorting}|{show_intrinsic}|"
+            f"{st.session_state['intrinsic_na_filter_enabled']}"
+        )
+        if st.session_state.get("regression_results_page_source") != signature:
+            st.session_state["regression_results_page"] = 1
+            st.session_state["regression_results_page_source"] = signature
+        page_no = min(max(1, int(st.session_state.get("regression_results_page", 1))), pages)
+        st.session_state["regression_results_page"] = page_no
+        page_view = visible_view.iloc[(page_no - 1) * 10:page_no * 10].copy()
+        with paging_col:
+            pad, prev_col, label_col, next_col = st.columns(
+                [2.9, 1.2, 1.5, 1.1], vertical_alignment="bottom", gap="small"
+            )
+            with prev_col:
+                st.button(
+                    "Previous", key="regression_page_previous",
+                    disabled=page_no <= 1,
+                    on_click=change_results_page, args=(-1,),
+                    use_container_width=True,
+                )
+            with label_col:
+                st.caption(f"Page {page_no} of {pages} · {len(visible_view):,} stocks")
+            with next_col:
+                st.button(
+                    "Next", key="regression_page_next",
+                    disabled=page_no >= pages,
+                    on_click=change_results_page, args=(1,),
+                    use_container_width=True,
+                )
+    else:
+        with paging_col:
+            st.caption(f"Scrollable table · {len(visible_view):,} stocks")
+
     identity = (
         f"{report_session}|{REPORT_FILE.stat().st_mtime_ns}|{selected}|{search}|{sorting}|"
-        + "|".join(view["ticker"].astype(str))
-        + f"|{active_ticker}|{st.session_state.get('graph_choice_epoch', 0)}|dcf={show_intrinsic}"
+        + "|".join(page_view["ticker"].astype(str))
+        + f"|{active_ticker}|{st.session_state.get('graph_choice_epoch', 0)}"
+        + f"|dcf={show_intrinsic}|layout={table_layout}|page={page_no}"
     )
     editor_key = "graph_editor_" + hashlib.sha256(identity.encode("utf-8")).hexdigest()[:16]
     st.data_editor(
-        styled_stock_table(visible_view),
+        styled_stock_table(page_view),
         hide_index=True,
         use_container_width=True,
-        height=regression_table_height(len(visible_view)),
+        height=regression_table_height(len(page_view)),
         column_order=(["Graph", *VISIBLE_COLUMNS] if not show_intrinsic
                       else ["Graph", *VALUED_COLUMNS]),
         column_config={
@@ -947,10 +994,10 @@ def render_saved_results(scope: str, top_n: int, min_cap: float,
             ),
             **COLUMN_CONFIG,
         },
-        disabled=[col for col in visible_view.columns if col != "Graph"],
+        disabled=[col for col in page_view.columns if col != "Graph"],
         key=editor_key,
         on_change=graph_checkbox_changed,
-        args=(editor_key, tuple(view["ticker"].astype(str))),
+        args=(editor_key, tuple(page_view["ticker"].astype(str))),
     )
     if view.empty:
         st.info("No stocks match that display filter. Try All qualifying.")
