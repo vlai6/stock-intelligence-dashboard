@@ -41,7 +41,7 @@ parser = next(
     if isinstance(node, ast.FunctionDef) and node.name == "parse_working_tickers"
 )
 namespace = {"re": re}
-pattern = re.compile(r"^[A-Z0-9^][A-Z0-9.\\-^=]{0,14}$")
+pattern = re.compile(r"^[A-Z0-9^][A-Z0-9.\-^=]{0,14}$")
 def validate(raw):
     t = str(raw or "").strip().upper()
     if t in ("BRK.B", "BF.B"):
