@@ -57,8 +57,17 @@ assert "font-size: var(--si-type-nav, .85rem);" in nav
 assert "nav.replaceChildren();" in nav
 # Two new educational ETF sections should sit beside the existing factor explainer.
 philosophy = source("pages/00_Investment_Philosophy.py")
-assert philosophy.count('with st.expander("Momentum ETFs — SPMO and XMMO"') == 1
-assert philosophy.count('with st.expander("Value ETFs — AVLV and VTV"') == 1
+assert philosophy.count('with st.expander("Momentum factor — research, evidence and risks"') == 1
+assert philosophy.count('with st.expander("Value factor — research, evidence and risks"') == 1
+assert philosophy.index("What the historical data show") < philosophy.index("ETF implementations worth researching")
+assert "1965–1989" in philosophy
+assert "March–May 2009" in philosophy
+assert "163%" in philosophy and "8%" in philosophy
+assert "profitability" in philosophy.lower()
+assert "Fama & French (1993)" in philosophy
+assert "winner-minus-loser portfolios" in philosophy
+assert "AVUV" in philosophy
+assert "Value ≠ buying every stock" in philosophy
 assert philosophy.index("Why ETFs, momentum, value and quality?") < philosophy.index("FEATURED ETF FACTORS") < philosophy.index("INDIVIDUAL-STOCK STRATEGIES")
 for ticker in ("SPMO", "XMMO", "AVLV", "VTV"):
     assert ticker in philosophy
