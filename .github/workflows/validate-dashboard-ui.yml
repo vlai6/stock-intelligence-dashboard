@@ -43,5 +43,15 @@ jobs:
           assert 'view.to_csv(index=False)' in scanner  # CSV exports all filtered rows
           assert 'Settings above differ from this saved scan' not in scanner
           assert 'Graph: Check one stock in the results table below' in scanner
+          # Plotly's native autoscale remains the first, prominent toolbar
+          # control; subsequent controls keep zoom/pan/reset/export access.
+          assert '"displayModeBar": True' in scanner
+          assert '"modeBarButtons": [' in scanner
+          assert '["autoScale2d"],' in scanner
+          assert '"zoom2d", "pan2d", "zoomIn2d", "zoomOut2d", "resetScale2d"' in scanner
+          assert '["toImage"],' in scanner
+          assert 'content: "Autoscale" !important;' in scanner
+          assert '[class*="st-key-channel_chart_"]' in scanner
+          assert '"scrollZoom": True' in scanner
           print('Navigation, table layout, graph selection, and export contracts OK')
           PY
