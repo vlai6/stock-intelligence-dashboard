@@ -56,10 +56,21 @@ jobs:
           for marker in (".st-key-stock_price_chart_glass", ".st-key-peer_chart_glass",
                          ".st-key-regression_chart_glass", ".st-key-regression_results_surface"):
               assert marker in theme
-          assert 'background:rgba(14,59,96,.80)' in theme
-          assert '[data-baseweb="tag"]' in theme
-          assert 'button[kind="primaryFormSubmit"]' in theme
-          assert 'button[kind="primaryFormSubmit"]:hover' in theme
+          # Action buttons are visually distinct from selected stock/metric chips.
+          assert '--si-action-bg:rgba(27,96,149,.92)' in theme
+          assert '--si-selection-bg:rgba(13,38,57,.94)' in theme
+          assert 'background:var(--si-action-bg) !important;' in theme
+          assert 'background:var(--si-selection-bg) !important;' in theme
+          assert '[data-testid="stExpander"] summary' in theme
+          assert '[data-testid="stMultiSelect"] [data-baseweb="tag"]' in theme
+          assert 'type="primary",\n                            on_click=add_custom_comparison_ticker' in stock
+          assert "st.form_submit_button('Analyze stock', type='primary'" in sentiment
+          assert "st.button('Refresh headlines', type='primary'" in sentiment
+          config = Path('.streamlit/config.toml').read_text()
+          assert 'primaryColor = "#336A8D"' in config
+          assert 'button[kind="primaryFormSubmit"]' not in theme  # one shared action style
+          assert '[data-testid="stFormSubmitButton"] button' in theme
+          assert '[data-testid="stFormSubmitButton"] button:hover' in theme
           sentiment = Path('pages/2_News_Sentiment.py').read_text()
           assert 'fig=go.Figure(go.Bar(x=labels, y=[counts[k] for k in labels],' in sentiment
           assert 'text=[counts[k] for k in labels]' not in sentiment
