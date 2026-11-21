@@ -283,6 +283,61 @@ with regression:
         "selection rule** within the regression strategy."
     )
 
+    st.markdown("#### CORE BUSINESS QUALITY & MANAGEMENT EXECUTION")
+    st.markdown(
+        "Before buying a depressed stock, ask **three different questions**: "
+        "**Is the core business durable? Can management navigate the problem? "
+        "And is the price attractive enough to beat SPY after costs and risk?** "
+        "A well-run company can still be a poor investment at the wrong price."
+    )
+    st.markdown("""
+| Research area | Encouraging signs | Warning signs |
+|:--|:--|:--|
+| **Product and customer demand** | Durable products, repeat buyers, defensible customer relationships | Customers leaving, changing needs, permanent demand decline |
+| **Competitive advantage and economics** | Pricing power, sustainable margins, resilient cash flows | Lost market share, structural margin pressure |
+| **Management delivery** | Credible guidance, milestones met, experience solving comparable problems | Repeated missed commitments or changing explanations |
+| **Capital allocation and governance** | Disciplined spending, sensible acquisitions, incentives aligned with owners | Dilution, value-destroying deals, weak oversight |
+| **Crisis resilience** | Cash runway, manageable debt, operational flexibility | Refinancing risk, cash burn, inability to fund a turnaround |
+| **Valuation and expected recovery** | Conservative future cash flows justify the price and waiting period | Business value has declined more than the stock price |
+""")
+    st.markdown(
+        "**How we use this:** Check whether the underlying business remains "
+        "competitive, study what the current leaders did *before* the crisis, "
+        "and document the measurable improvements needed for recovery. "
+        "Do not rely solely on a famous CEO or a persuasive turnaround story."
+    )
+    with st.expander("Management quality and crisis resilience — research evidence", expanded=False):
+        st.markdown("""
+| Study | What it found | How we might use it |
+|:--|:--|:--|
+| **Demerjian, Lev & McVay (2012)** | Managerial ability can be studied through efficiency in converting corporate resources into revenue while accounting for firm differences | Compare operational efficiency with peers and leadership track records |
+| **Firm Performance During the COVID-19 Crisis (2022)** | Higher managerial ability was associated with stronger initial-crisis share performance; pre-crisis liquidity partly explained the association | Check cash reserves, leverage and preparedness *before* the decline |
+| **Leadership in a Pandemic (2022/2023)** | Studied links between management ability, operating performance, volatility and financial distress during COVID | Test whether leadership can keep the business functioning under stress |
+| **Insider vs. Outsider CEO (2022)** | The study reported a 0.51 percentage-point quarterly ROA advantage for insider-led companies during the 2020 crisis, not before it | Consider relevant company knowledge, but never assume an insider CEO automatically outperforms |
+| **Edmans (2011)** | Historically, employee satisfaction was associated with higher future factor-adjusted stock returns in a studied portfolio | Talent, incentives and retention can be supporting clues to execution capacity |
+| **Bebchuk, Cohen & Ferrell (2009)** | Some management-entrenchment arrangements were associated with lower valuations and weaker abnormal returns | Examine board accountability, incentives and shareholder alignment |
+
+**Important distinction:** Stronger operations or better crisis survival do not prove a stock bought after an extreme regression decline will outperform SPY.
+
+**Sources:** [Demerjian et al. (2012)](https://doi.org/10.1287/mnsc.1110.1487) · [Edmans (2011)](https://doi.org/10.1016/j.jfineco.2011.03.021) · [Bebchuk et al. (2009)](https://doi.org/10.1093/rfs/hhn099)
+""")
+    with st.expander("Core business quality, financial strength and valuation — research evidence", expanded=False):
+        st.markdown("""
+- **Piotroski (2000):** In a historical sample of inexpensive high-book-to-market stocks, selecting financially strong businesses improved average annual returns by **at least 7.5 percentage points**. This is a comparison **within a value-stock universe**, not extra return over SPY from our regression scanner.
+- **Quality Minus Junk (Asness, Frazzini & Pedersen, 2019):** Studies quality characteristics such as profitability, growth and financial safety. The evidence motivates examining durable fundamentals, not an automatic buy rule.
+- **In Search of Distress Risk (Campbell, Hilscher & Szilagyi, 2008):** Financially troubled stocks can perform poorly despite their large price declines.
+- **Management ≠ valuation:** A company may have talented leaders and healthy cash flow but still be too expensive. Estimate conservative **bear/base/bull future cash flows** and compare expected returns with SPY.
+
+**At the original entry date, research:** Is the product still wanted? Are customers and margins durable? Can the company fund its obligations? Has management executed comparable recoveries? Is there a credible catalyst? Does the stock offer sufficient margin of safety and potential excess return over SPY?
+
+**Sources:** [Piotroski (2000)](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=249455) · [Quality Minus Junk](https://link.springer.com/article/10.1007/s11142-018-9470-2) · [In Search of Distress Risk](https://doi.org/10.1111/j.1540-6261.2008.01416.x)
+""")
+    st.caption(
+        "Research status: this is a proposed qualitative review framework. "
+        "We have **not established that a management-quality or business-quality "
+        "filter improves our historical after-tax SPY-funded rotation performance**."
+    )
+
     st.markdown("#### WHAT OUR REGRESSION RESEARCH HAS SHOWN")
     st.markdown(
         "**Our main research question:** Can we improve a long-term SPY investment "
@@ -429,7 +484,7 @@ Our next ideas are **questions for testing**, not improvements we have already p
 | Research hypothesis | Testable question | What must remain fair |
 |:--|:--|:--|
 | **Market- and industry-adjusted deviation** | Does a stock falling much further than its sector or SPY recover more reliably than a stock simply far below its own trend? | Preserve the current scanner signal as a baseline; separately test market/industry adjustment |
-| **Financial strength** | Do positive free cash flow, manageable debt, and durable competitive advantages improve screened-stock outcomes? | Use only financial information already available on the entry date |
+| **Core business and management quality** | Do durable customer demand, sound finances, leadership execution, and disciplined capital allocation improve screened-stock outcomes? | Use only information available on each historical entry date |
 | **Short-term reversal vs. long-term repair** | Are quick rebounds after panic different from multi-quarter business turnarounds? | Examine distinct horizons such as five trading days, 13, 26, 52 and 104 weeks |
 | **How negative should the Z-score be?** | Do −4σ stocks genuinely do better than −3σ stocks outside crisis years? | Compare comparable time periods and account for smaller, overlapping samples |
 | **Fundamental value plus statistical dislocation** | Does a conservative discount to future cash flows improve stock selection beyond regression alone? | Use historically available valuation inputs and realistic uncertainty ranges |
