@@ -114,14 +114,14 @@ html, body, [data-testid="stApp"], .stApp,
 }
 
 /* Earth at night, supplied as the requested background photograph.
-   Original photograph: Zelch Csaba / Pexels, photo ID 30596248.
+   Original photograph: Zelch Csaba / Pexels, photo ID 30596231.
    The black base remains as an automatic fallback if the CDN is blocked.
    Keep sections readable with a soft dark overlay and opaque controls. */
 [data-testid="stAppViewContainer"] {
   background-color:var(--si-bg) !important;
   background-image:
     linear-gradient(180deg, rgba(3,7,17,.25) 0%, rgba(3,7,17,.42) 100%),
-    url("https://images.pexels.com/photos/30596248/pexels-photo-30596248.jpeg?auto=compress&cs=tinysrgb&w=1920") !important;
+    url("https://images.pexels.com/photos/30596231/pexels-photo-30596231.jpeg?auto=compress&cs=tinysrgb&w=1920") !important;
   background-position:center center !important;
   background-size:cover !important;
   background-repeat:no-repeat !important;

@@ -30,7 +30,9 @@ if str(PROJECT_ROOT) not in sys.path:
 from dashboard_theme import apply_dashboard_theme, render_page_header
 from etf_holdings import ETFHoldings, fetch_etf_holdings
 from etf_scan_results import load_etf_scores, etf_score_map
-from custom_watchlists import render_custom_list
+from custom_watchlists import (
+    DRAFT_KEY, render_custom_list, render_working_list, save_displayed_watchlist,
+)
 from scanner_email_watchlist import (
     AlertSnapshot,
     load_email_alerts,
@@ -640,7 +642,11 @@ TODAYS_SCAN_LABEL = "Today's Regression Scan's Stocks"
 SP500_LABEL = "S&P 500 Top 10 Holdings"
 CUSTOM_ETF_LABEL = "Other ETF — Top 10 Holdings"
 CUSTOM_STOCK_LABEL = "Custom List"
-SCREEN_OPTIONS = [TODAYS_SCAN_LABEL, SP500_LABEL, CUSTOM_ETF_LABEL, CUSTOM_STOCK_LABEL]
+WORKING_STOCK_LABEL = "Working List (Unsaved)"
+SCREEN_OPTIONS = [
+    TODAYS_SCAN_LABEL, SP500_LABEL, CUSTOM_ETF_LABEL,
+    WORKING_STOCK_LABEL, CUSTOM_STOCK_LABEL,
+]
 
 # User-provided SPY starter tickers, used only if Yahoo's holdings feed fails.
 ETF_STARTERS = {
@@ -662,21 +668,44 @@ render_page_header('General News Screen',
                    'AI news agent · scan signals, ETF holdings, or custom lists',
                    current='general')
 
-# Keep the selector compact, with a shortcut directly into editable lists.
-def choose_custom_stock_list():
-    # Button callbacks run before Streamlit widgets are rebuilt.
+# Save submissions persist across the browser-storage initialization rerun.
+pending_save = st.session_state.get('ns_pending_list_save')
+if pending_save is not None:
+    success, message = save_displayed_watchlist(
+        pending_save['name'], pending_save['stocks']
+    )
+    st.session_state.pop('ns_pending_list_save', None)
+    st.session_state['ns_save_feedback'] = ('success' if success else 'error', message)
+    if success:
+        st.session_state['ns_group_select'] = CUSTOM_STOCK_LABEL
+    st.rerun()
+
+
+def choose_saved_lists():
     st.session_state['ns_group_select'] = CUSTOM_STOCK_LABEL
 
 
-selector_col, custom_button_col, unused_space = st.columns(
-    [2.5, 1.6, 5.9], gap='small', vertical_alignment='bottom'
+def start_blank_working_list():
+    st.session_state[DRAFT_KEY] = []
+    st.session_state['ns_group_select'] = WORKING_STOCK_LABEL
+
+
+selector_col, clear_col, saved_col, unused_space = st.columns(
+    [2.5, 1.65, 1.45, 4.4], gap='small', vertical_alignment='bottom'
 )
 with selector_col:
     mode = st.selectbox('Stock group', SCREEN_OPTIONS, key='ns_group_select')
-with custom_button_col:
-    st.button('Create custom list', key='ns_go_to_custom_list',
-              use_container_width=True, on_click=choose_custom_stock_list,
-              help='Open the Custom List editor to create or edit a saved stock list.')
+with clear_col:
+    st.button('Clear & add stocks', key='ns_start_blank_list',
+              use_container_width=True, on_click=start_blank_working_list,
+              help='Start an empty working list. Your saved lists and regression scan are not deleted.')
+with saved_col:
+    st.button('Saved lists', key='ns_go_to_saved_lists',
+              use_container_width=True, on_click=choose_saved_lists,
+              help='View and edit your saved custom lists.')
+feedback = st.session_state.pop('ns_save_feedback', None)
+if feedback:
+    getattr(st, feedback[0])(feedback[1])
 selected_etf = ''
 if mode == CUSTOM_ETF_LABEL:
     if 'ns_selected_etf' not in st.session_state:
@@ -711,6 +740,8 @@ if mode == TODAYS_SCAN_LABEL:
         st.info('No successfully emailed regression scan has been published yet.')
 elif mode == CUSTOM_STOCK_LABEL:
     watchlist = render_custom_list()
+elif mode == WORKING_STOCK_LABEL:
+    watchlist = render_working_list()
 else:
     etf_data = cached_etf_holdings(selected_etf)
     if etf_data.tickers:
@@ -727,6 +758,34 @@ else:
         st.warning(etf_data.error or f'No holdings were found for {selected_etf}. '
                    'The data provider does not cover every ETF.')
 
+# Save whichever tickers are currently displayed, regardless of their
+# source. Presets remain unchanged; saved copies are browser-local.
+if watchlist:
+    save_col, edit_col, unused = st.columns(
+        [1.8, 1.4, 6.8], gap="small", vertical_alignment="bottom"
+    )
+    with save_col:
+        with st.popover("Save displayed as list", use_container_width=True):
+            st.caption("Create a named list from the current on-screen stocks.")
+            with st.form("ns_save_displayed_stocks", clear_on_submit=True):
+                list_name = st.text_input("New list name", max_chars=32,
+                                          placeholder="e.g. Research stocks")
+                submitted_save = st.form_submit_button(
+                    "Save list", type="primary", use_container_width=True
+                )
+            if submitted_save:
+                st.session_state['ns_pending_list_save'] = {
+                    'name': list_name, 'stocks': watchlist.copy()
+                }
+                st.rerun()
+    with edit_col:
+        if st.button("Edit displayed", key="ns_edit_displayed_stocks",
+                     use_container_width=True,
+                     help="Copy the stocks on screen into an editable working list."):
+            st.session_state[DRAFT_KEY] = watchlist.copy()
+            st.session_state['ns_group_select'] = WORKING_STOCK_LABEL
+            st.rerun()
+
 # The initial user-provided weights were deliberately not hardcoded: they can
 # become stale or differ between the index and ETF tracking it.
 st.session_state['ns_watchlist'] = watchlist.copy()
@@ -736,8 +795,9 @@ st.markdown('<div class="ns-toprule"></div>', unsafe_allow_html=True)
 if watchlist:
     st.markdown('<div class="ns-section-label">' +
                 ('REGRESSION SCAN STOCKS' if mode == TODAYS_SCAN_LABEL
-                 else ('CUSTOM STOCKS' if mode == CUSTOM_STOCK_LABEL
-                       else 'ETF CONSTITUENTS · ' + html.escape(selected_etf))) +
+                 else ('WORKING STOCKS' if mode == WORKING_STOCK_LABEL
+                       else ('CUSTOM STOCKS' if mode == CUSTOM_STOCK_LABEL
+                             else 'ETF CONSTITUENTS · ' + html.escape(selected_etf)))) +
                 '</div>', unsafe_allow_html=True)
     tags = ''.join('<span class="ns-auto-pill">' + html.escape(symbol.replace('BRK-B', 'BRK.B'))
                    + '</span>' for symbol in watchlist)
@@ -768,7 +828,10 @@ with control_right:
         st.rerun()
 
 if not watchlist:
-    st.info("No stock tickers to display for this selection. Choose another group or ETF.")
+    if mode == WORKING_STOCK_LABEL:
+        st.info("Add stocks above to begin your working list.")
+    else:
+        st.info("No stock tickers to display for this selection. Choose another group or ETF.")
     st.stop()
 
 # Show visible progress while loading each ticker and scoring its headlines.
@@ -834,6 +897,7 @@ st.markdown(
     '<div class="ns-footer">'
     f'{scan_note}Headline sentiment is an estimate, not a trading recommendation. '
     'News comes from Yahoo Finance, with GNews fallback when configured; coverage varies. '
-    'ETF holdings are provided by Yahoo Finance where available; regression stocks come from the last successful email. Custom lists are browser-local.'
+    'ETF holdings come from Yahoo Finance where available; regression stocks come from the last successful email. '
+    'Working lists are session-only; saved named custom lists are browser-local.'
     '</div>', unsafe_allow_html=True,
 )
