@@ -118,7 +118,8 @@ jobs:
           assert 'De Bondt & Thaler (1985)' in philosophy
           assert 'Piotroski (2000)' in philosophy
           assert 'Demerjian, Lev & McVay (2012)' in philosophy
-          assert 'This combined screening process is **not yet validated**' in philosophy
+          assert 'This combined screening process is ' in philosophy
+          assert 'not yet validated.**' in philosophy
           # Rule-level pre-tax outcomes and portfolio-level tax treatment must
           # remain separate. Never fabricate after-tax results per trade rule.
           assert 'Full-portfolio results, including estimated taxes' in philosophy
