@@ -212,6 +212,8 @@ with regression:
         st.markdown("""
 **Study setup:** Around 304 companies selected from a *current* USD 50B+ universe; ~2,500 trading days of regression history; entries at −3σ to −4.5σ; eight recovery exits and a 52-week maximum hold. The event study evaluated **509 entry-threshold-specific episodes** under eight exits (**4,072 records, not independent trades**).
 
+**Selected trade rules (trade-level observations, before modeled taxes)**
+
 | Selected trade rule | Episodes | Average excess vs. SPY | Beat SPY |
 |:--|--:|--:|--:|
 | −3σ → −2σ | 215 | +4.83 pp | 73.0% |
@@ -219,9 +221,18 @@ with regression:
 | −4σ → −1σ | 92 | +10.88 pp | 68.5% |
 | −4.5σ → +1σ | 61 | +22.84 pp | 72.1% |
 
-Those are **trade-level returns before taxes**, not full-portfolio gains. The −3σ → −2σ mean excess was +3.50 pp after excluding both 2020 and 2022, but only +0.40 pp for 2023–2025 entrants.
+The −3σ → −2σ mean excess was +3.50 pp after excluding both 2020 and 2022, but only +0.40 pp for 2023–2025 entrants.
 
-**Portfolio model:** Begin with USD 100,000 in SPY, transfer 1% per new qualifying stock, return proceeds to SPY at exit, and allow up to 20% satellite exposure (a test setting, not the preferred 5–10% equity-allocation range). Reported best *pretax* portfolio: USD 458,879 vs USD 423,602 SPY. Best *after-tax*: USD 374,922 vs USD 370,264 SPY, or roughly 12.92% versus 12.79% annualized. Pretax and after-tax winners may use different parameters.
+**Full-portfolio results, including estimated taxes**
+
+| Portfolio comparison | Configurations ahead of SPY | Best rotation value | SPY benchmark | Best reported lead |
+|:--|--:|--:|--:|--:|
+| Before modeled federal taxes | 32 / 32 | $458,879 | $423,602 | +$35,277 |
+| After estimated federal taxes | 11 / 32 | $374,922 | $370,264 | +$4,658 |
+
+**Portfolio model:** Begin with $100,000 invested in SPY, temporarily transfer 1% per qualifying stock, return proceeds to SPY at exit, and allow up to 20% satellite exposure (a test setting, not the preferred 5–10% individual-stock allocation). The best pretax and after-tax configurations can use **different parameters**, so each row reports its own corresponding SPY benchmark. The reported best after-tax comparison was approximately **12.92% versus 12.79% annualized**.
+
+**Interpretation:** The before/after-tax table reflects **complete portfolio outcomes** across 32 tested configurations, not taxes applied separately to the four selected trade-rule rows. Rule-specific after-tax excess returns and hit rates were **not available** in the reported study and should not be inferred from the portfolio totals.
 
 Trading costs, dividends, settlement and estimated federal taxes (35% short-term, 15% long-term) were modeled. A separate cash/Treasury-funded portfolio failed to beat SPY after estimated taxes under all 32 tested configurations; idle cash alone is **not proven** to explain its failure.
 
