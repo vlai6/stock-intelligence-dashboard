@@ -15,6 +15,11 @@ for name in (
 for element in ("h1", "h2", "h3", "h4"):
     assert f'[data-testid="stMarkdownContainer"] {element}' in theme
 assert "font-size:var(--si-type-page)" in theme
+# The auto-generated anchor shortcut beside a heading must be hidden;
+# other hyperlinks and real navigation are not targeted by this selector.
+assert '[data-testid="stHeaderActionElements"]' in theme
+assert 'display: none !important;' in theme.split('[data-testid="stHeaderActionElements"]', 1)[1].split('}', 1)[0]
+assert '[data-testid="stPageLink"] a' in theme
 assert "font-size:var(--si-type-caption) !important" in theme
 assert "font=dict(family='Inter, Segoe UI, Arial, sans-serif', color='#DEEAF7', size=13)" in theme
 

@@ -189,6 +189,15 @@ label[data-testid="stWidgetLabel"] p,
 
 .si-page-subtitle {font-size:var(--si-type-body);line-height:1.45;color:#A5BBD0;margin:.36rem 0 .65rem;}
 
+/* Remove only Streamlit's auto-generated heading permalink controls.
+   Section headings and their deep-link IDs remain intact. Do not hide
+   real article links, source citations, or deliberate page navigation. */
+[data-testid="stHeaderActionElements"] {
+  display: none !important;
+  pointer-events: none !important;
+}
+
+
 [class*="st-key-si_header_"] [data-testid="stPageLink"] a {
 
   display:flex;align-items:center;justify-content:center;min-height:44px;
