@@ -78,8 +78,9 @@ apply_dashboard_theme()
 st.markdown("""
 <style>
 /* Reserve room for the always-visible section navigation below Streamlit's toolbar. */
-[data-testid="stMainBlockContainer"],
-[data-testid="stAppViewBlockContainer"] {
+/* More specific than the legacy page themes loaded inside each section. */
+html body [data-testid="stMainBlockContainer"],
+html body [data-testid="stAppViewBlockContainer"] {
   padding-top: 5.1rem !important;
 }
 .si-section-marker { height: 1px; scroll-margin-top: 102px; }
@@ -88,8 +89,8 @@ div[class*="st-key-si_section_"] {
   border-bottom: 1px solid rgba(130, 159, 194, .20);
 }
 @media(max-width:700px) {
-  [data-testid="stMainBlockContainer"],
-  [data-testid="stAppViewBlockContainer"] { padding-top:5.5rem !important; }
+  html body [data-testid="stMainBlockContainer"],
+  html body [data-testid="stAppViewBlockContainer"] { padding-top:5.5rem !important; }
   .si-section-marker { scroll-margin-top: 96px; }
 }
 </style>
