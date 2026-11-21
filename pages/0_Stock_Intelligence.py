@@ -198,6 +198,23 @@ st.markdown(
         min-height: 40px;
         border-radius: 10px !important;
     }
+    /* Compact controls: cap widths without clipping ticker chips or choices. */
+    [class*="st-key-price_history_period_"] { max-width: 370px; }
+    [class*="st-key-custom_ticker_input_"] { max-width: 450px; }
+    [class*="st-key-peers_"] { max-width: 590px; }
+    [class*="st-key-metrics_risk_period_"] { max-width: 370px; }
+    [class*="st-key-metric_group_"] { max-width: 650px; }
+    .st-key-stock_search [data-testid="stTextInput"] { max-width: 570px; }
+    @media (max-width: 800px) {
+        [class*="st-key-price_history_period_"],
+        [class*="st-key-custom_ticker_input_"],
+        [class*="st-key-peers_"],
+        [class*="st-key-metrics_risk_period_"],
+        [class*="st-key-metric_group_"],
+        .st-key-stock_search [data-testid="stTextInput"] {
+            max-width: 100%;
+        }
+    }
     /* Make the two top-level peer/metrics cards as tall as their taller neighbor.
        No fixed height: the table and expanders can grow without clipping. */
     .st-key-peer_metrics_equal_height div[data-testid="stHorizontalBlock"]:has(> div[data-testid="stColumn"]) {
@@ -542,7 +559,11 @@ if st.session_state.loaded:
                     _gold_trace.line.color = '#FFD21F'
                     _gold_trace.line.width = 4
                     _gold_trace.line.dash = 'dash'
-            st.plotly_chart(style_blue_figure(fig), use_container_width=True)
+            # Narrower chart, left aligned with open space at right.
+            price_chart_col, _price_chart_space = st.columns([0.86, 0.14], gap="small")
+            with price_chart_col:
+                with st.container(key="stock_price_chart_glass"):
+                    st.plotly_chart(style_blue_figure(fig), use_container_width=True)
             if price_view == "Include Competitors":
                 st.caption(
                     "This chart compares actual share prices (USD), not percentage returns. "
@@ -551,7 +572,7 @@ if st.session_state.loaded:
 
         with st.container(key="peer_metrics_equal_height"):
             # SECTIONS 2 & 3 — SHARED PEER SELECTION
-            peers_col, metrics_col = st.columns([3, 2])
+            peers_col, metrics_col = st.columns([1, 1], gap="medium")
 
             # SECTION 2 — AI COMPETITORS
             with peers_col:
@@ -685,13 +706,16 @@ if st.session_state.loaded:
                         hoverlabel=dict(
                             font=dict(size=14),
                         ),
-                        margin=dict(l=10, r=10, t=30, b=10)
+                        margin=dict(l=10, r=48, t=30, b=10)
                     )
 
-                    st.plotly_chart(
-                        style_blue_figure(comparison),
-                        use_container_width=True
-                    )
+                    peer_chart_col, _peer_chart_space = st.columns([0.91, 0.09], gap="small")
+                    with peer_chart_col:
+                        with st.container(key="peer_chart_glass"):
+                            st.plotly_chart(
+                                style_blue_figure(comparison),
+                                use_container_width=True,
+                            )
                     st.caption(
                         "Return (%) is the cumulative percentage change from "
                         "each stock's first available closing price in the selected "
@@ -765,7 +789,8 @@ if st.session_state.loaded:
                     analysis_period = st.selectbox(
                         "Historical risk period",
                         ["1 Year", "3 Years", "5 Years"],
-                        index=0
+                        index=0,
+                        key=f"metrics_risk_period_{symbol}",
                     )
 
                     period_days = {
