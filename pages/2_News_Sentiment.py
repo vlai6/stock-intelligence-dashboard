@@ -356,7 +356,7 @@ with right:
 st.divider()
 st.subheader('Recent Headlines')
 st.caption('Sorted newest first · each headline explicitly names the selected company · published within 7 days')
-filter_choices=['All','Positive','Neutral','Negative','Unavailable']
+filter_choices=['All','Positive','Neutral','Negative']
 col1,col2=st.columns([2,1])
 with col1:
     sentiment_filter=st.segmented_control('Headline sentiment',filter_choices,default='All',key=f'weekly_headline_filter_{symbol}')

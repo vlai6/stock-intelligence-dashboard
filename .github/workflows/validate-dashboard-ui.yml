@@ -6,6 +6,7 @@ on:
       - "app.py"
       - "dashboard_theme.py"
       - "pages/0_Stock_Intelligence.py"
+      - "pages/1_News_Screen.py"
       - "pages/2_News_Sentiment.py"
       - "regression_scanner/app.py"
       - ".github/workflows/validate-dashboard-ui.yml"
@@ -68,6 +69,17 @@ jobs:
           sentiment = Path('pages/2_News_Sentiment.py').read_text()
           assert "st.form_submit_button('Analyze stock', type='primary'" in sentiment
           assert "st.button('Refresh headlines', type='primary'" in sentiment
+          # UI terminology and sentiment filters stay aligned across both modes.
+          news_screen = Path('pages/1_News_Screen.py').read_text()
+          scroll_nav = Path('scroll_nav.py').read_text()
+          for source in (nav, theme, news_screen, scroll_nav):
+              assert "General News Screen" not in source
+              assert "News Screener" in source
+          assert "filter_choices=['All','Positive','Neutral','Negative']" in sentiment
+          assert "'Negative','Unavailable'" not in sentiment
+          # Missing model scores remain visible as 'Unavailable' in All;
+          # only the dedicated segmented-control option is removed.
+          assert "'Sentiment':'Unavailable'" in sentiment
           config = Path('.streamlit/config.toml').read_text()
           assert 'primaryColor = "#336A8D"' in config
           assert 'button[kind="primaryFormSubmit"]' not in theme  # one shared action style

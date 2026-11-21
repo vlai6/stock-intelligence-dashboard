@@ -667,7 +667,7 @@ def cached_etf_holdings(ticker: str) -> ETFHoldings:
 if st.session_state.get('ns_group_select') not in SCREEN_OPTIONS:
     st.session_state['ns_group_select'] = TODAYS_SCAN_LABEL
 
-render_page_header('General News Screen',
+render_page_header('News Screener',
                    'AI news agent · scan signals, ETF holdings, or custom lists',
                    current='general')
 

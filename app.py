@@ -17,7 +17,7 @@ st.set_page_config(page_title='Stock Intelligence',
 page = st.navigation([
     st.Page('scroll_dashboard.py', title='Dashboard', default=True),
     st.Page('pages/00_Investment_Philosophy.py', title='Investment Philosophy'),
-    st.Page('pages/1_News_Screen.py', title='General News Screen'),
+    st.Page('pages/1_News_Screen.py', title='News Screener'),
     st.Page('regression_scanner/app.py', title='Regression Scanner'),
     st.Page('pages/0_Stock_Intelligence.py', title='Metrics & Competition'),
     st.Page('pages/2_News_Sentiment.py', title='Recent Sentiment'),
