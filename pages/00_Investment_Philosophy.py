@@ -159,40 +159,31 @@ with regression:
 </div>
 """, unsafe_allow_html=True)
     st.markdown(
-        "**All 32 tested entry/exit configurations beat buy-and-hold SPY before "
-        "modeled taxes, but only 11 of 32 did so after estimated taxes.** "
-        "In the best reported after-tax scenario, the rotating portfolio "
-        "finished near **$374,922**, compared with **$370,264** for SPY, "
-        "starting from $100,000 over nearly 11 years—a difference of about "
-        "**$4,658**, not a large or independently verified advantage. "
-        "These are **portfolio-level** comparisons, not the percentage of "
-        "individual stocks that beat SPY."
+        "All 32 tested SPY-funded configurations beat SPY **before taxes**, but "
+        "only **11 of 32** did **after taxes**. The best after-tax portfolio ended "
+        "at **$374,922 vs. $370,264 for SPY** from $100,000 over nearly 11 years. "
+        "These are **portfolio-level, in-sample** results—not proof of a repeatable edge."
     )
     st.markdown("#### WHY THE SCREEN IS STILL WORTH RESEARCHING")
     st.markdown(
-        "The useful finding is **not** that every sharp decline will recover, or "
-        "that a profitable individual trade proves a repeatable edge. It is that "
-        "an extreme regression deviation can narrow a broad market into a "
-        "**defined set of unusual price declines** for deeper investigation. "
-        "Our tests contained recoveries, but also weak results and value traps; "
-        "the economic opportunity would come from distinguishing a "
-        "**temporary market overreaction** from a **lasting deterioration in "
-        "business value**."
+        "**Regression flags unusual declines; it cannot tell a temporary setback "
+        "from permanent business damage.** Research on long-term reversals "
+        "([De Bondt & Thaler (1985)](https://doi.org/10.1111/j.1540-6261.1985.tb05004.x)), "
+        "financial strength ([Piotroski (2000)](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=249455); "
+        "[Fama & French (2015)](https://doi.org/10.1016/j.jfineco.2014.10.010)), "
+        "and management and distress ([Demerjian, Lev & McVay (2012)](https://doi.org/10.1287/mnsc.1110.1487); "
+        "[Campbell et al. (2008)](https://doi.org/10.1111/j.1540-6261.2008.01416.x)) "
+        "supports examining the underlying business—not this exact regression rule."
     )
-    st.markdown("""
-**Independent research provides a rationale for investigating this two-stage approach:**
-
-- **Overreaction and reversals:** [De Bondt & Thaler (1985)](https://doi.org/10.1111/j.1540-6261.1985.tb05004.x) found that portfolios of previous long-term losers later outperformed previous winners. This supports studying reversals **in general**, not the predictive power of our specific regression Z-score.
-- **Financial resilience and quality:** [Piotroski (2000)](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=249455) showed that accounting-based strength measures helped distinguish stronger and weaker *value stocks*. [Fama & French (2015)](https://doi.org/10.1016/j.jfineco.2014.10.010) also document the importance of profitability and investment characteristics in historical returns. Neither paper tests our rotation strategy.
-- **Management and downside risk:** [Demerjian, Lev & McVay (2012)](https://doi.org/10.1287/mnsc.1110.1487) studied measurable managerial ability, while [Campbell, Hilscher & Szilagyi (2008)](https://doi.org/10.1111/j.1540-6261.2008.01416.x) examined the risks of financially distressed firms. They motivate evaluating management execution and survival capacity rather than treating every stock-price collapse as a bargain.
-
-**Our next hypothesis:** Use regression to **find candidates**, then independently assess **what caused the decline**, whether the **core business remains competitive**, whether **management can execute a credible recovery**, and whether **cash flow, debt and liquidity give the firm enough time**. Purchase only if a conservative valuation and expected **after-tax** return justify diverting capital from SPY. This combined screening process is **not yet validated** by our backtests.
-""")
+    st.markdown(
+        "**Next step:** Evaluate the decline's cause, business quality, management, "
+        "financial resilience and valuation. Only rotate out of SPY when expected "
+        "**after-tax returns** justify it. **This combined screening process is "
+        "not yet validated.**"
+    )
     st.caption(
-        "Historical, in-sample simulations using a current-survivor stock universe. "
-        "Results are sensitive to taxation, look-ahead and survivorship issues, "
-        "trade selection and market regimes. The simulations were not "
-        "independently audited; no persistent after-tax edge has been established."
+        "Historical current-survivor sample; survivorship and regime biases, "
+        "simplified taxes and unaudited results limit confidence."
     )
     st.markdown("#### RECOVERY CHECKLIST")
     st.markdown("""
