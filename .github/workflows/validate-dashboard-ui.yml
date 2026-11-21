@@ -5,6 +5,8 @@ on:
     paths:
       - "app.py"
       - "dashboard_theme.py"
+      - "pages/00_Investment_Philosophy.py"
+      - ".streamlit/config.toml"
       - "pages/0_Stock_Intelligence.py"
       - "pages/1_News_Screen.py"
       - "pages/2_News_Sentiment.py"
@@ -117,6 +119,18 @@ jobs:
           assert 'Piotroski (2000)' in philosophy
           assert 'Demerjian, Lev & McVay (2012)' in philosophy
           assert 'This combined screening process is **not yet validated**' in philosophy
+          # Rule-level pre-tax outcomes and portfolio-level tax treatment must
+          # remain separate. Never fabricate after-tax results per trade rule.
+          assert 'Full-portfolio results, including estimated taxes' in philosophy
+          assert '| After estimated federal taxes | 11 / 32 | $374,922 | $370,264 | +$4,658 |' in philosophy
+          assert '| Before modeled federal taxes | 32 / 32 | $458,879 | $423,602 | +$35,277 |' in philosophy
+          assert 'trade-level observations, before modeled taxes' in philosophy
+          assert 'Those are **trade-level returns before taxes**' not in philosophy
+          assert 'Rule-specific after-tax excess returns and hit rates were **not available**' in philosophy
+          assert '[data-testid="stToolbar"]' in theme
+          assert '[data-testid="stAppToolbar"]' in theme
+          assert '[data-testid="stHeader"]' in theme
+          assert 'toolbarMode = "minimal"' in Path('.streamlit/config.toml').read_text()
           assert 'uirevision=' in chart
           assert 'fig.update_xaxes(autorange=True' in chart
           # Plotly's native autoscale remains the first, prominent toolbar
