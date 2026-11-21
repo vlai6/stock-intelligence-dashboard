@@ -148,12 +148,6 @@ with regression:
         "value investments). Neither recovery timeframe nor the management "
         "checklist is a proven trading rule."
     )
-    st.page_link(
-        "regression_scanner/app.py",
-        label="Open Regression Scanner",
-        icon="📉",
-    )
-
     with st.expander("Backtest details and limitations", expanded=False):
         st.markdown("""
 **Study setup:** Around 304 companies selected from a *current* USD 50B+ universe; ~2,500 trading days of regression history; entries at −3σ to −4.5σ; eight recovery exits and a 52-week maximum hold. The event study evaluated **509 entry-threshold-specific episodes** under eight exits (**4,072 records, not independent trades**).

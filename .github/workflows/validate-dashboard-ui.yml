@@ -46,7 +46,10 @@ jobs:
           chart = Path('regression_scanner/channel_chart.py').read_text()
           # Visual breathing room on the right, without changing the plotted
           # history, regression calculation or interactive chart controls.
-          assert 'margin=dict(l=10, r=58, t=26, b=20)' in chart
+          assert 'margin=dict(l=10, r=110, t=26, b=20)' in chart
+          philosophy = Path('pages/00_Investment_Philosophy.py').read_text()
+          assert 'label="Open Regression Scanner"' not in philosophy
+          assert 'with st.expander("Backtest details and limitations"' in philosophy
           assert 'uirevision=' in chart
           assert 'fig.update_xaxes(autorange=True' in chart
           # Plotly's native autoscale remains the first, prominent toolbar
