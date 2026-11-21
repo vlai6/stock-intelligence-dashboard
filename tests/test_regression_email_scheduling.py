@@ -1,4 +1,4 @@
-"""Offline test of New York schedule gating and unique Gmail report subjects."""
+"""Offline test of New York schedule gating and dated email subjects."""
 import ast
 import sys
 from collections import Counter
@@ -54,8 +54,11 @@ exec(compile(ast.Module(body=[target], type_ignores=[]),
 subject = namespace["email_subject"]
 one = subject([], [], run_at=at(2026, 11, 23, 13, 31, 12))
 two = subject([], [], run_at=at(2026, 11, 23, 13, 31, 13))
-assert one.startswith("Nov 23, 2026 08:31:12 AM ET | Potentially Undervalued Stocks:")
-assert one != two, "Same-day runs must have unique subjects to avoid Gmail threading"
+next_day = subject([], [], run_at=at(2026, 11, 24, 13, 31, 13))
+assert one.startswith("Nov 23, 2026 | Potentially Undervalued Stocks:")
+assert one == two, "The user requested date-only subjects, not times"
+assert next_day.startswith("Nov 24, 2026 | Potentially Undervalued Stocks:")
+assert next_day != one, "Different trading days should have different subjects"
 assert "new/worsened" in one
 
 mailer = (ROOT / "regression_scanner/emailer.py").read_text()
@@ -63,4 +66,4 @@ assert 'message["Message-ID"] = make_msgid()' in mailer
 assert 'message["Date"] = format_datetime' in mailer
 html = (ROOT / "regression_scanner/email_report.py").read_text()
 assert "<details" not in html and 'style="display:none' not in html
-print("PASS: morning scheduling, DST, delayed-run suppression, unique subjects and visible HTML")
+print("PASS: morning scheduling, DST, delayed-run suppression, dated subjects and visible HTML")
