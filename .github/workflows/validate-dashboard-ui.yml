@@ -123,6 +123,17 @@ jobs:
           # Rule-level pre-tax outcomes and portfolio-level tax treatment must
           # remain separate. Never fabricate after-tax results per trade rule.
           assert 'Full-portfolio results, including estimated taxes' in philosophy
+          # Do not misrepresent the imposed 52-week exit as an optimal horizon.
+          assert 'Recovery-timing clue:' in philosophy
+          assert 'median **208 days**' in philosophy
+          assert '+20.44 percentage points vs. SPY' in philosophy
+          assert '−11.00 points' in philosophy
+          assert 'The 52-week cap was imposed, **not proven optimal**' in philosophy
+          assert '134 closed trades' in philosophy
+          assert '72 hit the recovery target' in philosophy
+          assert '62 reached the 52-week timeout' in philosophy
+          assert 'before capital-gains taxes' in philosophy
+          assert 'not evidence that holding longer would be worse' in philosophy
           assert '| After estimated federal taxes | 11 / 32 | $374,922 | $370,264 | +$4,658 |' in philosophy
           assert '| Before modeled federal taxes | 32 / 32 | $458,879 | $423,602 | +$35,277 |' in philosophy
           assert 'trade-level observations, before modeled taxes' in philosophy
