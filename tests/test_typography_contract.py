@@ -92,6 +92,9 @@ assert 'linear-gradient(180deg, rgba(3,7,17,.12)' in theme
 assert '--si-panel-glass:rgba(5,17,32,.65)' in theme
 assert '--si-input-glass:rgba(7,22,39,.66)' in theme
 assert '--si-popover-glass:rgba(7,21,39,.87)' in theme
+assert '--si-action-bg:rgba(27,96,149,.92)' in theme
+assert '--si-selection-bg:rgba(13,38,57,.94)' in theme
+assert '[data-testid="stExpander"] summary' in theme
 assert 'background:var(--si-panel-glass) !important;' in theme
 assert 'backdrop-filter:var(--si-glass-blur);' in theme
 assert 'background:var(--si-input-glass) !important;' in theme
