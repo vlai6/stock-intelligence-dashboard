@@ -113,6 +113,12 @@ def apply_dashboard_theme():
   --si-card-alt:#0B1A2D; --si-border:#172C43;
 
   --si-accent:#4EB7FF; --si-text:#E9F2FD; --si-muted:#B9CDE0;
+  /* Separate clickable actions from muted multi-select/chip states. */
+  --si-action-bg:rgba(27,96,149,.92);
+  --si-action-hover:rgba(40,119,173,.96);
+  --si-action-border:#4A92BD;
+  --si-selection-bg:rgba(13,38,57,.94);
+  --si-selection-border:rgba(78,118,146,.42);
   /* Glassy surfaces reveal the Earth background without fading content. */
   --si-panel-glass:rgba(5,17,32,.65);
   --si-input-glass:rgba(7,22,39,.66);
@@ -323,59 +329,81 @@ label[data-testid="stWidgetLabel"] p,
 
 [data-testid="stWidgetLabel"] p {color:#C6DBED !important;}
 
+/* Clickable actions: Run Scan, Add Ticker, Analyze, Refresh, Save,
+   Download, pagination and other ordinary buttons share a readable palette.
+   Do not target expander summaries, selector triggers, chips or radio options. */
 [data-testid="stButton"] button,
-
 [data-testid="stFormSubmitButton"] button,
-
-[data-testid="stPopover"] button,
-
-[data-testid="stDownloadButton"] button {
-
-  border-color:#244664;border-radius:10px;font-weight:630;
-
-}
-
-[data-testid="stButton"] button[kind="primary"],
-[data-testid="stFormSubmitButton"] button[kind="primary"],
-[data-testid="stFormSubmitButton"] button[kind="primaryFormSubmit"],
-[data-testid="stFormSubmitButton"] button[data-testid="stBaseButton-primaryFormSubmit"] {
-
-  background:rgba(14,59,96,.80) !important;
-  color:#E4F1FC !important;
-  border-color:#2E668E !important;
-
-}
-
-[data-testid="stButton"] button[kind="primary"]:hover,
-[data-testid="stFormSubmitButton"] button[kind="primary"]:hover,
-[data-testid="stFormSubmitButton"] button[kind="primaryFormSubmit"]:hover,
-[data-testid="stFormSubmitButton"] button[data-testid="stBaseButton-primaryFormSubmit"]:hover {
-
-  background:rgba(22,80,121,.88) !important;
-  border-color:#4C8DAE !important;
-
-}
-
-[data-testid="stButton"] button[kind="secondary"],
 [data-testid="stDownloadButton"] button,
-[data-testid="stPopover"] button {
-  color:#BBDFFD;
-  background:rgba(10,28,48,.49) !important;
-  backdrop-filter:blur(5px);
-  -webkit-backdrop-filter:blur(5px);
+[data-testid="stPopover"] > button,
+[data-testid="stLinkButton"] a {
+  background:var(--si-action-bg) !important;
+  color:#EDF7FF !important;
+  border:1px solid var(--si-action-border) !important;
+  border-radius:10px !important;
+  font-size:var(--si-type-label) !important;
+  font-weight:650 !important;
+  line-height:1.35 !important;
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+}
+[data-testid="stButton"] button:hover:not(:disabled),
+[data-testid="stFormSubmitButton"] button:hover:not(:disabled),
+[data-testid="stDownloadButton"] button:hover:not(:disabled),
+[data-testid="stPopover"] > button:hover:not(:disabled),
+[data-testid="stLinkButton"] a:hover {
+  background:var(--si-action-hover) !important;
+  border-color:#77BBDD !important;
+  color:#FFFFFF !important;
+}
+[data-testid="stButton"] button:focus-visible,
+[data-testid="stFormSubmitButton"] button:focus-visible,
+[data-testid="stDownloadButton"] button:focus-visible,
+[data-testid="stPopover"] > button:focus-visible,
+[data-testid="stLinkButton"] a:focus-visible {
+  outline:2px solid #8ACAF0 !important;
+  outline-offset:2px;
+}
+[data-testid="stButton"] button:disabled,
+[data-testid="stFormSubmitButton"] button:disabled,
+[data-testid="stDownloadButton"] button:disabled {
+  opacity:.46 !important;
+  cursor:not-allowed;
+}
+/* Expanders remain quiet and dark; they are not calls to action. */
+[data-testid="stExpander"] summary,
+[data-testid="stExpander"] summary:hover {
+  background:rgba(6,19,32,.52) !important;
+  color:#C1D5E5 !important;
 }
 
-[data-testid="stButton"] button[kind="secondary"]:hover,
-
-[data-testid="stPopover"] button:hover {color:white;border-color:#48A9ED;}
-
-/* Selected ticker and metric chips should be muted navy, not neon blue. */
+/* Selected competitors/metrics are information chips, not bright buttons.
+   Target BaseWeb's real tag element AND its immediate children: Streamlit's
+   generated theme styles can color the inner pill independently. */
+[data-testid="stMultiSelect"] [data-baseweb="tag"],
+[data-testid="stMultiSelect"] [data-baseweb="tag"] > span,
+[data-baseweb="select"] [data-baseweb="tag"],
+[data-baseweb="select"] [data-baseweb="tag"] > span,
 [data-baseweb="tag"] {
-  background:rgba(26,72,103,.76) !important;
-  border-color:rgba(91,145,182,.55) !important;
-  color:#DCECF7 !important;
+  background:var(--si-selection-bg) !important;
+  background-color:var(--si-selection-bg) !important;
+  border-color:var(--si-selection-border) !important;
+  color:#B5CBDD !important;
+  box-shadow:none !important;
 }
-[data-baseweb="tag"] * {color:inherit !important;}
+[data-baseweb="tag"] span,
+[data-baseweb="tag"] svg,
+[data-baseweb="tag"] [role="button"] {
+  color:#B5CBDD !important;
+  fill:#B5CBDD !important;
+}
+[data-baseweb="tag"]:hover {
+  background:rgba(20,53,74,.95) !important;
+}
+/* Give the input background its own subdued color, including the tag tray. */
+[data-testid="stMultiSelect"] [data-baseweb="select"] > div {
+  background:var(--si-input-glass) !important;
+}
 
 [data-testid="stMetric"] {
   background:var(--si-panel-glass) !important;
