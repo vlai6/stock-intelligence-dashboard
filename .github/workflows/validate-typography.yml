@@ -1,0 +1,30 @@
+name: Validate dashboard typography
+
+on:
+  pull_request:
+    paths:
+      - "dashboard_theme.py"
+      - "scroll_nav.py"
+      - "pages/**"
+      - "regression_scanner/app.py"
+      - "tests/test_typography_contract.py"
+      - ".github/workflows/validate-typography.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  typography:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Compile affected Python files
+        run: |
+          python -m py_compile dashboard_theme.py scroll_nav.py pages/00_Investment_Philosophy.py pages/1_News_Screen.py pages/2_News_Sentiment.py pages/0_Stock_Intelligence.py regression_scanner/app.py
+      - name: Check shared type scale and page consistency
+        run: python tests/test_typography_contract.py
