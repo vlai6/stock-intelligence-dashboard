@@ -1002,7 +1002,7 @@ if st.session_state.loaded:
                             font-family: Inter, 'Segoe UI', Arial, sans-serif;
                             font-size: 0.9rem;
                             color: #f1f5f9;
-                            background: #0E1A29;
+                            background: rgba(14,26,41,.57);
                         }
                         .metrics-table th, .metrics-table td {
                             border-bottom: 1px solid #24435D;
@@ -1014,10 +1014,10 @@ if st.session_state.loaded:
                         .metric-name {
                             font-weight: 700;
                             cursor: help;
-                            background: #152D43;
+                            background: rgba(21,45,67,.61);
                             transition: background-color 0.12s ease;
                         }
-                        .metric-name:hover { background: #244D6E; }
+                        .metric-name:hover { background: rgba(36,77,110,.80); }
                         </style>
                         <div style="overflow-x:auto;">
                         <table class="metrics-table">
