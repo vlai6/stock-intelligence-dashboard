@@ -250,8 +250,46 @@ def _run_entire_batch_with_timeout(
         return values
 
 
+def _clean_daily_closes(frame: pd.DataFrame, target: str) -> pd.Series:
+    """Validate daily Close data without silently inventing market sessions."""
+    if frame is None or frame.empty or "Close" not in frame.columns:
+        return pd.Series(dtype=float)
+    closes = frame["Close"]
+    if isinstance(closes, pd.DataFrame):
+        if closes.shape[1] != 1:
+            raise ValueError("Ambiguous historical Close columns")
+        closes = closes.iloc[:, 0]
+    raw = pd.to_numeric(closes, errors="coerce").dropna()
+    if raw.empty:
+        return pd.Series(dtype=float)
+    index = pd.DatetimeIndex(pd.to_datetime(raw.index))
+    if index.tz is not None:
+        index = index.tz_localize(None)
+    raw.index = index.normalize()
+    return raw.loc[:pd.Timestamp(target)].sort_index()
+
+
+def _single_ticker_history(symbol: str, start: str, target: str) -> pd.Series:
+    """Try a smaller Yahoo history request if a multi-ticker download fails.
+
+    Still Yahoo data: a provider-wide Cloud rate limit can block this too.
+    The end date is exclusive in yfinance, so include the target day.
+    """
+    end = (pd.Timestamp(target) + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+    frame = yf.Ticker(symbol).history(
+        start=start, end=end, interval="1d", auto_adjust=False,
+        actions=False, timeout=12,
+    )
+    return _clean_daily_closes(frame, target)
+
+
 def _download_batch(batch: list[Stock], start: str, target: str, hard_timeout_seconds: int | None = None, *, bypass_cache: bool = False) -> tuple[dict[str, pd.Series], int]:
-    """Return closes for all tickers, using per-session cache where possible."""
+    """Download Yahoo closes, cautiously recovering isolated bulk failures.
+
+    The scheduled email scanner keeps its original hard-timeout path unchanged.
+    Interactive scans try a small number of single-ticker requests when the
+    bulk endpoint fails, rather than discarding all 25 symbols immediately.
+    """
     result: dict[str, pd.Series] = {}
     missing: list[Stock] = []
     for stock in batch:
@@ -267,8 +305,7 @@ def _download_batch(batch: list[Stock], start: str, target: str, hard_timeout_se
 
     symbols = [stock.symbol for stock in missing]
     data = None
-    # The hard timeout applies to the whole batch, not individual HTTP requests.
-    # For normal interactive scans, keep the original in-process code path.
+    bulk_failure = None
     for attempt in range(1 if hard_timeout_seconds is not None else 2):
         try:
             if hard_timeout_seconds is not None:
@@ -280,29 +317,72 @@ def _download_batch(batch: list[Stock], start: str, target: str, hard_timeout_se
                     threads=DOWNLOAD_THREADS, timeout=20,
                 )
             if data is None or data.empty:
-                raise RuntimeError("empty Yahoo historical-price response")
+                raise RuntimeError("Yahoo returned an empty bulk history")
+            bulk_failure = None
             break
-        except Exception:
-            if hard_timeout_seconds is not None or attempt == 1:
+        except Exception as exc:
+            if hard_timeout_seconds is not None:
                 raise
-            time.sleep(2)
+            bulk_failure = exc
+            if attempt == 0:
+                time.sleep(2)
 
+    unavailable: list[Stock] = []
     for stock in missing:
         try:
-            sub = data[stock.symbol] if isinstance(data.columns, pd.MultiIndex) else data
-            if not isinstance(data.columns, pd.MultiIndex) and len(missing) > 1:
-                raise KeyError("Expected ticker columns for multiple downloads")
-            raw = pd.to_numeric(sub["Close"], errors="coerce").dropna()
-            index = pd.to_datetime(raw.index)
-            if index.tz is not None:
-                index = index.tz_localize(None)
-            raw.index = index.normalize()
-            raw = raw.loc[:pd.Timestamp(target)]
+            if data is None or data.empty:
+                raise ValueError("Bulk response unavailable")
+            if isinstance(data.columns, pd.MultiIndex):
+                # yfinance may return ticker-first or field-first MultiIndex.
+                if stock.symbol in data.columns.get_level_values(0):
+                    sub = data[stock.symbol]
+                else:
+                    sub = data.xs(stock.symbol, level=1, axis=1)
+            else:
+                if len(missing) != 1:
+                    raise ValueError("Missing ticker labels in multi-stock download")
+                sub = data
+            raw = _clean_daily_closes(sub, target)
+            if raw.empty:
+                raise ValueError("No valid closing prices in bulk response")
             result[stock.symbol] = raw
-            if not raw.empty and raw.index[-1].strftime("%Y-%m-%d") == target:
+            if raw.index[-1].strftime("%Y-%m-%d") == target:
                 _write_cache(stock.symbol, target, start, raw)
         except (KeyError, ValueError, TypeError):
             result[stock.symbol] = pd.Series(dtype=float)
+            unavailable.append(stock)
+
+    if hard_timeout_seconds is not None or not unavailable:
+        return result, cache_hits
+
+    # Yahoo/Streamlit Cloud may reject bulk requests while permitting a small
+    # single-ticker request. Limit extra requests to prevent rate-limit storms.
+    recovered = 0
+    tried = 0
+    max_recovery_requests = 5
+    for stock in unavailable[:max_recovery_requests]:
+        tried += 1
+        try:
+            raw = _single_ticker_history(stock.symbol, start, target)
+            if not raw.empty:
+                result[stock.symbol] = raw
+                recovered += 1
+                if raw.index[-1].strftime("%Y-%m-%d") == target:
+                    _write_cache(stock.symbol, target, start, raw)
+        except Exception:
+            # The ticker is counted as missing below; no fabricated close.
+            pass
+        if tried >= 2 and recovered == 0 and bulk_failure is not None:
+            break
+
+    if (bulk_failure is not None and recovered == 0
+            and not any(not series.empty for series in result.values())):
+        raise RuntimeError(
+            "Yahoo Finance returned no prices from bulk or individual history "
+            "requests (bulk error: " + type(bulk_failure).__name__ + "). "
+            "Yahoo may be rate-limiting Streamlit Cloud. Try a smaller scan "
+            "later or run the scanner through GitHub Actions/local Python."
+        ) from bulk_failure
     return result, cache_hits
 
 
@@ -486,7 +566,28 @@ def scan_market(settings: ScanSettings) -> Iterator[ScanProgress]:
     }
     # Keep the previous successful report if nearly all downloads failed.
     if analyzed == 0:
-        raise RuntimeError("No valid price histories found. Latest successful report was not overwritten.")
+        from collections import Counter
+        reasons = Counter(record["reason"] for record in skipped_rows)
+        if reasons and all(key.startswith("insufficient_history_") for key in reasons):
+            detail = f"None of the {total} stocks has the required {length + 1:,} daily closes."
+        elif reasons and all(key.startswith("stale_latest_") for key in reasons):
+            actual_dates = Counter(key.removeprefix("stale_latest_") for key in reasons)
+            detail = (
+                f"All histories were older than expected session {target}; "
+                f"latest observed date: {max(actual_dates)}."
+            )
+        else:
+            data_failures = sum(count for key, count in reasons.items()
+                                if key.startswith("batch_skipped_") or key == "missing_prices")
+            detail = (
+                f"Expected session {target}; {data_failures}/{total} symbols had "
+                "missing prices or failed download batches. Yahoo Finance may "
+                "be rate-limiting the cloud host."
+            )
+        raise RuntimeError(
+            "No stocks had a usable full regression history. " + detail +
+            " Previous saved reports were not overwritten."
+        )
     report_dir = Path(settings.output_dir) if settings.output_dir is not None else ROOT / "results"
     if settings.record_all_zscores:
         # Separate from the strategy-filtered results and from email alert history.
