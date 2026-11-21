@@ -68,7 +68,7 @@ assert 'expanded=False' in philosophy
 
 # Background is shared rather than implemented separately in each page.
 # Keep the fallback and overlay to preserve legibility on every page.
-assert '30596248/pexels-photo-30596248.jpeg' in theme
+assert '30596231/pexels-photo-30596231.jpeg' in theme
 assert 'background-color:var(--si-bg) !important;' in theme
 assert 'background-image:' in theme
 assert 'linear-gradient(180deg, rgba(3,7,17,.25)' in theme
