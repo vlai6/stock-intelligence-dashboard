@@ -1,0 +1,28 @@
+name: Validate news working-list editor
+
+on:
+  pull_request:
+    paths:
+      - "custom_watchlists.py"
+      - "pages/1_News_Screen.py"
+      - "dashboard_theme.py"
+      - "tests/test_news_working_list_contract.py"
+      - ".github/workflows/validate-news-working-list.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  working-list:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Compile screen and watchlist storage modules
+        run: python -m py_compile pages/1_News_Screen.py custom_watchlists.py dashboard_theme.py
+      - name: Verify add/clear/save functionality contracts
+        run: python tests/test_news_working_list_contract.py
