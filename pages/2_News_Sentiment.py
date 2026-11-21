@@ -241,7 +241,9 @@ with left:
             positive_col.metric('Positive', counts['Positive'])
             neutral_col.metric('Neutral', counts['Neutral'])
             negative_col.metric('Negative', counts['Negative'])
-        fig=go.Figure(go.Bar(x=labels, y=[counts[k] for k in labels], text=[counts[k] for k in labels],
+        # Counts already appear in the three summary tiles above the graph.
+        # Keep the bars uncluttered; tooltips and y-axis still show their values.
+        fig=go.Figure(go.Bar(x=labels, y=[counts[k] for k in labels],
                              marker_color=['#2DBA9A','#8397AC','#EE7385']))
         fig.update_layout(height=310, xaxis_title='Headline sentiment', yaxis_title='Headlines',
                           margin=dict(l=8,r=8,t=10,b=8))
