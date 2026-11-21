@@ -90,15 +90,13 @@ with regression:
         "Historical, in-sample research using a current-survivor stock universe. "
         "The results are not independently audited or proof of a future advantage."
     )
-    st.markdown("#### HOW WE EVALUATE A RECOVERY")
+    st.markdown("#### OUR RECOVERY CHECK")
     st.markdown("""
-| Question | What we look for |
+| Question | What matters |
 |:--|:--|
-| **Is the business intact?** | Durable products, customers, margins and competitive strengths |
-| **Can it survive?** | Manageable debt, available cash and sustainable or recoverable cash flow |
-| **Can leadership execute?** | Credible past decisions, capital discipline and achievable milestones |
-| **Is it genuinely undervalued?** | Conservative future cash-flow estimates support the purchase price |
-| **Why and when could it recover?** | Plausible catalysts and a better expected return than SPY |
+| **Strong business?** | Core product, customers, competitive advantage and profitability |
+| **Resilient leadership and finances?** | Cash, debt, management execution and survival through setbacks |
+| **Attractive investment?** | Conservative valuation, recovery catalyst, time and expected return versus SPY |
 """)
     st.markdown(
         "We distinguish **temporary disruptions** (possible faster recoveries) "
@@ -155,7 +153,7 @@ Trading costs, dividends, settlement and estimated federal taxes (35% short-term
         st.markdown("""
 **Our Z-score** = (current price − fitted trend price) ÷ standard deviation of historical regression residuals. It is **not** the same as a −3σ *one-day return*. Bell-curve tail probabilities are not reliable probabilities that a stock will recover.
 
-**Other research:** Studies of extreme daily losses, relative-value pairs and statistical arbitrage have documented some reversals, while Bollinger Band findings are mixed after trading costs. These methods do **not** directly validate our long-horizon price-trend screen.
+**Other research:** Studies of extreme daily losses, **Gatev et al.'s pairs trading**, and statistical arbitrage have documented some reversals, while Bollinger Band findings are mixed after trading costs. These methods do **not** directly validate our long-horizon price-trend screen.
 
 **Sources:** [Extreme Losses (2024)](https://digitalcommons.newhaven.edu/americanbusinessreview/vol27/iss1/7/) · [Statistical Arbitrage](https://doi.org/10.1080/14697680903124632) · [Pairs Trading](https://doi.org/10.1093/rfs/hhj020) · [Bollinger Bands](https://doi.org/10.1080/17446540701206576)
 
