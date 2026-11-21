@@ -89,9 +89,9 @@ assert 'background-color:var(--si-bg) !important;' in theme
 assert 'background-image:' in theme
 assert 'linear-gradient(180deg, rgba(3,7,17,.12)' in theme
 # Semitransparent glass panels preserve Earth visibility and text opacity.
-assert '--si-panel-glass:rgba(5,17,32,.52)' in theme
-assert '--si-input-glass:rgba(7,22,39,.56)' in theme
-assert '--si-popover-glass:rgba(7,21,39,.86)' in theme
+assert '--si-panel-glass:rgba(5,17,32,.65)' in theme
+assert '--si-input-glass:rgba(7,22,39,.66)' in theme
+assert '--si-popover-glass:rgba(7,21,39,.87)' in theme
 assert 'background:var(--si-panel-glass) !important;' in theme
 assert 'backdrop-filter:var(--si-glass-blur);' in theme
 assert 'background:var(--si-input-glass) !important;' in theme
