@@ -241,3 +241,85 @@ def render_custom_list() -> list[str]:
                 _queue_write()
                 st.rerun()
     return list(current)
+
+
+# A working list is intentionally session-only until Save displayed as list.
+DRAFT_KEY = "ns_working_stocks_v1"
+
+
+def parse_working_tickers(raw: str) -> tuple[list[str], list[str]]:
+    parts = [v for v in re.split(r"[,;\\s]+", str(raw or "").strip()) if v]
+    normalized = [valid_symbol(p) for p in parts]
+    return (list(dict.fromkeys(x for x in normalized if x)),
+            [part for part, symbol in zip(parts, normalized) if not symbol])
+
+
+def render_working_list() -> list[str]:
+    """Edit immediately, without creating a named list or changing presets."""
+    st.session_state.setdefault(DRAFT_KEY, [])
+    current = list(st.session_state[DRAFT_KEY])
+    st.caption("Working list · edit stocks immediately, then save the displayed list "
+               "if you want to keep it. The emailed scan and saved lists remain unchanged.")
+    with st.form("ns_working_add_stocks", clear_on_submit=True):
+        text_col, add_col = st.columns([5, 1.4], vertical_alignment="bottom", gap="small")
+        with text_col:
+            entered = st.text_input("Add tickers", placeholder="NVDA, MU, TSM",
+                                    help="Separate ticker symbols with commas or spaces.")
+        with add_col:
+            add = st.form_submit_button("Add stocks", type="primary", use_container_width=True)
+    if add:
+        symbols, invalid = parse_working_tickers(entered)
+        extras = [ticker for ticker in symbols if ticker not in current]
+        if invalid:
+            st.error("Invalid ticker(s): " + ", ".join(invalid[:8]))
+        elif not symbols:
+            st.warning("Enter at least one ticker.")
+        elif len(current) + len(extras) > MAX_TICKERS:
+            st.warning(f"Working lists support up to {MAX_TICKERS} tickers.")
+        elif not extras:
+            st.info("Those stocks are already included.")
+        else:
+            st.session_state[DRAFT_KEY] = current + extras
+            st.rerun()
+    if current:
+        st.markdown(f"**Working list · {len(current)} stocks**")
+        for offset in range(0, len(current), 6):
+            columns = st.columns(6, gap="small")
+            for col, symbol in zip(columns, current[offset:offset + 6]):
+                with col:
+                    if st.button(f"{symbol} ×", key=f"ns_working_remove_{symbol}",
+                                 use_container_width=True,
+                                 help=f"Remove {symbol} from your working list"):
+                        st.session_state[DRAFT_KEY] = [v for v in current if v != symbol]
+                        st.rerun()
+    else:
+        st.caption("Nothing selected yet. Add tickers above.")
+    return list(st.session_state[DRAFT_KEY])
+
+
+def save_displayed_watchlist(name: str, symbols: list[str]) -> tuple[bool, str]:
+    """Save a snapshot to browser storage, never overwrite existing named lists.
+
+    _init may st.stop() while awaiting browser storage; callers must preserve
+    the pending save in session_state across that first rerun.
+    """
+    name = str(name or "").strip()
+    if not name or len(name) > 32:
+        return False, "Enter a list name between 1 and 32 characters."
+    normalized = [valid_symbol(s) for s in symbols]
+    if not normalized or any(not s for s in normalized):
+        return False, "Add valid stocks before saving."
+    unique = list(dict.fromkeys(normalized))
+    if len(unique) > MAX_TICKERS:
+        return False, f"A saved list supports up to {MAX_TICKERS} stocks."
+    _init()
+    lists = st.session_state[NS + "lists"]
+    if name in lists:
+        return False, f"'{name}' already exists. Use a different name."
+    if len(lists) >= MAX_LISTS:
+        return False, f"Only {MAX_LISTS} named lists are supported."
+    lists[name] = unique
+    st.session_state[NS + "active"] = name
+    st.session_state[NS + "selected"] = name
+    _queue_write()
+    return True, f"Saved '{name}' with {len(unique)} stocks."
