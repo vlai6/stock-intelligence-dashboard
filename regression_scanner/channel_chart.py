@@ -233,7 +233,9 @@ def channel_figure(
     # Streamlit redraws the figure after a widget interaction.
     fig.update_layout(
         height=500, template="plotly_dark", autosize=True,
-        margin=dict(l=10, r=22, t=26, b=20),
+        # A touch of extra space to the right of the price axis makes the
+        # chart look centered in its wider dashboard container.
+        margin=dict(l=10, r=58, t=26, b=20),
         paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
         font=dict(color="#bfc8d4", size=12),
         legend=dict(orientation="h", yanchor="bottom", y=1.015, x=0, font=dict(size=10)),

@@ -43,6 +43,12 @@ jobs:
           assert 'view.to_csv(index=False)' in scanner  # CSV exports all filtered rows
           assert 'Settings above differ from this saved scan' not in scanner
           assert 'Graph: Check one stock in the results table below' in scanner
+          chart = Path('regression_scanner/channel_chart.py').read_text()
+          # Visual breathing room on the right, without changing the plotted
+          # history, regression calculation or interactive chart controls.
+          assert 'margin=dict(l=10, r=58, t=26, b=20)' in chart
+          assert 'uirevision=' in chart
+          assert 'fig.update_xaxes(autorange=True' in chart
           # Plotly's native autoscale remains the first, prominent toolbar
           # control; subsequent controls keep zoom/pan/reset/export access.
           assert '"displayModeBar": True' in scanner
