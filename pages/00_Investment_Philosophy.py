@@ -132,29 +132,67 @@ with regression:
         "a fitted historical trend relative to past model variation. "
         "It is a research alert, **not an automatic purchase**."
     )
+    st.markdown("#### HOW THE ROTATING STRATEGY WORKED")
     st.markdown(
-        "**Portfolio approach:** Keep the core invested in SPY and temporarily rotate a "
-        "small amount into a stock only after assessing business quality, "
-        "financial strength, reasonable valuation and a realistic recovery path."
+        "Our historical test used a **SPY-funded regression rotation**, rather than "
+        "holding a separate pool of cash for stock picking. The model began with "
+        "**$100,000 invested in SPY**, an S&P 500 ETF. When an individual stock "
+        "crossed a selected negative regression-deviation threshold (−3σ to −4.5σ), "
+        "it **shifted 1% of portfolio capital from SPY into that stock**, with "
+        "a maximum of 20% allocated to these temporary positions. At the "
+        "specified recovery exit or 52-week holding limit, proceeds **returned "
+        "to SPY**. We compared the entire rotating portfolio against buying "
+        "and holding SPY over the same period."
+    )
+    st.caption(
+        "The 20% satellite cap was a backtest setting, not the recommended "
+        "long-term allocation. These historical trades were triggered by "
+        "regression rules, **without** a management, valuation or business-quality "
+        "filter."
     )
     st.markdown("#### BACKTEST FINDINGS")
     st.markdown("""
 <div class="si-simple-chips">
-  <div class="si-simple-chip"><div class="label">Beat SPY before tax</div><div class="value">32 / 32</div></div>
-  <div class="si-simple-chip"><div class="label">Beat SPY after tax</div><div class="value">11 / 32</div></div>
-  <div class="si-simple-chip"><div class="label">Best after-tax edge</div><div class="value">~$4.7K</div></div>
+  <div class="si-simple-chip"><div class="label">Rules ahead · before tax</div><div class="value">32 / 32</div></div>
+  <div class="si-simple-chip"><div class="label">Rules ahead · after tax</div><div class="value">11 / 32</div></div>
+  <div class="si-simple-chip"><div class="label">Best after-tax lead</div><div class="value">~$4.7K</div></div>
 </div>
 """, unsafe_allow_html=True)
     st.markdown(
-        "In the **historical SPY-funded rotation simulations**, every tested "
-        "entry/exit combination beat SPY before modeled taxes, but most did "
-        "**not** beat it after estimated taxes. The best reported after-tax "
-        "portfolio ended near **USD 374,922**, versus **USD 370,264** for SPY "
-        "from USD 100,000 over nearly 11 years."
+        "**All 32 tested entry/exit configurations beat buy-and-hold SPY before "
+        "modeled taxes, but only 11 of 32 did so after estimated taxes.** "
+        "In the best reported after-tax scenario, the rotating portfolio "
+        "finished near **$374,922**, compared with **$370,264** for SPY, "
+        "starting from $100,000 over nearly 11 years—a difference of about "
+        "**$4,658**, not a large or independently verified advantage. "
+        "These are **portfolio-level** comparisons, not the percentage of "
+        "individual stocks that beat SPY."
     )
+    st.markdown("#### WHY THE SCREEN IS STILL WORTH RESEARCHING")
+    st.markdown(
+        "The useful finding is **not** that every sharp decline will recover, or "
+        "that a profitable individual trade proves a repeatable edge. It is that "
+        "an extreme regression deviation can narrow a broad market into a "
+        "**defined set of unusual price declines** for deeper investigation. "
+        "Our tests contained recoveries, but also weak results and value traps; "
+        "the economic opportunity would come from distinguishing a "
+        "**temporary market overreaction** from a **lasting deterioration in "
+        "business value**."
+    )
+    st.markdown("""
+**Independent research provides a rationale for investigating this two-stage approach:**
+
+- **Overreaction and reversals:** [De Bondt & Thaler (1985)](https://doi.org/10.1111/j.1540-6261.1985.tb05004.x) found that portfolios of previous long-term losers later outperformed previous winners. This supports studying reversals **in general**, not the predictive power of our specific regression Z-score.
+- **Financial resilience and quality:** [Piotroski (2000)](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=249455) showed that accounting-based strength measures helped distinguish stronger and weaker *value stocks*. [Fama & French (2015)](https://doi.org/10.1016/j.jfineco.2014.10.010) also document the importance of profitability and investment characteristics in historical returns. Neither paper tests our rotation strategy.
+- **Management and downside risk:** [Demerjian, Lev & McVay (2012)](https://doi.org/10.1287/mnsc.1110.1487) studied measurable managerial ability, while [Campbell, Hilscher & Szilagyi (2008)](https://doi.org/10.1111/j.1540-6261.2008.01416.x) examined the risks of financially distressed firms. They motivate evaluating management execution and survival capacity rather than treating every stock-price collapse as a bargain.
+
+**Our next hypothesis:** Use regression to **find candidates**, then independently assess **what caused the decline**, whether the **core business remains competitive**, whether **management can execute a credible recovery**, and whether **cash flow, debt and liquidity give the firm enough time**. Purchase only if a conservative valuation and expected **after-tax** return justify diverting capital from SPY. This combined screening process is **not yet validated** by our backtests.
+""")
     st.caption(
-        "Historical, in-sample research using a current-survivor stock universe. "
-        "The results are not independently audited or proof of a future advantage."
+        "Historical, in-sample simulations using a current-survivor stock universe. "
+        "Results are sensitive to taxation, look-ahead and survivorship issues, "
+        "trade selection and market regimes. The simulations were not "
+        "independently audited; no persistent after-tax edge has been established."
     )
     st.markdown("#### RECOVERY CHECKLIST")
     st.markdown("""
@@ -200,11 +238,12 @@ Trading costs, dividends, settlement and estimated federal taxes (35% short-term
 
 - **Demerjian, Lev & McVay (2012)** examined managerial ability through the efficiency of turning resources into revenue.
 - **Piotroski (2000)** found that historical financial-strength measures helped select winners among cheap stocks; the result was *not* a direct SPY comparison.
+- **De Bondt & Thaler (1985)** documented long-term loser/winner return reversals. Their return-ranked portfolios are **not** equivalent to a regression Z-score strategy.
 - **Asness, Frazzini & Pedersen (2019)** studied profitability, safety and other quality characteristics.
 - **Campbell, Hilscher & Szilagyi (2008)** showed why financially distressed stocks can remain poor investments despite large price declines.
 - Research on **crisis leadership, governance and employee satisfaction** offers additional clues about operational resilience, but does not validate this particular regression strategy.
 
-**Sources:** [Managerial Ability](https://doi.org/10.1287/mnsc.1110.1487) · [Piotroski](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=249455) · [Quality Minus Junk](https://link.springer.com/article/10.1007/s11142-018-9470-2) · [Distress Risk](https://doi.org/10.1111/j.1540-6261.2008.01416.x) · [Employee Satisfaction](https://doi.org/10.1016/j.jfineco.2011.03.021) · [Corporate Governance](https://doi.org/10.1093/rfs/hhn099)
+**Sources:** [Long-term Reversals](https://doi.org/10.1111/j.1540-6261.1985.tb05004.x) · [Managerial Ability](https://doi.org/10.1287/mnsc.1110.1487) · [Piotroski](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=249455) · [Quality Minus Junk](https://link.springer.com/article/10.1007/s11142-018-9470-2) · [Distress Risk](https://doi.org/10.1111/j.1540-6261.2008.01416.x) · [Employee Satisfaction](https://doi.org/10.1016/j.jfineco.2011.03.021) · [Corporate Governance](https://doi.org/10.1093/rfs/hhn099)
 
 **Limit:** It has not been shown that these quality measures improve **after-tax SPY-funded portfolio returns** when added to regression screening.
 """)
