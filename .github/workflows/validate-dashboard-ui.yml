@@ -6,6 +6,7 @@ on:
       - "app.py"
       - "dashboard_theme.py"
       - "pages/0_Stock_Intelligence.py"
+      - "pages/2_News_Sentiment.py"
       - "regression_scanner/app.py"
       - ".github/workflows/validate-dashboard-ui.yml"
   workflow_dispatch:
@@ -43,6 +44,11 @@ jobs:
           assert 'width: min(240px, 100%)' in stock
           assert 'button[kind="primaryFormSubmit"]' in theme
           assert 'button[kind="primaryFormSubmit"]:hover' in theme
+          sentiment = Path('pages/2_News_Sentiment.py').read_text()
+          assert 'fig=go.Figure(go.Bar(x=labels, y=[counts[k] for k in labels],' in sentiment
+          assert 'text=[counts[k] for k in labels]' not in sentiment
+          assert "counts['Positive']" in sentiment  # Metric counts stay above the bars
+
           assert 'default="Pages of 10"' in scanner
           assert 'options=["Pages of 10", "Scroll"]' in scanner
           assert 'page_view = visible_view.iloc[(page_no - 1) * 10:page_no * 10].copy()' in scanner
