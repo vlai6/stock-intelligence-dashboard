@@ -9,7 +9,7 @@ import streamlit as st
 
 SECTIONS = (
     ("philosophy", "Investment Philosophy"),
-    ("news", "General News Screen"),
+    ("news", "News Screener"),
     ("scanner", "Regression Scanner"),
     ("metrics", "Metrics & Competition"),
     ("sentiment", "Recent Sentiment"),
