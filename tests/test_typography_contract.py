@@ -57,18 +57,34 @@ assert "font-size: var(--si-type-nav, .85rem);" in nav
 assert "nav.replaceChildren();" in nav
 # Two new educational ETF sections should sit beside the existing factor explainer.
 philosophy = source("pages/00_Investment_Philosophy.py")
-assert philosophy.count('with st.expander("Momentum ETFs — SPMO and XMMO"') == 1
-assert philosophy.count('with st.expander("Value ETFs — AVLV and VTV"') == 1
+assert philosophy.count('with st.expander("Momentum factor — research, evidence and risks"') == 1
+assert philosophy.count('with st.expander("Value factor — research, evidence and risks"') == 1
+assert philosophy.index("What the historical data show") < philosophy.index("ETF implementations worth researching")
+assert "1965–1989" in philosophy
+assert "March–May 2009" in philosophy
+assert "163%" in philosophy and "8%" in philosophy
+assert "profitability" in philosophy.lower()
+assert "Fama & French (1993)" in philosophy
+assert "winner-minus-loser portfolios" in philosophy
+assert "AVUV" in philosophy
+assert "Value ≠ buying every stock" in philosophy
 assert philosophy.index("Why ETFs, momentum, value and quality?") < philosophy.index("FEATURED ETF FACTORS") < philosophy.index("INDIVIDUAL-STOCK STRATEGIES")
 for ticker in ("SPMO", "XMMO", "AVLV", "VTV"):
     assert ticker in philosophy
-assert "High momentum is not the same as undervaluation" in philosophy
+assert "not a prediction of which fund will outperform" in philosophy
 assert "not guaranteed to move in opposite directions" in philosophy
 assert 'expanded=False' in philosophy
 
 # Background is shared rather than implemented separately in each page.
 # Keep the fallback and overlay to preserve legibility on every page.
-assert '30596231/pexels-photo-30596231.jpeg' in theme
+assert 'earth-enhanced-1920.webp' in theme
+assert '_earth_image_data_url()' in theme
+assert 'data:image/webp;base64,' in theme
+asset = ROOT / "assets" / "earth-enhanced-1920.webp"
+assert asset.is_file()
+image = asset.read_bytes()
+assert image.startswith(b"RIFF") and image[8:12] == b"WEBP"
+assert len(image) > 8000
 assert 'background-color:var(--si-bg) !important;' in theme
 assert 'background-image:' in theme
 assert 'linear-gradient(180deg, rgba(3,7,17,.12)' in theme

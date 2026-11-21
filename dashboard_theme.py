@@ -5,6 +5,9 @@ from __future__ import annotations
 
 
 from html import escape
+from pathlib import Path
+from functools import lru_cache
+import base64
 
 import streamlit as st
 
@@ -80,6 +83,21 @@ def style_blue_figure(figure):
 
 
 
+@lru_cache(maxsize=1)
+def _earth_image_data_url() -> str:
+    """Serve the bundled AI-enhanced Earth without external CDN requests.
+
+    The optimized 1920x1080 WebP image is approximately 11 KB. Reusing a
+    cached data URL makes Streamlit Cloud deploys deterministic and avoids
+    static-file route configuration differences.
+    """
+    image = Path(__file__).resolve().parent / "assets" / "earth-enhanced-1920.webp"
+    payload = image.read_bytes()
+    if not payload.startswith(b"RIFF") or payload[8:12] != b"WEBP":
+        raise ValueError("Invalid bundled Earth WebP background")
+    return "data:image/webp;base64," + base64.b64encode(payload).decode("ascii")
+
+
 def apply_dashboard_theme():
 
     """Same background, font family, inputs, and controls for all five pages."""
@@ -119,15 +137,13 @@ html, body, [data-testid="stApp"], .stApp,
 
 }
 
-/* Earth at night, supplied as the requested background photograph.
-   Original photograph: Zelch Csaba / Pexels, photo ID 30596231.
-   The black base remains as an automatic fallback if the CDN is blocked.
-   Keep sections readable with a soft dark overlay and opaque controls. */
+/* Bundled AI-enhanced night-side Earth, based on the user-selected image.
+   Keep the near-black fallback and let translucent glass cards reveal it. */
 [data-testid="stAppViewContainer"] {
   background-color:var(--si-bg) !important;
   background-image:
     linear-gradient(180deg, rgba(3,7,17,.12) 0%, rgba(3,7,17,.22) 100%),
-    url("https://images.pexels.com/photos/30596231/pexels-photo-30596231.jpeg?auto=compress&cs=tinysrgb&w=1920") !important;
+    url("__SI_EARTH_IMAGE_DATA_URI__") !important;
   background-position:center center !important;
   background-size:cover !important;
   background-repeat:no-repeat !important;
@@ -406,7 +422,7 @@ div[data-baseweb="popover"] [data-testid="stPopoverBody"] > div {
 
 </style>
 
-''', unsafe_allow_html=True)
+'''.replace("__SI_EARTH_IMAGE_DATA_URI__", _earth_image_data_url()), unsafe_allow_html=True)
 
     # si_compact_top_spacing_20261120
     # Reduce unused space beneath Streamlit native top navigation.

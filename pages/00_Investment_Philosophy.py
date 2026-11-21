@@ -57,39 +57,60 @@ Broad-market ETFs provide the foundation. Factor tilts may include **momentum** 
 st.markdown("#### FEATURED ETF FACTORS")
 st.caption(
     "Momentum and value are the two factor tilts emphasized here. "
-    "The ETFs below are examples of different implementations, not buy signals."
+    "Evidence and risks come first; ETF examples appear at the end of each factor section."
 )
 
-with st.expander("Momentum ETFs — SPMO and XMMO", expanded=False):
+with st.expander("Momentum factor — research, evidence and risks", expanded=False):
     st.markdown("""
-**The idea:** Own a diversified basket of stocks with relatively strong recent price performance, rather than trying to identify a single winning company. Momentum is a documented return pattern, but its strength changes over time.
+**What is momentum?** Cross-sectional momentum ranks stocks by their *relative* performance over an intermediate horizon and favors recent winners. A commonly studied implementation uses roughly 12 months of returns **excluding the most recent month** (12–2 momentum), to reduce short-term reversal effects. This does **not** mean buying an individual stock simply because its price is up.
 
-| ETF | What it emphasizes |
-|:--|:--|
-| **SPMO** — Invesco S&P 500 Momentum ETF | Higher-momentum companies selected from the S&P 500; a **large-cap momentum** tilt. |
-| **XMMO** — Invesco S&P MidCap Momentum ETF | Higher-momentum stocks from the S&P MidCap 400; adds **mid-cap momentum** exposure. |
+**What the historical data show**
 
-**Why use a momentum ETF?** Systematic stock selection and rebalancing can capture the momentum factor without continually monitoring and trading individual names.
+| Study and sample | Finding | Important interpretation |
+|:--|:--|:--|
+| **Jegadeesh & Titman (1993)** · U.S. equities, 1965–1989 | Past winners tended to outperform past losers over **3–12-month** holding periods. | The original tests study **winner-minus-loser portfolios**, not guaranteed excess returns for a long-only ETF versus SPY. |
+| **Daniel & Moskowitz (2016)** · U.S. equities, 1927–2013 | During the **March–May 2009** rebound, the past-loser decile gained **163%**, versus **8%** for the past-winner decile. | A severe **momentum-crash episode**, not the return of SPMO or a long-only investor. |
+| **Asness, Moskowitz & Pedersen (2013)** · Eight markets and asset classes | Momentum premia appeared across multiple markets, with a tendency to be **negatively related to value**. | Evidence extends beyond one U.S. stock sample, but the relationship varies over time. |
 
-**Main risks:** Sudden reversals after market leadership changes, concentration in previously strong sectors, portfolio turnover, and overlap with broad-market ETFs such as SPY or VOO. **High momentum is not the same as undervaluation.**
+**Why might it exist?** Slow information diffusion, gradual earnings revisions, investor underreaction and trend-following demand are proposed explanations. None is a complete or settled causal proof.
 
-**Fund references:** [SPMO — Invesco](https://www.invesco.com/us/en/financial-products/etfs/invesco-sp-500-momentum-etf.html) · [XMMO — Invesco](https://www.invesco.com/us/en/financial-products/etfs/invesco-sp-midcap-momentum-etf.html)
+**What can go wrong?** Abrupt market rebounds can punish previous winners; sector concentration, high valuation, turnover and rebalancing costs can reduce returns. Standard factor papers often use idealized long–short portfolios, whereas diversified momentum ETFs are normally **long-only** and have implementation costs.
+
+**What to evaluate:** Momentum methodology (lookback and weighting), drawdowns, sector/mega-cap concentration, turnover, after-tax results, fees and overlap with SPY/VOO.
+
+**ETF implementations worth researching** — recommendations are about **factor exposure**, not a prediction of which fund will outperform:
+
+- **[SPMO](https://www.invesco.com/us/en/financial-products/etfs/invesco-sp-500-momentum-etf.html)** — primary candidate for a **U.S. large-cap momentum** tilt alongside a broad-market ETF core.
+- **[XMMO](https://www.invesco.com/us/en/financial-products/etfs/invesco-sp-midcap-momentum-etf.html)** — optional **mid-cap momentum** diversification, with different size exposure and potentially more volatility.
+
+**Primary research:** [Jegadeesh & Titman (1993)](https://doi.org/10.1111/j.1540-6261.1993.tb04702.x) · [Daniel & Moskowitz (2016)](https://doi.org/10.1016/j.jfineco.2015.12.002) · [Value and Momentum Everywhere (2013)](https://www.aqr.com/Insights/Research/Journal-Article/Value-and-Momentum-Everywhere)
 """)
 
-with st.expander("Value ETFs — AVLV and VTV", expanded=False):
+with st.expander("Value factor — research, evidence and risks", expanded=False):
     st.markdown("""
-**The idea:** Favor stocks with relatively attractive prices compared with business fundamentals. A diversified value ETF expresses this factor without betting the entire thesis on one apparently cheap company.
+**What is value?** Value strategies favor stocks priced cheaply *relative to fundamentals*, such as book equity, earnings or cash flow. Value is a **relative ranking**, not proof a company is intrinsically undervalued or safe from further losses.
 
-| ETF | What it emphasizes |
-|:--|:--|
-| **AVLV** — Avantis U.S. Large Cap Value ETF | An **actively managed large-cap value** approach that evaluates company valuations and other investment characteristics. |
-| **VTV** — Vanguard Value ETF | Broad **U.S. large-cap value** exposure through an index-tracking approach. |
+**What the historical data show**
 
-**Why use a value ETF?** It spreads company-specific value-trap risk across many holdings and offers a systematic complement to momentum and the S&P 500 core.
+| Study and sample | Finding | Important interpretation |
+|:--|:--|:--|
+| **Fama & French (1993)** · U.S. equity portfolios from 1963 onward | The **HML (high minus low book-to-market)** factor captures historical return differences between value and growth portfolios. | An influential historical value premium, **not** a reliable annual outperformance forecast. |
+| **Fama & French (2015)** · five-factor stock-return model | Adding **profitability** and **investment** improved the explanation of average portfolio returns beyond the original three factors. | A cheap company with weak profits is not necessarily an attractive value investment. |
+| **Asness, Moskowitz & Pedersen (2013)** · eight markets and asset classes | Found value premia across multiple markets and an overall **negative relationship with momentum**. | Diversification is possible, but neither factor is a guaranteed hedge for the other. |
 
-**Main risks:** Low valuations may reflect genuine business deterioration; value can underperform for years, and a value ETF is not automatically cheap on an absolute basis. Review portfolio overlap, costs, profitability, and sector exposures.
+**Why might it exist?** Investors may extrapolate high growth too far, neglect unpopular industries or demand higher expected returns for distressed and less fashionable businesses. Risk-based and behavioral explanations both have supporting literature.
 
-**Fund references:** [AVLV — Avantis](https://www.avantisinvestors.com/avantis-investments/en-us/avantis-us-large-cap-value-etf/) · [VTV — Vanguard](https://advisors.vanguard.com/investments/products/vtv/vanguard-value-etf)
+**What can go wrong?** A low multiple can reflect falling earnings, leverage, obsolete products or structural decline. Value may trail growth for many years, and sector tilts can be substantial. **Value ≠ buying every stock after a −4σ regression drop.**
+
+**What to evaluate:** Valuation ratios alongside profitability and balance-sheet strength, value methodology, sector exposure, expense ratio, turnover and after-tax returns versus the same-period broad-market benchmark.
+
+**ETF implementations worth researching:**
+
+- **[AVLV](https://www.avantisinvestors.com/avantis-investments/en-us/avantis-us-large-cap-value-etf/)** — preferred research candidate for **large-cap value with a profitability-aware approach**, rather than price-only cheapness.
+- **[VTV](https://advisors.vanguard.com/investments/products/vtv/vanguard-value-etf)** — straightforward, **low-cost diversified large-cap value** alternative.
+- **[AVUV](https://www.avantisinvestors.com/avantis-investments/en-us/avantis-us-small-cap-value-etf/)** — optional **small-cap value/profitability** exposure with higher size and liquidity risk; not a necessary core holding.
+
+**Primary research:** [Fama & French (1993)](https://doi.org/10.1016/0304-405X(93)90023-5) · [Fama & French (2015)](https://doi.org/10.1016/j.jfineco.2014.10.010) · [Kenneth French factor definitions](https://mba.tuck.dartmouth.edu/pages/Faculty/ken.french/Data_Library/f-f_factors.html) · [Value and Momentum Everywhere (2013)](https://www.aqr.com/Insights/Research/Journal-Article/Value-and-Momentum-Everywhere)
 """)
 
 st.caption(

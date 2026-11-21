@@ -57,6 +57,7 @@ assert invalid == ["INVALID@@"]
 assert parse("  ") == ([], [])
 
 # Exact user-provided Pexels image identifier, dark fallback still exists.
-assert "30596231/pexels-photo-30596231.jpeg" in theme
+assert 'earth-enhanced-1920.webp' in theme
+assert (ROOT / "assets" / "earth-enhanced-1920.webp").is_file()
 assert "background-color:var(--si-bg) !important;" in theme
 print("PASS: immediate edit, save-current, safe presets, ticker parsing and Earth background")
