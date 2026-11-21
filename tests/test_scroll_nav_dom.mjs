@@ -13,6 +13,10 @@ class Element {
     this.listeners = {};
     this.top = 1000;
     this.parent = null;
+    this.style = {};
+    this.scrollHeight = 0;
+    this.clientHeight = 0;
+    this.scrolls = [];
   }
   appendChild(child) {
     if (child.parent) child.remove();
@@ -34,8 +38,11 @@ class Element {
   removeAttribute(k) { delete this.attrs[k]; }
   addEventListener(k, v) { this.listeners[k] = v; }
   removeEventListener(k) { delete this.listeners[k]; }
-  getBoundingClientRect() { return {top:this.top}; }
-  scrollIntoView(options) { this.scrolled = options; }
+  getBoundingClientRect() {
+    if (this.id === "si-global-scroll-nav") return {top:48,bottom:96};
+    return {top:this.top,bottom:this.top + 40};
+  }
+  scrollBy(options) { this.scrolls.push(options); }
 }
 
 const body = new Element("body");
@@ -48,16 +55,20 @@ const anchors = new Map(ids.map((id, i) => {
 }));
 const events = [];
 let lastHash = "";
+const windowScrolls = [];
+const scrollListeners = [];
+const header = new Element("header");
+header.getBoundingClientRect = () => ({top:0,bottom:48});
 globalThis.document = {
   body,
   createElement: name => new Element(name),
   getElementById: id => id === "si-global-scroll-nav"
     ? body.children.find(child => child.id === id) ?? null
     : anchors.get(id) ?? null,
-  querySelector: () => main,
-  addEventListener: () => {},
+  querySelector: selector => selector === '[data-testid="stHeader"]' ? header : main,
+  addEventListener: (event, fn) => { if (event === "scroll") scrollListeners.push(fn); },
   removeEventListener: () => {},
-  documentElement: {clientHeight: 900},
+  documentElement: {clientHeight: 900, style: {setProperty:()=>{}}},
 };
 globalThis.window = {
   innerHeight: 900,
@@ -65,6 +76,8 @@ globalThis.window = {
   history: {replaceState: (_a, _b, value) => { lastHash = value; }},
   addEventListener: () => {},
   removeEventListener: () => {},
+  getComputedStyle: () => ({overflowY:"visible"}),
+  scrollBy: options => windowScrolls.push(options),
 };
 globalThis.MutationObserver = class {
   observe() {}
@@ -100,7 +113,15 @@ nav = document.getElementById("si-global-scroll-nav");
 assert.equal(nav.children.length, 5, "reinitialization must not duplicate labels");
 assert.equal(nav.children.filter(b=>b.dataset.active === "true").length, 1, "one highlighted tab");
 nav.children[1].listeners.click();
-assert.deepEqual(anchors.get("si-anchor-news").scrolled, {behavior:"smooth",block:"start"});
+assert.equal(windowScrolls.length, 1, "click should scroll once");
+assert.equal(windowScrolls[0].top, anchors.get("si-anchor-news").top - 118,
+  "jump should position the section below the navbar and a 22px gap");
+assert.equal(windowScrolls[0].behavior, "smooth");
+anchors.get("si-anchor-philosophy").top = -500;
+anchors.get("si-anchor-news").top = 105;
+scrollListeners.at(-1)();
+assert.equal(nav.children[1].dataset.active, "true",
+  "scrollspy highlights the visible section");
 assert.equal(lastHash, "/#si-news", "clicking the tab navigates to its anchor");
 
 cleanup1();
