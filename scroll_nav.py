@@ -31,7 +31,9 @@ CSS = """
   align-items: center;
   gap: 5px;
   overflow-x: auto;
-  background: rgba(3, 7, 17, .98);
+  background: rgba(3, 7, 17, .64);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid #19314c;
   box-shadow: 0 6px 20px rgba(0,0,0,.32);
   scrollbar-width: thin;
@@ -53,7 +55,7 @@ CSS = """
   color: #e6f5ff;
 }
 .si-scroll-nav button[data-active="true"] {
-  background: #10263e;
+  background: rgba(16, 38, 62, .66);
   color: #c5eaff;
   border-color: #21466b;
 }

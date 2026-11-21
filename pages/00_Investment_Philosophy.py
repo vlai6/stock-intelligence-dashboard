@@ -32,7 +32,8 @@ st.markdown("""
 <style>
 .si-simple-chips {display:flex;flex-wrap:wrap;gap:9px;margin:.45rem 0 .4rem;}
 .si-simple-chip {flex:0 0 auto;min-width:125px;max-width:155px;padding:8px 11px;
-  border:1px solid #1d3854;border-radius:9px;background:#091726;}
+  border:1px solid #1d3854;border-radius:9px;background:rgba(9,23,38,.54);
+  backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);}
 .si-simple-chip .label {font-size:var(--si-type-caption);color:#a7c1d6;line-height:1.3;}
 .si-simple-chip .value {font-size:var(--si-type-metric);font-weight:700;color:#d9ecff;line-height:1.5;}
 </style>
