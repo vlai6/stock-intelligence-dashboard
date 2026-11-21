@@ -51,7 +51,12 @@ def test_bulk_failure_recovers_a_valid_single_ticker(monkeypatch):
 def test_rate_limited_individual_probes_stop_without_fabricating_prices(monkeypatch):
     monkeypatch.setattr(scanner, "_read_cache", lambda *_: None)
     monkeypatch.setattr(scanner.time, "sleep", lambda _: None)
-    monkeypatch.setattr(scanner.yf, "download", lambda **_: pd.DataFrame())
+    symbols = [f"T{i}" for i in range(25)]
+    columns = pd.MultiIndex.from_product([symbols, ["Close"]])
+    # Yahoo can return a formally nonempty frame containing only NaN prices.
+    bulk = pd.DataFrame(np.nan, index=pd.to_datetime(["2026-11-20"]),
+                        columns=columns)
+    monkeypatch.setattr(scanner.yf, "download", lambda **_: bulk)
 
     probes = []
     class FakeTicker:
