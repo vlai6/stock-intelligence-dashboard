@@ -83,7 +83,10 @@ html body [data-testid="stMainBlockContainer"],
 html body [data-testid="stAppViewBlockContainer"] {
   padding-top: 5.1rem !important;
 }
-.si-section-marker { height: 1px; scroll-margin-top: 102px; }
+html, body, [data-testid="stMain"], [data-testid="stAppViewContainer"] {
+  scroll-padding-top: var(--si-section-offset, 130px) !important;
+}
+.si-section-marker { height: 1px; scroll-margin-top: var(--si-section-offset, 130px); }
 div[class*="st-key-si_section_"] {
   padding: 0.3rem 0 2rem;
   border-bottom: 1px solid rgba(130, 159, 194, .20);
@@ -91,7 +94,7 @@ div[class*="st-key-si_section_"] {
 @media(max-width:700px) {
   html body [data-testid="stMainBlockContainer"],
   html body [data-testid="stAppViewBlockContainer"] { padding-top:5.5rem !important; }
-  .si-section-marker { scroll-margin-top: 96px; }
+  .si-section-marker { scroll-margin-top: var(--si-section-offset, 130px); }
 }
 </style>
 """, unsafe_allow_html=True)

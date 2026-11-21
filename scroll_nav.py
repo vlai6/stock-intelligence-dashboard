@@ -41,9 +41,9 @@ CSS = """
   border: 1px solid transparent;
   border-radius: 7px;
   background: transparent;
-  color: #9cb5ca;
+  color: #c5d7e8;
   cursor: pointer;
-  font-size: .77rem;
+  font-size: .81rem;
   font-weight: 600;
   padding: 7px 12px;
   white-space: nowrap;
@@ -54,7 +54,7 @@ CSS = """
 }
 .si-scroll-nav button[data-active="true"] {
   background: #10263e;
-  color: #73c8ff;
+  color: #c5eaff;
   border-color: #21466b;
 }
 @media(max-width:700px) {
@@ -85,6 +85,39 @@ export default function({parentElement, data, setTriggerValue}) {
   const entries = Array.isArray(data.sections) ? data.sections : [];
   const loaded = new Set(Array.isArray(data.loaded) ? data.loaded : []);
   const controls = new Map();
+  // Align under Streamlit's actual toolbar height.
+  const header = document.querySelector('[data-testid="stHeader"]');
+  const headerBottom = header ? header.getBoundingClientRect().bottom : 48;
+  nav.style.top = Math.max(38, Math.ceil(headerBottom)) + "px";
+  const navOffset = () => nav.getBoundingClientRect().bottom + 22;
+  document.documentElement.style.setProperty("--si-section-offset", navOffset() + "px");
+
+  // Unlike scrollIntoView(start), this leaves section headings visible
+  // below the pinned navigation and works with Streamlit's scroll container.
+  function scrollToSection(id, behavior = "smooth") {
+    const target = document.getElementById("si-anchor-" + id);
+    if (!target) return false;
+    const delta = target.getBoundingClientRect().top - navOffset();
+    if (Math.abs(delta) < 3) return true;
+    let ancestor = target.parentElement;
+    while (ancestor && ancestor !== document.body) {
+      const computed = window.getComputedStyle(ancestor);
+      if (/(auto|scroll|overlay)/.test(computed.overflowY)
+          && ancestor.scrollHeight > ancestor.clientHeight + 2) {
+        ancestor.scrollBy({top: delta, behavior});
+        return true;
+      }
+      ancestor = ancestor.parentElement;
+    }
+    const page = document.scrollingElement;
+    if (page && page.scrollHeight > page.clientHeight + 2) {
+      page.scrollBy({top: delta, behavior});
+    } else {
+      window.scrollBy({top: delta, behavior});
+    }
+    return true;
+  }
+
   let pending = false;
   let waitingFor = null;
   let closed = false;
@@ -96,9 +129,8 @@ export default function({parentElement, data, setTriggerValue}) {
     button.textContent = entry.label;
     button.dataset.section = entry.id;
     button.addEventListener("click", () => {
-      const anchor = document.getElementById("si-anchor-" + entry.id);
-      if (anchor) {
-        anchor.scrollIntoView({behavior: "smooth", block: "start"});
+      if (!loaded.has(entry.id)) nav.__siPendingSection = entry.id;
+      if (scrollToSection(entry.id)) {
         const base = window.location.pathname + window.location.search;
         window.history.replaceState(null, "", base + "#si-" + entry.id);
       }
@@ -111,6 +143,7 @@ export default function({parentElement, data, setTriggerValue}) {
     if (closed) return;
     // Scroll can occur inside Streamlit's main content element or the page.
     const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+    const activeThreshold = navOffset() + 16;
     let current = entries.length ? entries[0].id : null;
     let nextToLoad = null;
 
@@ -118,7 +151,7 @@ export default function({parentElement, data, setTriggerValue}) {
       const anchor = document.getElementById("si-anchor-" + entry.id);
       if (!anchor) continue;
       const y = anchor.getBoundingClientRect().top;
-      if (y <= 160) current = entry.id;
+      if (y <= activeThreshold) current = entry.id;
       if (!loaded.has(entry.id) && y < viewportHeight + 450 && y > -250
           && nextToLoad === null) {
         nextToLoad = entry.id;
@@ -150,13 +183,14 @@ export default function({parentElement, data, setTriggerValue}) {
   document.addEventListener("scroll", schedule, {passive:true, capture:true});
   window.addEventListener("resize", schedule, {passive:true});
   schedule();
-  if (window.location.hash.startsWith("#si-")) {
+  if (nav.__siPendingSection && loaded.has(nav.__siPendingSection)) {
+    const revealed = nav.__siPendingSection;
+    nav.__siPendingSection = null;
+    requestAnimationFrame(() => scrollToSection(revealed, "auto"));
+  } else if (window.location.hash.startsWith("#si-")) {
     const id = window.location.hash.slice(4);
     if (entries.some(entry => entry.id === id)) {
-      requestAnimationFrame(() => {
-        const target = document.getElementById("si-anchor-" + id);
-        if (target) target.scrollIntoView({block:"start"});
-      });
+      requestAnimationFrame(() => scrollToSection(id, "auto"));
     }
   }
   return () => {
