@@ -315,16 +315,18 @@ label[data-testid="stWidgetLabel"] p,
 }
 
 [data-testid="stButton"] button[kind="primary"],
-
-[data-testid="stFormSubmitButton"] button[kind="primary"] {
+[data-testid="stFormSubmitButton"] button[kind="primary"],
+[data-testid="stFormSubmitButton"] button[kind="primaryFormSubmit"],
+[data-testid="stFormSubmitButton"] button[data-testid="stBaseButton-primaryFormSubmit"] {
 
   background:rgba(23,92,155,.84) !important;color:white !important;border-color:#3084C8 !important;
 
 }
 
 [data-testid="stButton"] button[kind="primary"]:hover,
-
-[data-testid="stFormSubmitButton"] button[kind="primary"]:hover {
+[data-testid="stFormSubmitButton"] button[kind="primary"]:hover,
+[data-testid="stFormSubmitButton"] button[kind="primaryFormSubmit"]:hover,
+[data-testid="stFormSubmitButton"] button[data-testid="stBaseButton-primaryFormSubmit"]:hover {
 
   background:rgba(30,121,188,.9) !important;border-color:#50B6FC !important;
 
