@@ -11,6 +11,11 @@ on:
       - "pages/1_News_Screen.py"
       - "pages/2_News_Sentiment.py"
       - "regression_scanner/app.py"
+      - "regression_scanner/automated_scan.py"
+      - "regression_scanner/emailer.py"
+      - "regression_scanner/schedule_guard.py"
+      - "tests/test_regression_email_scheduling.py"
+      - ".github/workflows/cloud-email-scanner.yml"
       - ".github/workflows/validate-dashboard-ui.yml"
   workflow_dispatch:
 
@@ -29,6 +34,10 @@ jobs:
       - name: Compile modified Streamlit pages
         run: |
           python -m py_compile app.py dashboard_theme.py pages/0_Stock_Intelligence.py regression_scanner/app.py
+      - name: Verify Eastern morning scheduling and fresh email subjects
+        run: |
+          python -m py_compile regression_scanner/schedule_guard.py regression_scanner/automated_scan.py regression_scanner/emailer.py
+          python tests/test_regression_email_scheduling.py
       - name: Verify navigation and pagination controls
         run: |
           python - <<'PY'
