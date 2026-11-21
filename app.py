@@ -24,6 +24,9 @@ page = st.navigation([
 ], position='hidden')
 
 
+if page.title != 'Dashboard':
+    st.page_link('scroll_dashboard.py', label='Back to continuous dashboard', icon='↩️')
+
 page.run()
 
 
