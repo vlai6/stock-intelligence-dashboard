@@ -36,6 +36,13 @@ jobs:
           assert "title='Metrics & Competition'" in nav
           assert "'Metrics & Competition'" in theme
           assert 'render_page_header("Metrics & Competition"' in stock
+          # Load Stock is a primary form submit button. It should visually
+          # match Run Scan rather than falling back to the form-default style.
+          assert 'type="primary",\n        use_container_width=True' in stock
+          assert '[class*="st-key-stock_search"] [data-testid="stFormSubmitButton"]' in stock
+          assert 'width: min(240px, 100%)' in stock
+          assert 'button[kind="primaryFormSubmit"]' in theme
+          assert 'button[kind="primaryFormSubmit"]:hover' in theme
           assert 'default="Pages of 10"' in scanner
           assert 'options=["Pages of 10", "Scroll"]' in scanner
           assert 'page_view = visible_view.iloc[(page_no - 1) * 10:page_no * 10].copy()' in scanner
