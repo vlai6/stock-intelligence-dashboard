@@ -26,7 +26,7 @@ st.markdown("### INVESTMENT APPROACH")
 st.markdown(
     "**Most investments remain diversified.** The dashboards help identify "
     "unusual stock opportunities and evaluate the underlying businesses. "
-    "Individual stocks enter my portfolio only when the expected return justifies the risk versus SPY."
+    "Individual stocks are considered only when their expected return justifies the risk relative to SPY."
 )
 st.markdown("""
 <style>
@@ -67,7 +67,7 @@ with regression:
         "It is a research alert, **not an automatic purchase**."
     )
     st.markdown(
-        "**My approach:** Keep the core invested in SPY and temporarily rotate a "
+        "**Portfolio approach:** Keep the core invested in SPY and temporarily rotate a "
         "small amount into a stock only after assessing business quality, "
         "financial strength, reasonable valuation and a realistic recovery path."
     )
@@ -204,7 +204,7 @@ Studies of news diffusion and post-earnings price reactions suggest that prices 
 st.divider()
 st.markdown("## DISCIPLINE & CAPITAL")
 st.markdown(
-    "**I consider selling when the investment thesis weakens, valuation "
+    "**Selling discipline:** Reassess a position when its investment thesis weakens, valuation "
     "no longer supports attractive returns, or a better risk-adjusted "
     "alternative exists.** Taxes and trading costs also matter."
 )
