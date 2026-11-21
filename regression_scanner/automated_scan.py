@@ -1,6 +1,6 @@
-"""Twice-daily, five-bucket regression scan + deduplicated email alerts.
+"""Five-bucket regression scan with deduplicated email alerts.
 
-Runs locally via Windows Task Scheduler. Does not require Streamlit to be open.
+Runs under the main dashboard's weekday GitHub Actions schedule or manually.
 The optional AI summary uses the separately billed OpenAI API, never the ChatGPT UI.
 
 Usage:
@@ -78,8 +78,13 @@ def prime_opportunity(row: dict) -> bool:
     return z <= -4.0 or (row.get("bucket") == "50B+" and z <= -3.0)
 
 
-def email_subject(signals: list[dict], alerts: list[dict]) -> str:
-    """Compact highlights by cap bucket and threshold, followed by alert changes."""
+def email_subject(signals: list[dict], alerts: list[dict], *,
+                  run_at: datetime | None = None) -> str:
+    """Dated, per-run subject prevents Gmail threading repeated daily reports.
+
+    Include seconds so repeated manual runs on the same day receive unique
+    subjects. The timestamp is in Eastern Time, not the GitHub runner's UTC.
+    """
     from collections import Counter
     cap_order = {name: i for i, (name, _, _) in enumerate(BUCKETS)}
     grouped = Counter((row.get("bucket", ""), zone_for(float(row["z_score"]), row.get("bucket", "")))
@@ -89,7 +94,9 @@ def email_subject(signals: list[dict], alerts: list[dict]) -> str:
                                          key=lambda item: (cap_order.get(item[0][0], 99), -_level_rank(item[0][1]))):
         fragments.append(f"{count} Opp @ ${bucket} at {level.replace('-', '−')}")
     headline = "Potentially Undervalued Stocks: " + (", ".join(fragments) if fragments else "None today")
-    return f"{headline} | {len(alerts)} new/worsened"
+    sent_at = (run_at or datetime.now(ET)).astimezone(ET)
+    stamp = sent_at.strftime("%b %d, %Y %I:%M:%S %p ET")
+    return f"{stamp} | {headline} | {len(alerts)} new/worsened"
 
 
 def read_state() -> dict:
@@ -384,7 +391,9 @@ def main() -> None:
     args = parser.parse_args()
     load_dotenv(ROOT / ".env")
     if args.test_email:
-        send_email("[Regression Scanner] SMTP test", "Your regression scanner email settings work.")
+        stamp = datetime.now(ET).strftime("%b %d, %Y %I:%M:%S %p ET")
+        send_email(f"[Regression Scanner] SMTP test — {stamp}",
+                   "Your regression scanner email settings work.")
         print("Test email sent.")
         return
     execute(dry_run=args.dry_run, limit=args.limit_per_bucket, force_market_day=args.force_market_day)

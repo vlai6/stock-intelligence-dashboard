@@ -1,7 +1,9 @@
 """Email alerts using an SMTP SSL connection (e.g., Gmail App Password)."""
 import os
 import smtplib
+from datetime import datetime
 from email.message import EmailMessage
+from email.utils import format_datetime, make_msgid
 
 
 def send_email(subject: str, body: str, *, html_body: str | None = None) -> None:
@@ -13,6 +15,10 @@ def send_email(subject: str, body: str, *, html_body: str | None = None) -> None
     message["From"] = os.environ["SMTP_USER"]
     message["To"] = os.environ["ALERT_TO"]
     message["Subject"] = subject
+    # Explicit independent message headers discourage clients from treating
+    # successive daily digests as replies within one collapsed conversation.
+    message["Date"] = format_datetime(datetime.now().astimezone())
+    message["Message-ID"] = make_msgid()
     message.set_content(body)
     if html_body:
         message.add_alternative(html_body, subtype="html")

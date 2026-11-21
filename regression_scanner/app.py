@@ -627,23 +627,29 @@ def render_selected_channel(view: pd.DataFrame, summary: dict, session: str) -> 
             f"**Channel σ:** ${chart.point.sigma:,.2f}  ·  "
             f"**Z-score:** {chart.point.z:+.2f}σ"
         )
-        st.markdown(
-            '<div style="text-align:right; color:#9aa3ae; font-size:var(--si-type-caption); '
-            'margin:0 0 0.35rem 0;">'
-            'Hover over X or Y Axis and use MWheel to adjust Axis'
-            '</div>',
-            unsafe_allow_html=True,
-        )
+        # Position the axis instruction inside the same chart-width column
+        # as Plotly's native Autoscale toolbar to align their right edges.
         # Emphasize Plotly's real Autoscale action (not a simulated chart
         # reset). Keep this CSS scoped to this regression chart only.
         st.markdown(
             """
             <style>
+            .st-key-regression_chart_glass .si-regression-axis-help {
+                text-align: right;
+                padding: 0 12px 4px 0;
+                margin: 0;
+                color: #9aa3ae;
+                font-size: var(--si-type-caption);
+                line-height: 1.3;
+            }
             [class*="st-key-channel_chart_"] .js-plotly-plot .plotly .modebar {
                 display: flex !important;
                 align-items: center !important;
-                top: 5px;
-                right: 8px;
+                position: absolute !important;
+                float: none !important;
+                top: 6px !important;
+                right: 12px !important;
+                left: auto !important;
                 padding: 5px 7px;
                 background: rgba(4, 14, 28, 0.65);
                 backdrop-filter: blur(8px);
@@ -715,6 +721,12 @@ def render_selected_channel(view: pd.DataFrame, summary: dict, session: str) -> 
         chart_width_col, _chart_right_space = st.columns([0.87, 0.13], gap="small")
         with chart_width_col:
             with st.container(key="regression_chart_glass"):
+                st.markdown(
+                    '<div class="si-regression-axis-help">'
+                    'Hover over X or Y Axis and use MWheel to adjust Axis'
+                    '</div>',
+                    unsafe_allow_html=True,
+                )
                 st.plotly_chart(
                     style_blue_figure(channel_figure(chart, ticker, visible_bands)),
                     use_container_width=True,
