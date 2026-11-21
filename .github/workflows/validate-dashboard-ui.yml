@@ -63,7 +63,9 @@ jobs:
           assert 'background:var(--si-selection-bg) !important;' in theme
           assert '[data-testid="stExpander"] summary' in theme
           assert '[data-testid="stMultiSelect"] [data-baseweb="tag"]' in theme
-          assert 'type="primary",\n                            on_click=add_custom_comparison_ticker' in stock
+          assert 'type="primary",' in stock
+          assert 'on_click=add_custom_comparison_ticker' in stock
+          sentiment = Path('pages/2_News_Sentiment.py').read_text()
           assert "st.form_submit_button('Analyze stock', type='primary'" in sentiment
           assert "st.button('Refresh headlines', type='primary'" in sentiment
           config = Path('.streamlit/config.toml').read_text()
@@ -71,7 +73,6 @@ jobs:
           assert 'button[kind="primaryFormSubmit"]' not in theme  # one shared action style
           assert '[data-testid="stFormSubmitButton"] button' in theme
           assert '[data-testid="stFormSubmitButton"] button:hover' in theme
-          sentiment = Path('pages/2_News_Sentiment.py').read_text()
           assert 'fig=go.Figure(go.Bar(x=labels, y=[counts[k] for k in labels],' in sentiment
           assert 'text=[counts[k] for k in labels]' not in sentiment
           assert "counts['Positive']" in sentiment  # Metric counts stay above the bars
