@@ -125,7 +125,7 @@ st.markdown("""<style>
     line-height: 1.25 !important;
 }
 </style>""", unsafe_allow_html=True)
-render_page_header('News Sentiment', 'FinBERT sentiment and Gemini events · company-name headlines from the last 7 days', current='sentiment')
+render_page_header('Recent Sentiment', 'FinBERT sentiment and Gemini events · company-name headlines from the last 7 days', current='sentiment')
 # Regression scanner-based watchlist presets (not a synthetic market scan).
 from regression_watchlists import (
     PRESETS, parse_scan_csv, read_local_scan, filtered, display_row, stale_report,
