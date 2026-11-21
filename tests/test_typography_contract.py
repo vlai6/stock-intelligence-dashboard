@@ -55,4 +55,15 @@ assert "font-size:var(--si-type-caption)" in scanner
 nav = source("scroll_nav.py")
 assert "font-size: var(--si-type-nav, .85rem);" in nav
 assert "nav.replaceChildren();" in nav
+# Two new educational ETF sections should sit beside the existing factor explainer.
+philosophy = source("pages/00_Investment_Philosophy.py")
+assert philosophy.count('with st.expander("Momentum ETFs — SPMO and XMMO"') == 1
+assert philosophy.count('with st.expander("Value ETFs — AVLV and VTV"') == 1
+assert philosophy.index("Why ETFs, momentum, value and quality?") < philosophy.index("FEATURED ETF FACTORS") < philosophy.index("INDIVIDUAL-STOCK STRATEGIES")
+for ticker in ("SPMO", "XMMO", "AVLV", "VTV"):
+    assert ticker in philosophy
+assert "High momentum is not the same as undervaluation" in philosophy
+assert "not guaranteed to move in opposite directions" in philosophy
+assert 'expanded=False' in philosophy
+
 print("PASS: one shared typography hierarchy, without changing scanner or UI logic")
