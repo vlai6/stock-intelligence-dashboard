@@ -288,6 +288,11 @@ def render_stock_results_heading() -> None:
     )
 
 
+def regression_table_height(row_count: int, max_height: int = 760) -> int:
+    """Fit the table header and available rows, capping large result sets for scrolling."""
+    return min(max_height, 43 + 35 * max(1, row_count))
+
+
 def show_live_table(rows: list[dict]) -> None:
     if not rows:
         st.caption("No stocks passing the trend/history filters yet in the processed batches.")
@@ -295,7 +300,8 @@ def show_live_table(rows: list[dict]) -> None:
     frame = pd.DataFrame(rows).sort_values("z_score")
     visible = frame[[c for c in VISIBLE_COLUMNS if c in frame.columns]]
     st.dataframe(styled_stock_table(visible),
-                 hide_index=True, use_container_width=True, height=850,
+                 hide_index=True, use_container_width=True,
+                 height=regression_table_height(len(visible)),
                  column_config=COLUMN_CONFIG)
 
 
@@ -931,7 +937,7 @@ def render_saved_results(scope: str, top_n: int, min_cap: float,
         styled_stock_table(visible_view),
         hide_index=True,
         use_container_width=True,
-        height=900,
+        height=regression_table_height(len(visible_view)),
         column_order=(["Graph", *VISIBLE_COLUMNS] if not show_intrinsic
                       else ["Graph", *VALUED_COLUMNS]),
         column_config={
@@ -1007,7 +1013,8 @@ if scope == ETF_SCOPE and current_etf_symbol:
                    "Missing history/download errors still produce unavailable scores.")
         st.dataframe(score_table[[c for c in (
             'ticker', 'session', 'close', 'regression', 'z_score', 'lower_3', 'lower_4', 'strategy_eligible'
-        ) if c in score_table.columns]], hide_index=True, use_container_width=True, height=420)
+        ) if c in score_table.columns]], hide_index=True, use_container_width=True,
+                 height=regression_table_height(len(score_table)))
     if score_meta.get('skipped'):
         with st.expander(f"ETF holdings without calculated Z-scores ({len(score_meta['skipped'])})"):
             st.dataframe(pd.DataFrame(score_meta['skipped']), hide_index=True, use_container_width=True)
