@@ -645,7 +645,8 @@ def render_selected_channel(view: pd.DataFrame, summary: dict, session: str) -> 
                 top: 5px;
                 right: 8px;
                 padding: 5px 7px;
-                background: rgba(4, 14, 28, 0.94);
+                background: rgba(4, 14, 28, 0.65);
+                backdrop-filter: blur(8px);
                 border: 1px solid #284b6b;
                 border-radius: 9px;
                 box-shadow: 0 3px 12px rgba(0, 0, 0, 0.35);
@@ -663,7 +664,7 @@ def render_selected_channel(view: pd.DataFrame, summary: dict, session: str) -> 
                 min-width: 112px;
                 height: 36px !important;
                 padding: 5px 11px !important;
-                background: #1764a7 !important;
+                background: rgba(23, 100, 167, 0.86) !important;
                 border: 1px solid #53bfff !important;
                 border-radius: 7px;
                 color: #f5fbff !important;
@@ -701,7 +702,7 @@ def render_selected_channel(view: pd.DataFrame, summary: dict, session: str) -> 
             .modebar-group:first-child .modebar-btn:first-child:hover,
             [class*="st-key-channel_chart_"] .js-plotly-plot .plotly
             .modebar-group:first-child .modebar-btn:first-child:focus-visible {
-                background: #2585d1 !important;
+                background: rgba(37, 133, 209, 0.91) !important;
                 border-color: #99deff !important;
                 outline-offset: 2px;
             }
