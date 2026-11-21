@@ -29,6 +29,7 @@ def main() -> None:
         prices, hits = _download_batch(
             stocks, info["start"], info["target"],
             bypass_cache=bool(info.get("bypass_cache", False)),
+            recover_individual=False,  # Preserve strict 20-second scheduled watchdog
         )
         pd.to_pickle((prices, hits), output_file, compression="gzip")
         return
