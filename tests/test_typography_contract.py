@@ -77,7 +77,14 @@ assert 'expanded=False' in philosophy
 
 # Background is shared rather than implemented separately in each page.
 # Keep the fallback and overlay to preserve legibility on every page.
-assert '30596231/pexels-photo-30596231.jpeg' in theme
+assert 'earth-enhanced-1920.webp' in theme
+assert '_earth_image_data_url()' in theme
+assert 'data:image/webp;base64,' in theme
+asset = ROOT / "assets" / "earth-enhanced-1920.webp"
+assert asset.is_file()
+image = asset.read_bytes()
+assert image.startswith(b"RIFF") and image[8:12] == b"WEBP"
+assert len(image) > 8000
 assert 'background-color:var(--si-bg) !important;' in theme
 assert 'background-image:' in theme
 assert 'linear-gradient(180deg, rgba(3,7,17,.12)' in theme
