@@ -20,6 +20,12 @@ assert "font-size:var(--si-type-page)" in theme
 assert '[data-testid="stHeaderActionElements"]' in theme
 assert 'display: none !important;' in theme.split('[data-testid="stHeaderActionElements"]', 1)[1].split('}', 1)[0]
 assert '[data-testid="stPageLink"] a' in theme
+# Hide only Streamlit chrome, not the header anchor used by scroll navigation.
+assert '[data-testid="stToolbar"]' in theme
+assert '[data-testid="stAppToolbar"]' in theme
+assert '[data-testid="stMainMenu"]' in theme
+assert 'toolbarMode = "minimal"' in source(".streamlit/config.toml")
+assert '[data-testid="stHeader"]' in theme
 assert "font-size:var(--si-type-caption) !important" in theme
 assert "font=dict(family='Inter, Segoe UI, Arial, sans-serif', color='#DEEAF7', size=13)" in theme
 
