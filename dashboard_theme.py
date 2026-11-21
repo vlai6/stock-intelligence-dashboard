@@ -114,10 +114,10 @@ def apply_dashboard_theme():
 
   --si-accent:#4EB7FF; --si-text:#E9F2FD; --si-muted:#B9CDE0;
   /* Glassy surfaces reveal the Earth background without fading content. */
-  --si-panel-glass:rgba(5,17,32,.52);
-  --si-input-glass:rgba(7,22,39,.56);
-  --si-popover-glass:rgba(7,21,39,.86);
-  --si-glass-blur:blur(9px);
+  --si-panel-glass:rgba(5,17,32,.65);
+  --si-input-glass:rgba(7,22,39,.66);
+  --si-popover-glass:rgba(7,21,39,.87);
+  --si-glass-blur:blur(14px);
   --si-glass-border:rgba(87,145,190,.36);
   /* Shared type roles across every Streamlit section and embedded HTML card. */
   --si-type-page:2rem; --si-type-section:1.5rem;
@@ -300,6 +300,27 @@ label[data-testid="stWidgetLabel"] p,
 
 }
 
+/* Match the translucent General News cards for both chart canvases and
+   the saved regression results. Plotly axes/series remain fully opaque. */
+.st-key-stock_price_chart_glass,
+.st-key-peer_chart_glass,
+.st-key-regression_chart_glass,
+.st-key-regression_results_surface {
+  background:linear-gradient(150deg,rgba(8,20,34,.70),rgba(7,15,27,.61)) !important;
+  backdrop-filter:blur(14px) !important;
+  -webkit-backdrop-filter:blur(14px) !important;
+  border:1px solid rgba(71,120,158,.27);
+  border-radius:12px;
+  padding:10px 12px;
+}
+.st-key-regression_results_surface {padding:14px 16px;}
+@media(max-width:760px) {
+  .st-key-stock_price_chart_glass,
+  .st-key-peer_chart_glass,
+  .st-key-regression_chart_glass,
+  .st-key-regression_results_surface {padding:6px;}
+}
+
 [data-testid="stWidgetLabel"] p {color:#C6DBED !important;}
 
 [data-testid="stButton"] button,
@@ -319,7 +340,9 @@ label[data-testid="stWidgetLabel"] p,
 [data-testid="stFormSubmitButton"] button[kind="primaryFormSubmit"],
 [data-testid="stFormSubmitButton"] button[data-testid="stBaseButton-primaryFormSubmit"] {
 
-  background:rgba(23,92,155,.84) !important;color:white !important;border-color:#3084C8 !important;
+  background:rgba(14,59,96,.80) !important;
+  color:#E4F1FC !important;
+  border-color:#2E668E !important;
 
 }
 
@@ -328,7 +351,8 @@ label[data-testid="stWidgetLabel"] p,
 [data-testid="stFormSubmitButton"] button[kind="primaryFormSubmit"]:hover,
 [data-testid="stFormSubmitButton"] button[data-testid="stBaseButton-primaryFormSubmit"]:hover {
 
-  background:rgba(30,121,188,.9) !important;border-color:#50B6FC !important;
+  background:rgba(22,80,121,.88) !important;
+  border-color:#4C8DAE !important;
 
 }
 
@@ -344,6 +368,14 @@ label[data-testid="stWidgetLabel"] p,
 [data-testid="stButton"] button[kind="secondary"]:hover,
 
 [data-testid="stPopover"] button:hover {color:white;border-color:#48A9ED;}
+
+/* Selected ticker and metric chips should be muted navy, not neon blue. */
+[data-baseweb="tag"] {
+  background:rgba(26,72,103,.76) !important;
+  border-color:rgba(91,145,182,.55) !important;
+  color:#DCECF7 !important;
+}
+[data-baseweb="tag"] * {color:inherit !important;}
 
 [data-testid="stMetric"] {
   background:var(--si-panel-glass) !important;
