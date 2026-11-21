@@ -19,13 +19,14 @@ ALLOWED_SECTION_IDS = frozenset(slug for slug, _ in SECTIONS)
 CSS = """
 .si-scroll-nav {
   position: fixed;
-  top: 38px;
+  top: 48px;
   left: 0;
   right: 0;
-  z-index: 998;
+  z-index: 100001;
   box-sizing: border-box;
-  min-height: 44px;
-  padding: 5px max(14px, calc((100vw - 1620px) / 2));
+  height: 48px;
+  min-height: 48px;
+  padding: 0 max(14px, calc((100vw - 1620px) / 2));
   display: flex;
   align-items: center;
   gap: 5px;
@@ -57,15 +58,30 @@ CSS = """
   border-color: #21466b;
 }
 @media(max-width:700px) {
-  .si-scroll-nav { top: 32px; padding-inline: 8px; }
+  .si-scroll-nav { top: 48px; padding-inline: 8px; }
   .si-scroll-nav button { padding: 8px 9px; font-size:.72rem; }
 }
 """
 
 JS = """
 export default function({parentElement, data, setTriggerValue}) {
-  const nav = parentElement.querySelector(".si-scroll-nav");
-  if (!nav) return;
+  // Streamlit's component wrapper may clip position:fixed descendants.
+  // Mount the one global sticky bar at document.body instead of inside it.
+  // Do not touch parentElement.innerHTML: Streamlit owns that markup.
+  const navId = "si-global-scroll-nav";
+  let nav = document.getElementById(navId);
+  if (!nav) {
+    nav = document.createElement("nav");
+    nav.id = navId;
+  }
+  nav.className = "si-scroll-nav";
+  nav.setAttribute("aria-label", "Dashboard sections");
+  const owner = Symbol("si-scroll-nav-owner");
+  nav.__siOwner = owner;
+  // Re-rendering the component must never append a second copy of the tabs.
+  nav.replaceChildren();
+  document.body.appendChild(nav);
+
   const entries = Array.isArray(data.sections) ? data.sections : [];
   const loaded = new Set(Array.isArray(data.loaded) ? data.loaded : []);
   const controls = new Map();
@@ -148,13 +164,16 @@ export default function({parentElement, data, setTriggerValue}) {
     observer.disconnect();
     document.removeEventListener("scroll", schedule, true);
     window.removeEventListener("resize", schedule);
+    // Old component instances can unmount after a new instance has rendered.
+    // Only the latest owner may remove the shared navigation element.
+    if (nav.__siOwner === owner) nav.remove();
   };
 }
 """
 
 _SCROLL_COMPONENT = st.components.v2.component(
     "stock_intelligence_scroll_navigation_v1",
-    html='<nav class="si-scroll-nav" aria-label="Dashboard sections"></nav>',
+    html='<span aria-hidden="true" class="si-scroll-nav-mount"></span>',
     css=CSS,
     js=JS,
     isolate_styles=False,
