@@ -153,6 +153,11 @@ jobs:
           assert '"zoom2d", "pan2d", "zoomIn2d", "zoomOut2d", "resetScale2d"' in scanner
           assert '["toImage"],' in scanner
           assert 'content: "Autoscale" !important;' in scanner
+          assert '.si-regression-axis-help' in scanner
+          assert 'with st.container(key="regression_chart_glass"):' in scanner
+          assert 'right: 12px !important;' in scanner
+          assert 'left: auto !important;' in scanner
+          assert 'st.markdown(\n                    \'<div class="si-regression-axis-help">\'' in scanner
           assert '[class*="st-key-channel_chart_"]' in scanner
           assert '"scrollZoom": True' in scanner
           print('Navigation, table layout, graph selection, and export contracts OK')
