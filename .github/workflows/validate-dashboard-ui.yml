@@ -42,6 +42,22 @@ jobs:
           assert 'type="primary",\n        use_container_width=True' in stock
           assert '[class*="st-key-stock_search"] [data-testid="stFormSubmitButton"]' in stock
           assert 'width: min(240px, 100%)' in stock
+          assert 'peers_col, metrics_col = st.columns([1, 1], gap="medium")' in stock
+          assert 'st.columns([0.86, 0.14], gap="small")' in stock
+          assert 'st.columns([0.91, 0.09], gap="small")' in stock
+          assert 'key="stock_price_chart_glass"' in stock
+          assert 'key="peer_chart_glass"' in stock
+          assert 'max-width: 590px' in stock
+          assert 'max-width: 650px' in stock
+          assert 'key=f"metrics_risk_period_{symbol}"' in stock
+          assert 'with st.container(key="regression_chart_glass"):' in scanner
+          assert 'with results_slot.container(key="regression_results_surface"):' in scanner
+          assert 'c_filter, c_sort, _filter_deadspace' in scanner
+          for marker in (".st-key-stock_price_chart_glass", ".st-key-peer_chart_glass",
+                         ".st-key-regression_chart_glass", ".st-key-regression_results_surface"):
+              assert marker in theme
+          assert 'background:rgba(14,59,96,.80)' in theme
+          assert '[data-baseweb="tag"]' in theme
           assert 'button[kind="primaryFormSubmit"]' in theme
           assert 'button[kind="primaryFormSubmit"]:hover' in theme
           sentiment = Path('pages/2_News_Sentiment.py').read_text()
