@@ -115,3 +115,21 @@ def test_daily_history_does_not_invent_missing_target_session():
     history = pd.DataFrame({"Close": [100., 105.]}, index=idx)
     closes = scanner._clean_daily_closes(history, "2026-11-20")
     assert closes.index[-1].strftime("%Y-%m-%d") == "2026-11-19"
+
+
+def test_scheduled_bulk_failure_does_not_probe_individual_tickers(monkeypatch):
+    monkeypatch.setattr(scanner, "_read_cache", lambda *_: None)
+    monkeypatch.setattr(scanner.time, "sleep", lambda _: None)
+    monkeypatch.setattr(
+        scanner.yf, "download",
+        lambda **_: (_ for _ in ()).throw(RuntimeError("bulk unavailable"))
+    )
+    def should_not_probe(*_args, **_kwargs):
+        raise AssertionError("Scheduled worker must not fall back to individual Yahoo requests")
+    monkeypatch.setattr(scanner.yf, "Ticker", should_not_probe)
+
+    with pytest.raises(RuntimeError, match="bulk unavailable"):
+        scanner._download_batch(
+            [stock("AAPL"), stock("MSFT")], "2021-01-01", "2026-11-20",
+            recover_individual=False,
+        )
