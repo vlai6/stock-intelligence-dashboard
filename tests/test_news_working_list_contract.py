@@ -14,7 +14,7 @@ theme = (ROOT / "dashboard_theme.py").read_text(encoding="utf-8-sig")
 # Confirm the view has a direct blank-list action, an editor and a snapshot
 # save without modifying read-only scan/ETF selections.
 for snippet in (
-    '"Clear & add stocks"', '"Save displayed as list"', '"Edit displayed"',
+    "'Clear & add stocks'", '"Save displayed as list"', '"Edit displayed"',
     'WORKING_STOCK_LABEL = "Working List (Unsaved)"',
     "st.session_state[DRAFT_KEY] = []",
     "st.session_state[DRAFT_KEY] = watchlist.copy()",
