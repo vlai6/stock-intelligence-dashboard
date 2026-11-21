@@ -151,7 +151,7 @@ Trading costs, dividends, settlement and estimated federal taxes (35% short-term
 
     with st.expander("Standard deviations, reversals and future tests", expanded=False):
         st.markdown("""
-**My Z-score** = (current price − fitted trend price) ÷ standard deviation of historical regression residuals. It is **not** the same as a −3σ *one-day return*. Bell-curve tail probabilities are not reliable probabilities that a stock will recover.
+**The regression Z-score I use** = (current price − fitted trend price) ÷ standard deviation of historical regression residuals. It is **not** the same as a −3σ *one-day return*. Bell-curve tail probabilities are not reliable probabilities that a stock will recover.
 
 **Other research:** Studies of extreme daily losses, **Gatev et al.'s pairs trading**, and statistical arbitrage have documented some reversals, while Bollinger Band findings are mixed after trading costs. These methods do **not** directly validate my long-horizon price-trend screen.
 
@@ -159,7 +159,7 @@ Trading costs, dividends, settlement and estimated federal taxes (35% short-term
 
 **Research questions:** Would market- or industry-adjusted deviations, stronger businesses, better management, genuinely cheap valuations, or different recovery periods improve results?
 
-I should freeze new rules *before* evaluating outcomes, use point-in-time company and financial data, include delistings, and compare full portfolios against dividend-reinvested SPY after comparable costs and taxes. Testing many variations creates overfitting risk. [Harvey, Liu & Zhu (2016)](https://doi.org/10.1093/rfs/hhv059)
+I define new rules *before* evaluating outcomes, use point-in-time company and financial data, include delistings, and compare full portfolios with dividend-reinvested SPY after comparable costs and taxes. Testing many variations creates overfitting risk. [Harvey, Liu & Zhu (2016)](https://doi.org/10.1093/rfs/hhv059)
 
 **Conclusion:** The regression signal is promising for **finding research candidates**. A repeatable market-beating edge remains unproven.
 """)
