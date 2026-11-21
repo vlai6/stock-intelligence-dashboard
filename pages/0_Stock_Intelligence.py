@@ -597,6 +597,7 @@ if st.session_state.loaded:
                         )
                         st.form_submit_button(
                             "Add Ticker",
+                            type="primary",
                             on_click=add_custom_comparison_ticker,
                             args=(symbol,),
                         )
