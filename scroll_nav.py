@@ -43,7 +43,7 @@ CSS = """
   background: transparent;
   color: #c5d7e8;
   cursor: pointer;
-  font-size: .81rem;
+  font-size: var(--si-type-nav, .85rem);
   font-weight: 600;
   padding: 7px 12px;
   white-space: nowrap;
@@ -59,7 +59,7 @@ CSS = """
 }
 @media(max-width:700px) {
   .si-scroll-nav { top: 48px; padding-inline: 8px; }
-  .si-scroll-nav button { padding: 8px 9px; font-size:.72rem; }
+  .si-scroll-nav button { padding: 8px 9px; font-size:.8rem; }
 }
 """
 
