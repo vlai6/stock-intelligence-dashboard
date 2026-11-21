@@ -221,7 +221,7 @@ st.markdown(
 
 apply_dashboard_theme()
 
-render_page_header("Stock Intelligence", "AI-powered stock research and competitor analysis", current="stock")
+render_page_header("Metrics & Competition", "AI-powered stock research and competitor analysis", current="stock")
 
 if "primary" not in st.session_state:
     st.session_state.primary = "NVDA"
