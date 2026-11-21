@@ -164,6 +164,12 @@ with regression:
         "at **$374,922 vs. $370,264 for SPY** from $100,000 over nearly 11 years. "
         "These are **portfolio-level, in-sample** results—not proof of a repeatable edge."
     )
+    st.markdown(
+        "**Recovery-timing clue:** In our separate **52-week-capped** −3σ → −0.5σ "
+        "test, trades reaching the target (median **208 days**) averaged "
+        "**+20.44 percentage points vs. SPY**; one-year timeouts averaged "
+        "**−11.00 points**. The 52-week cap was imposed, **not proven optimal**."
+    )
     st.markdown("#### WHY THE SCREEN IS STILL WORTH RESEARCHING")
     st.markdown(
         "**Regression flags unusual declines; it cannot tell a temporary setback "
@@ -213,6 +219,8 @@ with regression:
 | −4.5σ → +1σ | 61 | +22.84 pp | 72.1% |
 
 The −3σ → −2σ mean excess was +3.50 pp after excluding both 2020 and 2022, but only +0.40 pp for 2023–2025 entrants.
+
+**Recovery timing (separate −3σ → −0.5σ trade ledger):** Among **134 closed trades**, **72 hit the recovery target** (median **208 holding days**, mean **+20.44 pp vs. SPY**); **62 reached the 52-week timeout** (**364 days**, mean **−11.00 pp vs. SPY**). These are *outcome-conditioned, trade-level* results (stock return after estimated execution costs versus SPY gross return, before capital-gains taxes). The 52-week limit was a **test assumption**, not evidence that holding longer would be worse, nor a signal that can predict fast recoveries at entry. The ledger covers one entry/exit variation and is not the same denominator as the 509 threshold-specific episodes reported above.
 
 **Full-portfolio results, including estimated taxes**
 
