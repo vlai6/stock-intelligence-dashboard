@@ -1,0 +1,85 @@
+name: Validate continuous-scroll dashboard
+
+on:
+  pull_request:
+    paths:
+      - "app.py"
+      - "scroll_dashboard.py"
+      - "scroll_nav.py"
+      - ".github/workflows/test-continuous-dashboard.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Compile Python and validate embedded section paths
+        run: |
+          python -m py_compile app.py scroll_dashboard.py scroll_nav.py
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          root = Path(".")
+          script = (root / "scroll_dashboard.py").read_text()
+          paths = [
+              "pages/00_Investment_Philosophy.py",
+              "pages/1_News_Screen.py",
+              "regression_scanner/app.py",
+              "pages/0_Stock_Intelligence.py",
+              "pages/2_News_Sentiment.py",
+          ]
+          for path in paths:
+              assert f'"{path}"' in script
+              source = (root / path).read_text(encoding="utf-8-sig")
+              transformed = re.sub(r"\bst\.stop\(\s*\)", "raise _EndSection()", source)
+              compile(transformed, path, "exec")
+          router = (root / "app.py").read_text()
+          assert "st.Page('scroll_dashboard.py', title='Dashboard', default=True)" in router
+          assert "position='hidden'" in router
+          print("All original pages and continuous dashboard entrypoint compile.")
+          PY
+      - name: Check navigation JavaScript syntax
+        run: |
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+          tree = ast.parse(Path("scroll_nav.py").read_text())
+          for node in tree.body:
+              if isinstance(node, ast.Assign):
+                  if any(isinstance(t, ast.Name) and t.id == "JS" for t in node.targets):
+                      Path("/tmp/si_scroll_nav.mjs").write_text(ast.literal_eval(node.value))
+                      break
+          else:
+              raise SystemExit("Navigation JS not found")
+          PY
+          node --check /tmp/si_scroll_nav.mjs
+      - name: Install compatible Streamlit for smoke tests
+        run: python -m pip install "streamlit==1.67.0"
+      - name: Smoke test component API and dashboard routing
+        run: |
+          python - <<'PY'
+          import streamlit as st
+          assert hasattr(st, "fragment")
+          assert hasattr(st.components, "v2")
+          from scroll_nav import SECTIONS, _SCROLL_COMPONENT
+          assert len(SECTIONS) == 5
+          assert callable(_SCROLL_COMPONENT)
+          print("Navigation registered on Streamlit", st.__version__)
+          PY
+          python - <<'PY'
+          # The initial page contains only cached/static investment philosophy;
+          # all other sections mount lazily when the browser scrolls.
+          from streamlit.testing.v1 import AppTest
+          at = AppTest.from_file("app.py", default_timeout=30).run()
+          if at.exception:
+              raise AssertionError([str(x.message) for x in at.exception])
+          print("Streamlit app initialized with no Python exceptions.")
+          PY
