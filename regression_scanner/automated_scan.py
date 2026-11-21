@@ -80,10 +80,10 @@ def prime_opportunity(row: dict) -> bool:
 
 def email_subject(signals: list[dict], alerts: list[dict], *,
                   run_at: datetime | None = None) -> str:
-    """Dated, per-run subject prevents Gmail threading repeated daily reports.
+    """Add the Eastern calendar date without a time to the email subject.
 
-    Include seconds so repeated manual runs on the same day receive unique
-    subjects. The timestamp is in Eastern Time, not the GitHub runner's UTC.
+    Different trading days have distinct subjects. Gmail may still group
+    multiple manually generated reports on the same day.
     """
     from collections import Counter
     cap_order = {name: i for i, (name, _, _) in enumerate(BUCKETS)}
@@ -95,7 +95,7 @@ def email_subject(signals: list[dict], alerts: list[dict], *,
         fragments.append(f"{count} Opp @ ${bucket} at {level.replace('-', '−')}")
     headline = "Potentially Undervalued Stocks: " + (", ".join(fragments) if fragments else "None today")
     sent_at = (run_at or datetime.now(ET)).astimezone(ET)
-    stamp = sent_at.strftime("%b %d, %Y %I:%M:%S %p ET")
+    stamp = sent_at.strftime("%b %d, %Y")
     return f"{stamp} | {headline} | {len(alerts)} new/worsened"
 
 
@@ -391,7 +391,7 @@ def main() -> None:
     args = parser.parse_args()
     load_dotenv(ROOT / ".env")
     if args.test_email:
-        stamp = datetime.now(ET).strftime("%b %d, %Y %I:%M:%S %p ET")
+        stamp = datetime.now(ET).strftime("%b %d, %Y")
         send_email(f"[Regression Scanner] SMTP test — {stamp}",
                    "Your regression scanner email settings work.")
         print("Test email sent.")
