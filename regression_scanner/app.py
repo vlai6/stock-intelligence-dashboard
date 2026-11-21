@@ -516,16 +516,16 @@ if launch:
                     ("Cache hits", progress.cache_hits),
                 )
                 compact_items = "".join(
-                    '<span style="white-space:nowrap;font-size:0.78rem;">'
+                    '<span style="white-space:nowrap;font-size:var(--si-type-data);">'
                     f'<span style="color:#9da7b2;">{label}</span> '
-                    f'<strong style="font-size:0.88rem;">{value:,}</strong></span>'
+                    f'<strong style="font-size:var(--si-type-data);">{value:,}</strong></span>'
                     for label, value in compact_values
                 )
                 metrics_box.markdown(
                     '<div style="border:1px solid rgba(140,150,160,0.25);'
                     'border-radius:0.5rem;padding:0.38rem 0.7rem;display:flex;'
                     'gap:0.65rem 1.5rem;flex-wrap:wrap;align-items:center;">'
-                    '<span style="color:#9da7b2;font-size:0.75rem;font-weight:600;">'
+                    '<span style="color:#9da7b2;font-size:var(--si-type-caption);font-weight:600;">'
                     'LIVE METRICS</span>' + compact_items + '</div>',
                     unsafe_allow_html=True,
                 )
@@ -628,7 +628,7 @@ def render_selected_channel(view: pd.DataFrame, summary: dict, session: str) -> 
             f"**Z-score:** {chart.point.z:+.2f}σ"
         )
         st.markdown(
-            '<div style="text-align:right; color:#9aa3ae; font-size:0.78rem; '
+            '<div style="text-align:right; color:#9aa3ae; font-size:var(--si-type-caption); '
             'margin:0 0 0.35rem 0;">'
             'Hover over X or Y Axis and use MWheel to adjust Axis'
             '</div>',
@@ -755,7 +755,7 @@ def render_saved_results(scope: str, top_n: int, min_cap: float,
     ]
     st.markdown(
         '<div style="white-space:nowrap;overflow-x:auto;padding:0.14rem 0;'
-        'font-size:0.76rem;color:#9da7b2;">'
+        'font-size:var(--si-type-caption);color:#9da7b2;">'
         + ' <span style="opacity:0.6;">|</span> '.join(html.escape(item) for item in summary_parts)
         + '</div>',
         unsafe_allow_html=True,
