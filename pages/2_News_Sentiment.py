@@ -183,7 +183,7 @@ if news_list_mode == 'Single stock':
             with left:
                 wanted=st.text_input('Stock ticker', value=selected_symbol, max_chars=15)
             with right:
-                go_now=st.form_submit_button('Analyze stock', use_container_width=True)
+                go_now=st.form_submit_button('Analyze stock', type='primary', use_container_width=True)
     if go_now:
         candidate=wanted.strip().upper()
         if not candidate or not all(c.isalnum() or c in '.-^=' for c in candidate):
@@ -207,7 +207,7 @@ control, refresh=st.columns([4,1], vertical_alignment='center')
 with control:
     st.caption(f'{company} ({symbol}) · only headlines explicitly naming the company · past 7 days')
 with refresh:
-    if st.button('Refresh headlines', use_container_width=True):
+    if st.button('Refresh headlines', type='primary', use_container_width=True):
         fetch_company_news.clear()
         # Refresh data, but do not destroy the user's other-page watchlists.
         st.rerun()
