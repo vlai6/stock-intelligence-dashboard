@@ -13,3 +13,9 @@ chartSequentialColors = ["#07142D", "#13335A", "#195388", "#1B78B7", "#39A9E7", 
 [theme.sidebar]
 backgroundColor = "#060C16"
 secondaryBackgroundColor = "#0A1C2C"
+
+
+[client]
+# Hide built-in developer toolbar items. Community Cloud can still add
+# external hosting controls that this setting cannot suppress.
+toolbarMode = "minimal"

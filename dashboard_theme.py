@@ -249,6 +249,18 @@ label[data-testid="stWidgetLabel"] p,
   pointer-events: none !important;
 }
 
+/* Remove Streamlit's in-app top-right toolbar controls, but leave the header
+   container itself intact: the sticky scroll navigator uses its height.
+   Community Cloud chrome outside the app frame is controlled by the host. */
+[data-testid="stToolbar"],
+[data-testid="stAppToolbar"],
+[data-testid="stMainMenu"],
+[data-testid="stDeployButton"],
+#MainMenu {
+  display: none !important;
+  pointer-events: none !important;
+}
+
 
 [class*="st-key-si_header_"] [data-testid="stPageLink"] a {
 
