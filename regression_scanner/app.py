@@ -634,20 +634,101 @@ def render_selected_channel(view: pd.DataFrame, summary: dict, session: str) -> 
             '</div>',
             unsafe_allow_html=True,
         )
+        # Emphasize Plotly's real Autoscale action (not a simulated chart
+        # reset). Keep this CSS scoped to this regression chart only.
+        st.markdown(
+            """
+            <style>
+            [class*="st-key-channel_chart_"] .js-plotly-plot .plotly .modebar {
+                display: flex !important;
+                align-items: center !important;
+                top: 5px;
+                right: 8px;
+                padding: 5px 7px;
+                background: rgba(4, 14, 28, 0.94);
+                border: 1px solid #284b6b;
+                border-radius: 9px;
+                box-shadow: 0 3px 12px rgba(0, 0, 0, 0.35);
+            }
+            [class*="st-key-channel_chart_"] .js-plotly-plot .plotly .modebar-group:first-child {
+                padding-left: 0 !important;
+                padding-right: 8px !important;
+            }
+            [class*="st-key-channel_chart_"] .js-plotly-plot .plotly
+            .modebar-group:first-child .modebar-btn:first-child {
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 6px;
+                min-width: 112px;
+                height: 36px !important;
+                padding: 5px 11px !important;
+                background: #1764a7 !important;
+                border: 1px solid #53bfff !important;
+                border-radius: 7px;
+                color: #f5fbff !important;
+                font-size: 18px !important;
+                opacity: 1 !important;
+            }
+            [class*="st-key-channel_chart_"] .js-plotly-plot .plotly
+            .modebar-group:first-child .modebar-btn:first-child svg {
+                width: 20px;
+                height: 20px;
+                top: 0 !important;
+                fill: currentColor !important;
+            }
+            /* Plotly uses ::after for tooltips; reuse it as a permanent
+               button label, not a duplicate hover tooltip. */
+            [class*="st-key-channel_chart_"] .js-plotly-plot .plotly
+            .modebar-group:first-child .modebar-btn:first-child::before {
+                display: none !important;
+            }
+            [class*="st-key-channel_chart_"] .js-plotly-plot .plotly
+            .modebar-group:first-child .modebar-btn:first-child::after {
+                content: "Autoscale" !important;
+                display: inline-block !important;
+                position: static !important;
+                transform: none !important;
+                opacity: 1 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: transparent !important;
+                color: #f5fbff !important;
+                font: 700 13px/1.1 Inter, "Segoe UI", Arial, sans-serif !important;
+                white-space: nowrap;
+            }
+            [class*="st-key-channel_chart_"] .js-plotly-plot .plotly
+            .modebar-group:first-child .modebar-btn:first-child:hover,
+            [class*="st-key-channel_chart_"] .js-plotly-plot .plotly
+            .modebar-group:first-child .modebar-btn:first-child:focus-visible {
+                background: #2585d1 !important;
+                border-color: #99deff !important;
+                outline-offset: 2px;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
         st.plotly_chart(
             style_blue_figure(channel_figure(chart, ticker, visible_bands)),
             use_container_width=True,
             key=f"channel_chart_{ticker}",
             config={
                 "displaylogo": False,
+                "displayModeBar": True,
+                # First group is Autoscale; other built-in chart tools remain
+                # available in a predictable order, including camera export.
+                "modeBarButtons": [
+                    ["autoScale2d"],
+                    ["zoom2d", "pan2d", "zoomIn2d", "zoomOut2d", "resetScale2d"],
+                    ["toImage"],
+                ],
                 # Native Plotly wheel zoom: gradual per-scroll zooming.
                 "scrollZoom": True,
                 "doubleClick": "reset",
                 # Permit independent X/Y scaling from the tick-label/axis areas.
                 "showAxisDragHandles": True,
                 "showAxisRangeEntryBoxes": False,
-                # Pan is the default drag mode; still allow box-zoom via modebar.
-                "modeBarButtonsToRemove": ["select2d", "lasso2d"],
             },
         )
         scanner_z = pd.to_numeric(chosen.get("z_score"), errors="coerce")
