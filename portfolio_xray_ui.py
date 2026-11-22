@@ -12,6 +12,7 @@ from portfolio_xray_saved import (
     portfolio_png_filename, NS as SAVED_NS,
 )
 from portfolio_xray_csv import parse_portfolio_csv, export_portfolio_csv
+from portfolio_xray_history_ui import render_historical_returns
 from portfolio_xray import (
     ticker_of, issuer_holdings, portfolio_rows, pie_data, pie_legend_labels,
     display_ticker, security_type, tickerinside_identifiers,
@@ -634,3 +635,10 @@ def render_portfolio_xray():
             st.caption("Ticker-level look-through; share classes remain separate. "
                        "ETF holdings dates may differ. Direct cash and Treasury holdings "
                        "remain separate; missing ETF exposure stays unresolved.")
+            # Historical return comparison runs from the original input positions,
+            # never from ETF-expanded constituent rows. Only matching analyzed
+            # inputs can be used, preventing stale results after an edit.
+            render_historical_returns(
+                st.session_state.get("portfolio_xray_results_signature"),
+                _analyzed_portfolio_share_csv() is not None,
+            )
