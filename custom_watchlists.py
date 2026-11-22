@@ -327,8 +327,8 @@ def render_working_list() -> list[str]:
     """Edit immediately, without creating a named list or changing presets."""
     st.session_state.setdefault(DRAFT_KEY, [])
     current = list(st.session_state[DRAFT_KEY])
-    st.caption("Working list · edit stocks immediately, then save the displayed list "
-               "if you want to keep it. The emailed scan and saved lists remain unchanged.")
+    st.caption("Custom List (Unsaved) · edit stocks freely, then use Save Group "
+               "to keep your changes. Original scan and saved groups remain unchanged.")
     with st.form("ns_working_add_stocks", clear_on_submit=True):
         text_col, add_col = st.columns([5, 1.4], vertical_alignment="bottom", gap="small")
         with text_col:
