@@ -217,8 +217,10 @@ def portfolio_rows(positions, etfs, failures=None):
     results = sorted(({
         "Stock": stock, "Amount ($)": round(value, 2),
         "Portfolio %": round(100 * value / total, 3),
-        "Direct Amount": round(contributors[stock].get("Direct", 0.0), 2),
-        "ETF Amount": round(value - contributors[stock].get("Direct", 0.0), 2),
+        # Preserve small percentage-point exposures from CSV imports. Dollar
+        # portfolios are still displayed to cents by the UI formatter.
+        "Direct Amount": round(contributors[stock].get("Direct", 0.0), 6),
+        "ETF Amount": round(value - contributors[stock].get("Direct", 0.0), 6),
         "Unresolved": stock.startswith(("Unresolved ", "Unreported ", "Unverified ")),
         "_value": value,
     } for stock, value in dollars.items() if value > 1e-7),
