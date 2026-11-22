@@ -176,9 +176,16 @@ def portfolio_rows(positions, etfs, failures=None):
         ticker = ticker_of(position["ticker"])
         amount = float(position["amount"])
         kind = str(position["type"]).strip().upper()
-        if kind not in {"ETF", "STOCK", "OTHER"} or not math.isfinite(amount) or amount <= 0:
-            raise ValueError("Every position needs stock, ETF or other type, and positive amount")
+        if kind not in {"ETF", "STOCK", "OTHER", "UNKNOWN"} or not math.isfinite(amount) or amount <= 0:
+            raise ValueError("Every position needs stock, ETF, other or unknown type, and positive amount")
         total += amount
+        if kind == "UNKNOWN":
+            # Keep its allocation in the portfolio rather than guessing it
+            # is a stock or omitting it (both would distort exposure).
+            missing = "Unverified " + ticker
+            dollars[missing] += amount
+            contributors[missing]["Unclassified"] += amount
+            continue
         if kind in {"STOCK", "OTHER"}:
             dollars[ticker] += amount
             contributors[ticker]["Direct"] += amount
@@ -212,7 +219,7 @@ def portfolio_rows(positions, etfs, failures=None):
         "Portfolio %": round(100 * value / total, 3),
         "Direct Amount": round(contributors[stock].get("Direct", 0.0), 2),
         "ETF Amount": round(value - contributors[stock].get("Direct", 0.0), 2),
-        "Unresolved": stock.startswith(("Unresolved ", "Unreported ")),
+        "Unresolved": stock.startswith(("Unresolved ", "Unreported ", "Unverified ")),
         "_value": value,
     } for stock, value in dollars.items() if value > 1e-7),
         key=lambda row: row["_value"], reverse=True)
@@ -233,9 +240,14 @@ def pie_data(results):
     missing = [r for r in results if r["Unresolved"]]
     names = [r["Stock"] for r in known]
     amounts = [r["_value"] for r in known]
-    if missing:
+    missing_etfs = [r for r in missing if not r["Stock"].startswith("Unverified ")]
+    unverified = [r for r in missing if r["Stock"].startswith("Unverified ")]
+    if missing_etfs:
         names.append("Unresolved ETF exposure")
-        amounts.append(sum(r["_value"] for r in missing))
+        amounts.append(sum(r["_value"] for r in missing_etfs))
+    if unverified:
+        names.append("Unclassified positions")
+        amounts.append(sum(r["_value"] for r in unverified))
     return names, amounts
 
 def pie_legend_labels(labels, amounts):
