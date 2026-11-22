@@ -252,7 +252,7 @@ def render_custom_list() -> list[str]:
         with add_col:
             add = st.form_submit_button("Add", type="primary", use_container_width=True)
     if add:
-        requested = [v for v in re.split(r"[,;\\s]+", typed.strip()) if v]
+        requested = [v for v in re.split(r"[,;\s]+", typed.strip()) if v]
         invalid = [value for value in requested if not valid_symbol(value)]
         if invalid:
             st.error("Invalid ticker(s): " + ", ".join(invalid[:8]))
