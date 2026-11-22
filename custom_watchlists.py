@@ -23,6 +23,10 @@ TICKER_RX = re.compile(r"^[A-Z0-9^][A-Z0-9.\-^=]{0,14}$")
 NS = "ns_custom_v1_"
 
 
+class BrowserGroupsPending(Exception):
+    """Browser storage is still loading; the caller decides how to stop its page."""
+
+
 def valid_symbol(raw: str) -> str:
     symbol = str(raw or "").strip().upper()
     # Yahoo uses BRK-B and BF-B, although investors often type BRK.B.
@@ -111,7 +115,10 @@ def _init():
         persisted = _read_from_browser()
         if persisted is None:
             st.caption("Restoring your custom stock lists from this browser…")
-            st.stop()
+            # Do not call st.stop() here: a shared helper can execute inside
+            # the continuous dashboard, where that would abort all later
+            # sections (scanner, metrics, sentiment), not just News Screener.
+            raise BrowserGroupsPending()
         if persisted == "unavailable":
             st.warning("Browser list storage is unavailable. Changes will last only for this session. "
                        "Install streamlit-js-eval if missing, or enable browser site storage.")
@@ -360,8 +367,8 @@ def render_working_list() -> list[str]:
 def save_displayed_watchlist(name: str, symbols: list[str]) -> tuple[bool, str]:
     """Save a snapshot to browser storage, never overwrite existing named lists.
 
-    _init may st.stop() while awaiting browser storage; callers must preserve
-    the pending save in session_state across that first rerun.
+    _init may raise BrowserGroupsPending while awaiting browser storage;
+    callers must preserve a pending save across that first rerun.
     """
     name = str(name or "").strip()
     if not name or len(name) > 32:
