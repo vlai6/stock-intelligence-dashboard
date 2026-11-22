@@ -1,4 +1,4 @@
-"""Optional conservative valuation/financial-health screeners for Stock Intelligence.
+"""Optional conservative valuation/financial-health screeners for Stock Intelligence Toolkit.
 
 IMPORTANT: rough five-year, equity-cash-flow proxy; NOT a full FCFF/WACC enterprise DCF.
 No data -> N/A. No fabricated balances or downside floors.
