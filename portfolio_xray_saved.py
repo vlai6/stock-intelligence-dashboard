@@ -10,10 +10,12 @@ import math
 import re
 import time
 import unicodedata
+from datetime import date
 
 import streamlit as st
 
 from portfolio_xray import ticker_of
+from portfolio_xray_dates import position_with_date, position_signature
 
 try:
     from streamlit_js_eval import streamlit_js_eval
@@ -42,7 +44,12 @@ def _sanitize_positions(raw) -> list[dict]:
             return []
         if not math.isfinite(amount) or amount <= 0 or amount > 1e12:
             return []
-        clean.append({"ticker": ticker, "amount": amount})
+        try:
+            clean.append(position_with_date(
+                ticker, amount, item.get("date"),
+            ))
+        except ValueError:
+            return []
     return clean
 
 
@@ -102,7 +109,7 @@ def loaded_portfolio_chart_name() -> str | None:
         return None
     signature = (
         current_unit,
-        tuple((position["ticker"], float(position["amount"])) for position in current),
+        position_signature(current),
     )
     if state.get("portfolio_xray_results_signature") != signature:
         return None
@@ -223,7 +230,11 @@ def _current_positions() -> list[dict]:
             continue
         if not symbol or not math.isfinite(amount) or amount <= 0:
             raise ValueError(f"Row {index + 1}: enter a ticker and positive dollar amount.")
-        positions.append({"ticker": ticker_of(symbol), "amount": amount})
+        row_date = st.session_state.get(f"portfolio_xray_date_{index}")
+        try:
+            positions.append(position_with_date(ticker_of(symbol), amount, row_date))
+        except ValueError as exc:
+            raise ValueError(f"Row {index + 1}: {exc}") from exc
     if not positions:
         raise ValueError("Enter at least one ticker and amount before saving.")
     if len(positions) > MAX_POSITIONS:
@@ -286,6 +297,9 @@ def _load_selected():
         row = positions[index] if index < len(positions) else None
         st.session_state[f"portfolio_xray_ticker_{index}"] = row["ticker"] if row else ""
         st.session_state[f"portfolio_xray_amount_{index}"] = float(row["amount"]) if row else 0.0
+        st.session_state[f"portfolio_xray_date_{index}"] = (
+            date.fromisoformat(row["date"]) if row and row.get("date") else None
+        )
     st.session_state["portfolio_xray_row_count"] = min(MAX_POSITIONS, len(positions) + 1)
     st.session_state["portfolio_xray_unit_mode"] = (
         "pct" if st.session_state.get(NS + "units", {}).get(name) == "pct" else "usd"
