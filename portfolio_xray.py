@@ -232,24 +232,27 @@ def portfolio_rows(positions, etfs, failures=None):
 
 
 def pie_data(results):
-    """Include all verified stocks and non-stock assets as separate slices.
+    """Show each position by ticker, including ETFs with unresolved holdings.
 
-    Small holdings remain on the pie even when omitted from its legend.
-    Missing ETF exposure and unclassified positions are kept as distinct
-    unresolved categories instead of being redistributed.
+    Missing ETF look-through and unverified tickers remain separate slices,
+    not one aggregated "Unresolved" or "Unclassified" bucket. The underlying
+    row's Unresolved flag stays intact for coverage metrics and warnings.
+    Holdings below the UI's 1% labeling threshold remain in the pie.
     """
-    known = [r for r in results if not r["Unresolved"]]
-    missing = [r for r in results if r["Unresolved"]]
-    names = [r["Stock"] for r in known]
-    amounts = [r["_value"] for r in known]
-    missing_etfs = [r for r in missing if not r["Stock"].startswith("Unverified ")]
-    unverified = [r for r in missing if r["Stock"].startswith("Unverified ")]
-    if missing_etfs:
-        names.append("Unresolved ETF exposure")
-        amounts.append(sum(r["_value"] for r in missing_etfs))
-    if unverified:
-        names.append("Unclassified positions")
-        amounts.append(sum(r["_value"] for r in unverified))
+    ordered = (
+        [r for r in results if not r["Unresolved"]]
+        + [r for r in results if r["Unresolved"]]
+    )
+    names, amounts = [], []
+    for row in ordered:
+        label = str(row["Stock"])
+        if row["Unresolved"]:
+            for prefix in ("Unresolved ", "Unreported ", "Unverified "):
+                if label.startswith(prefix):
+                    label = label[len(prefix):]
+                    break
+        names.append(label)
+        amounts.append(row["_value"])
     return names, amounts
 
 def pie_legend_labels(labels, amounts):
