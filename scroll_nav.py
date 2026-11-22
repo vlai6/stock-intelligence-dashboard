@@ -131,7 +131,13 @@ export default function({parentElement, data, setTriggerValue}) {
     button.textContent = entry.label;
     button.dataset.section = entry.id;
     button.addEventListener("click", () => {
-      if (!loaded.has(entry.id)) nav.__siPendingSection = entry.id;
+      if (!loaded.has(entry.id)) {
+        // A tab click must request its Python section directly. Relying only
+        // on scroll/viewport detection can leave the other tabs blank.
+        nav.__siPendingSection = entry.id;
+        waitingFor = entry.id;
+        setTriggerValue("reveal", entry.id);
+      }
       if (scrollToSection(entry.id)) {
         const base = window.location.pathname + window.location.search;
         window.history.replaceState(null, "", base + "#si-" + entry.id);
