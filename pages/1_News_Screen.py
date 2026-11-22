@@ -877,7 +877,7 @@ st.markdown('<div class="ns-toprule"></div>', unsafe_allow_html=True)
 if watchlist:
     st.markdown('<div class="ns-section-label">' +
                 ('REGRESSION SCAN STOCKS' if mode == TODAYS_SCAN_LABEL
-                 else ('WORKING STOCKS' if mode == WORKING_STOCK_LABEL
+                 else ('CUSTOM STOCKS · UNSAVED' if mode == WORKING_STOCK_LABEL
                        else ('CUSTOM STOCKS' if mode == CUSTOM_STOCK_LABEL
                              else 'ETF CONSTITUENTS · ' + html.escape(selected_etf)))) +
                 '</div>', unsafe_allow_html=True)
@@ -927,7 +927,7 @@ with control_right:
 
 if not watchlist:
     if mode == WORKING_STOCK_LABEL:
-        st.info("Add stocks above to begin your working list.")
+        st.info("Add stocks above to begin your custom list.")
     else:
         st.info("No stock tickers to display for this selection. Choose another group or ETF.")
     st.stop()
