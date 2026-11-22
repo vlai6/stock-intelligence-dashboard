@@ -7,7 +7,9 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import time
+import unicodedata
 
 import streamlit as st
 
@@ -61,6 +63,50 @@ def _sanitize_saved(raw) -> dict[str, list[dict]]:
         if len(clean) >= MAX_PORTFOLIOS:
             break
     return clean
+
+
+def portfolio_png_filename(name: str | None) -> str:
+    """Safe PNG basename; never allow a saved name to become a path."""
+    if not name:
+        return "portfolio_xray_pie_chart"
+    normalized = unicodedata.normalize("NFKD", name)
+    ascii_name = normalized.encode("ascii", "ignore").decode("ascii")
+    safe = re.sub(r"[^A-Za-z0-9_-]+", "_", ascii_name).strip("_-")[:48]
+    return f"portfolio_xray_{safe or 'saved_portfolio'}"
+
+
+def loaded_portfolio_chart_name() -> str | None:
+    """Name only the saved portfolio that was actually loaded and analyzed.
+
+    Merely selecting a dropdown entry is not loading it. A modified input,
+    removed saved entry, change of units, or stale analysis cannot inherit
+    the previous saved portfolio title or exported filename.
+    """
+    state = st.session_state
+    name = state.get(NS + "loaded_name")
+    saved = state.get(NS + "portfolios", {})
+    if not isinstance(name, str) or not isinstance(saved, dict) or name not in saved:
+        return None
+    if state.get("portfolio_xray_results") is None:
+        return None
+    units = state.get(NS + "units", {})
+    expected_unit = units.get(name, "usd") if isinstance(units, dict) else "usd"
+    current_unit = state.get("portfolio_xray_unit_mode", "usd")
+    if current_unit != expected_unit:
+        return None
+    try:
+        current = _current_positions()
+    except ValueError:
+        return None
+    if current != saved[name]:
+        return None
+    signature = (
+        current_unit,
+        tuple((position["ticker"], float(position["amount"])) for position in current),
+    )
+    if state.get("portfolio_xray_results_signature") != signature:
+        return None
+    return name
 
 
 def _read_from_browser():
@@ -211,6 +257,11 @@ def _save_current(raw_name: str):
     st.session_state[NS + "selected"] = name
     # These inputs are now exactly the selected saved portfolio.
     st.session_state[NS + "loaded_name"] = name
+    # A Save As action creates a named current portfolio. Analyze that exact
+    # saved snapshot so an older chart is never exported under the new name.
+    st.session_state["portfolio_xray_results"] = None
+    st.session_state.pop("portfolio_xray_results_signature", None)
+    st.session_state["portfolio_xray_auto_analyze"] = True
     _queue_write()
     st.session_state[NS + "feedback"] = (
         "success", f"{'Updated' if replaced else 'Saved'} portfolio '{name}' "
@@ -241,6 +292,7 @@ def _load_selected():
     # The X-Ray renderer consumes this one-shot request after recreating its
     # inputs, then runs the exact same analysis used by Analyze portfolio.
     st.session_state["portfolio_xray_results"] = None
+    st.session_state.pop("portfolio_xray_results_signature", None)
     st.session_state["portfolio_xray_auto_analyze"] = True
     st.session_state[NS + "loaded_name"] = name
     _queue_write()  # Remember which portfolio was last loaded in this browser.
