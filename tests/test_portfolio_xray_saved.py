@@ -40,4 +40,47 @@ many_portfolios = {
 }
 assert len(_sanitize_saved(many_portfolios)) == MAX_PORTFOLIOS
 
-print("PASS: browser-saved portfolio input validation and storage limits")
+# Loading sets the input widgets and queues an immediate X-Ray analysis.
+from unittest.mock import patch
+from portfolio_xray_saved import _load_selected, _save_current, _delete_selected, NS
+
+state = {
+    NS + "selected": "Core ETFs",
+    NS + "portfolios": {
+        "Core ETFs": [
+            {"ticker": "SPY", "amount": 100.0},
+            {"ticker": "NVDA", "amount": 50.0},
+        ],
+        "Other": [{"ticker": "AAPL", "amount": 25.0}],
+    },
+    "portfolio_xray_row_count": 4,
+    "portfolio_xray_ticker_2": "STALE",
+    "portfolio_xray_amount_2": 300.0,
+}
+with patch("portfolio_xray_saved.st.session_state", state):
+    _load_selected()
+assert state["portfolio_xray_ticker_0"] == "SPY"
+assert state["portfolio_xray_amount_1"] == 50.0
+assert state["portfolio_xray_ticker_2"] == ""
+assert state["portfolio_xray_amount_2"] == 0.0
+assert state["portfolio_xray_row_count"] == 3
+assert state["portfolio_xray_auto_analyze"] is True
+assert state[NS + "loaded_name"] == "Core ETFs"
+
+# Saving the currently entered positions marks that portfolio as loaded,
+# so the Load button can be disabled until a different name is chosen.
+with patch("portfolio_xray_saved.st.session_state", state):
+    _save_current("Copy")
+assert state[NS + "selected"] == "Copy"
+assert state[NS + "loaded_name"] == "Copy"
+assert state[NS + "portfolios"]["Copy"] == [
+    {"ticker": "SPY", "amount": 100.0}, {"ticker": "NVDA", "amount": 50.0},
+]
+
+# Deleting the loaded name clears the flag before the selector is rebuilt.
+with patch("portfolio_xray_saved.st.session_state", state):
+    _delete_selected()
+assert state[NS + "loaded_name"] is None
+assert "Copy" not in state[NS + "portfolios"]
+
+print("PASS: saved portfolio validation, automatic load analysis, and loaded-state flags")
