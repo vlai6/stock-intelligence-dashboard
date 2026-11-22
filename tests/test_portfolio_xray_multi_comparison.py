@@ -56,7 +56,7 @@ assert list(result["series"]) == [
     {"key": "portfolio_1", "name": "Growth"},
     {"key": "portfolio_2", "name": "Cash mix"},
 ]
-assert result["chart"]["portfolio_2"].iloc[-1] == 104
+assert abs(result["chart"]["portfolio_2"].iloc[-1] - 104.0) < 1e-8
 
 # A saved portfolio literally named SPY must not overwrite the benchmark.
 collision = simulate_multiple_returns({
