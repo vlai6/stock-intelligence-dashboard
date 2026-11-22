@@ -365,7 +365,11 @@ def render_portfolio_xray():
     with right:
         result = st.session_state.get("portfolio_xray_results")
         if not result:
-            return  # Deliberately blank until the first Analyze action.
+            # Keep the linked historical-portfolio selector accessible even
+            # before first analysis or when a prior analysis failed. Selecting
+            # a saved portfolio here restores inputs and analyzes the main X-Ray.
+            render_historical_returns(None, False)
+            return
         rows, info = result
         result_is_pct = st.session_state.get("portfolio_xray_results_unit", "usd") == "pct"
         chart_portfolio_name = loaded_portfolio_chart_name()
