@@ -26,7 +26,7 @@ MAX_NAME_LENGTH = 40
 
 
 def _sanitize_positions(raw) -> list[dict]:
-    """Accept only validated tickers and positive finite dollar amounts."""
+    """Accept validated positions with positive amounts or percentage weights."""
     if not isinstance(raw, list):
         return []
     clean = []
