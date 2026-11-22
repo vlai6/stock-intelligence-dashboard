@@ -129,118 +129,166 @@ def _init():
     active = st.session_state[NS + "active"]
     if active not in st.session_state[NS + "lists"]:
         st.session_state[NS + "active"] = next(iter(st.session_state[NS + "lists"]))
-    if st.session_state.get(NS + "selected") != st.session_state[NS + "active"]:
-        # Update widget state *before* rendering the selectbox (required by Streamlit).
+    if st.session_state.get(NS + "selected") not in st.session_state[NS + "lists"]:
+        # Preserve the user's pending dropdown choice until they explicitly Load.
         st.session_state[NS + "selected"] = st.session_state[NS + "active"]
     _write_to_browser()
 
 
-def _choose_list():
+def _load_group():
+    """A Load click switches the active group before the News screen renders."""
     selected = st.session_state.get(NS + "selected")
-    if selected in st.session_state[NS + "lists"] and selected != st.session_state[NS + "active"]:
-        st.session_state[NS + "active"] = selected
+    if selected in st.session_state[NS + "lists"]:
+        if selected != st.session_state[NS + "active"]:
+            st.session_state[NS + "active"] = selected
+            _queue_write()
+        st.session_state[NS + "feedback"] = (
+            "success", f"Loaded '{selected}' for News Screener."
+        )
+
+
+def _create_group():
+    """Create and activate a named empty group in a pre-render button callback."""
+    name = str(st.session_state.get(NS + "new_group_name", "") or "").strip()
+    lists = st.session_state[NS + "lists"]
+    if not name or len(name) > 32:
+        st.session_state[NS + "feedback"] = ("error", "Enter a group name (1–32 characters).")
+    elif name in lists:
+        st.session_state[NS + "feedback"] = (
+            "error", f"'{name}' already exists. Choose that group and click Load."
+        )
+    elif len(lists) >= MAX_LISTS:
+        st.session_state[NS + "feedback"] = (
+            "error", f"You can save up to {MAX_LISTS} groups."
+        )
+    else:
+        lists[name] = []
+        st.session_state[NS + "active"] = name
+        st.session_state[NS + "selected"] = name
         _queue_write()
+        st.session_state[NS + "feedback"] = (
+            "success", f"Created '{name}'. Add stock tickers below."
+        )
+
+
+def _delete_group():
+    """Delete selected group in a callback, never mutate an instantiated selector."""
+    lists = st.session_state[NS + "lists"]
+    selected = st.session_state.get(NS + "selected")
+    if selected not in lists:
+        return
+    if len(lists) <= 1:
+        st.session_state[NS + "feedback"] = (
+            "error", "Keep at least one group. Create another before deleting this one."
+        )
+        return
+    lists.pop(selected)
+    if st.session_state.get(NS + "active") == selected:
+        st.session_state[NS + "active"] = next(iter(lists))
+    st.session_state[NS + "selected"] = st.session_state[NS + "active"]
+    _queue_write()
+    st.session_state[NS + "feedback"] = ("success", f"Deleted group '{selected}'.")
 
 
 def render_custom_list() -> list[str]:
-    """Render management widgets; return selected list's tickers (no network calls)."""
+    """Show saved groups and immediately display the actively loaded group."""
     _init()
     lists = st.session_state[NS + "lists"]
     active = st.session_state[NS + "active"]
 
-    # Compact three-part row: create a list | add stocks | select saved list.
-    # Keep separate Streamlit forms so each action is independent.
-    create_col, ticker_col, list_col = st.columns(
-        [3.35, 4.15, 2.9], gap="small", vertical_alignment="bottom"
+    st.caption("SAVED GROUPS")
+    select_col, load_col, create_col, delete_col = st.columns(
+        [3.9, 1.1, 2.2, 1.2], gap="small", vertical_alignment="bottom"
     )
+    with select_col:
+        st.selectbox(
+            "Saved groups", list(lists),
+            key=NS + "selected", label_visibility="collapsed",
+        )
+    selected = st.session_state.get(NS + "selected")
+    with load_col:
+        already_loaded = selected == active
+        st.button(
+            "Load", key=NS + "load_group", on_click=_load_group,
+            type="primary", disabled=already_loaded or not selected,
+            use_container_width=True,
+            help="Already loaded" if already_loaded else "Load and show this group's news",
+        )
     with create_col:
-        with st.form("ns_custom_new_list", clear_on_submit=True):
-            name_input_col, create_button_col = st.columns(
-                [2.1, 1.25], gap="small", vertical_alignment="bottom"
+        with st.popover("Create group", use_container_width=True):
+            st.text_input(
+                "Group name", key=NS + "new_group_name",
+                placeholder="e.g. AI stocks",
             )
-            with name_input_col:
-                name = st.text_input(
-                    "New list name", max_chars=32, placeholder="e.g. AI stocks",
-                    help='Name your list first, then click "Create List", then add your stocks.'
-                )
-            with create_button_col:
-                create = st.form_submit_button("Create List", use_container_width=True)
-
-    with ticker_col:
-        with st.form("ns_custom_add_stocks", clear_on_submit=True):
-            ticker_input_col, add_button_col = st.columns(
-                [4.0, 1.25], gap="small", vertical_alignment="bottom"
+            st.caption("Creates an empty group. Added or removed tickers save automatically.")
+            st.button(
+                "Create", key=NS + "create_group", on_click=_create_group,
+                use_container_width=True,
             )
-            with ticker_input_col:
-                typed = st.text_input("Add stock tickers", placeholder="MU, NVDA, TSM")
-            with add_button_col:
-                add = st.form_submit_button("Add", type="primary", use_container_width=True)
+    with delete_col:
+        with st.popover(
+            "Delete", disabled=len(lists) <= 1 or not selected,
+            use_container_width=True,
+        ):
+            st.caption(f"Delete '{selected}' and its saved tickers?")
+            st.button(
+                "Confirm delete", key=NS + "confirm_delete",
+                on_click=_delete_group, use_container_width=True,
+            )
 
-    with list_col:
-        st.selectbox("Your saved custom lists", list(lists),
-                     key=NS + "selected", on_change=_choose_list)
+    feedback = st.session_state.pop(NS + "feedback", None)
+    if feedback:
+        kind, message = feedback
+        getattr(st, kind)(message)
 
-    if create:
-        name = name.strip()
-        if not name:
-            st.error("Enter a name for your list.")
-        elif name in lists:
-            st.warning("That list name already exists.")
-        elif len(lists) >= MAX_LISTS:
-            st.warning(f"You can create up to {MAX_LISTS} custom lists.")
-        else:
-            lists[name] = []
-            st.session_state[NS + "active"] = name
-            _queue_write()
-            st.rerun()
-
+    # Keep add/remove ticker editing, applied to the loaded group only.
+    current = list(lists[active])
+    with st.form("ns_custom_add_stocks", clear_on_submit=True, border=False):
+        ticker_col, add_col, unused = st.columns(
+            [4.1, 1.3, 4.6], gap="small", vertical_alignment="bottom"
+        )
+        with ticker_col:
+            typed = st.text_input("Add stock tickers", placeholder="MU, NVDA, TSM")
+        with add_col:
+            add = st.form_submit_button("Add", type="primary", use_container_width=True)
     if add:
-        requested = [v for v in re.split(r"[,;\s]+", typed.strip()) if v]
+        requested = [v for v in re.split(r"[,;\\s]+", typed.strip()) if v]
         invalid = [value for value in requested if not valid_symbol(value)]
         if invalid:
             st.error("Invalid ticker(s): " + ", ".join(invalid[:8]))
         elif not requested:
             st.warning("Enter at least one ticker.")
         else:
-            current = lists[active]
-            extras = [valid_symbol(value) for value in requested]
-            extras = list(dict.fromkeys(t for t in extras if t not in current))
+            extras = list(dict.fromkeys(valid_symbol(value) for value in requested))
+            extras = [value for value in extras if value not in current]
             if len(current) + len(extras) > MAX_TICKERS:
-                st.warning(f"Each custom list supports up to {MAX_TICKERS} stocks.")
+                st.warning(f"Each group supports up to {MAX_TICKERS} stocks.")
             elif not extras:
-                st.info("Those stocks are already in this list.")
+                st.info("Those stocks are already in this group.")
             else:
-                current.extend(extras)
+                lists[active] = current + extras
                 _queue_write()
                 st.rerun()
 
-    st.caption("Custom lists are stored in this browser. They are independent of ETF and regression scan stocks.")
-    current = lists[active]
+    st.caption("Groups are saved in this browser. Choosing a different group requires Load.")
+    current = list(lists[active])
     st.markdown("**" + active.replace("*", "\\*") + "** · " + str(len(current)) + " stocks")
     if current:
-        # Wrapping stock buttons, with a maximum of five per row.
         for start in range(0, len(current), 5):
-            segment = current[start:start+5]
+            segment = current[start:start + 5]
             cols = st.columns(5, gap="small")
             for col, symbol in zip(cols, segment):
                 with col:
-                    if st.button(f"{symbol} ×", key=f"ns_custom_remove_{active}_{symbol}",
-                                 help=f"Remove {symbol} from {active}", use_container_width=True):
-                        lists[active] = [t for t in lists[active] if t != symbol]
+                    if st.button(
+                        f"{symbol} ×", key=f"ns_custom_remove_{active}_{symbol}",
+                        help=f"Remove {symbol} from {active}", use_container_width=True,
+                    ):
+                        lists[active] = [ticker for ticker in current if ticker != symbol]
                         _queue_write()
                         st.rerun()
     else:
-        st.info("This list has no stocks yet. Add tickers above to start.")
-
-    if len(lists) > 1:
-        with st.popover("Delete this list"):
-            st.warning(f"Delete '{active}' and its saved tickers? This cannot be undone.")
-            if st.button("Confirm delete", key="ns_custom_confirm_delete", type="primary"):
-                lists.pop(active)
-                st.session_state[NS + "active"] = next(iter(lists))
-                _queue_write()
-                st.rerun()
-    return list(current)
+        st.info("This group is empty. Add tickers above to start.")
+    return current
 
 
 # A working list is intentionally session-only until Save displayed as list.
