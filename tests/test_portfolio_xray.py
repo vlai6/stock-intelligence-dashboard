@@ -77,6 +77,9 @@ assert pie_legend_labels(["NVDA", "Unresolved ETF exposure"], [371, 629]) == [
     "NVDA 37.1%", "Unresolved ETF exposure 62.9%",
 ]
 assert pie_legend_labels(["No data"], [0]) == ["No data"]
+assert pie_legend_labels(["NVDA", "SPY", "Unresolved ETF exposure"], [37.1, 59.7, 3.2]) == [
+    "NVDA 37.1%", "SPY 59.7%", "Unresolved ETF exposure 3.2%",
+]
 try:
     pie_legend_labels(["A"], [1, 2])
 except ValueError:
