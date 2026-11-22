@@ -12,13 +12,38 @@ from portfolio_xray_saved import (
     NS as SAVED_NS, _load_selected, loaded_portfolio_chart_name,
 )
 from portfolio_xray_history import (
-    adjusted_history, portfolio_weights, simulate_returns,
+    adjusted_history, portfolio_weights, simulate_returns, simulate_multiple_returns,
     unsupported_assets, HistoricalCoverageError,
 )
 
 
 HISTORY_PORTFOLIO_KEY = "portfolio_xray_history_selected_portfolio"
 HISTORY_RESULT_KEY = "portfolio_xray_historical_result"
+HISTORY_MODE_KEY = "portfolio_xray_history_mode"
+HISTORY_MULTI_KEY = "portfolio_xray_history_compare_portfolios"
+
+
+def _reset_historical_results() -> None:
+    """Mode or comparison selection changed; never display the old analysis."""
+    st.session_state.pop(HISTORY_RESULT_KEY, None)
+
+
+def _comparison_snapshot(names: list[str]) -> tuple:
+    """Snapshot saved holdings so edits/overwrites invalidate old results."""
+    saved = st.session_state.get(SAVED_NS + "portfolios", {})
+    units = st.session_state.get(SAVED_NS + "units", {})
+    if not isinstance(saved, dict) or len(names) != len(set(names)):
+        raise ValueError("Select distinct saved portfolios.")
+    if not 2 <= len(names) <= 5:
+        raise ValueError("Select 2–5 saved portfolios to compare.")
+    return tuple(
+        (
+            name,
+            units.get(name, "usd") if isinstance(units, dict) else "usd",
+            tuple((p["ticker"], float(p["amount"])) for p in saved[name]),
+        )
+        for name in names
+    )
 
 
 def _change_history_portfolio() -> None:
@@ -64,94 +89,16 @@ def _history_prices(
     return adjusted_history(symbols, start, end)
 
 
-def render_historical_returns(
-    analyzed_signature: tuple | None,
-    analyzed_inputs_valid: bool,
-) -> None:
-    """Only use the holdings underlying the currently shown X-Ray analysis."""
-    st.divider()
-    st.markdown("#### HISTORICAL PORTFOLIO RETURNS")
+def _show_simulation_disclaimer() -> None:
     st.caption(
-        "Hypothetical buy-and-hold of the entered allocation, without rebalancing. "
-        "Adjusted ETF/stock prices include dividends and splits; returns are "
-        "before taxes and fees."
+        "Simulated historical performance is not your actual trading return. "
+        "No transaction history, cash flows, taxes, fees, or survivorship "
+        "adjustment for today's holdings is included. "
+        "Excess return = portfolio return minus SPY return, in percentage points."
     )
-    # The selector and the main X-Ray share the SAME saved-portfolio loader.
-    # Selection changes rerun the editor and its ETF look-through automatically.
-    names = _sync_history_portfolio_selection()
-    selector_col, date_col, run_col = st.columns(
-        [2.1, 1.65, 1.9], gap="small", vertical_alignment="bottom"
-    )
-    with selector_col:
-        st.selectbox(
-            "Portfolio",
-            options=names,
-            index=None,
-            placeholder=("Current / unsaved" if names else "No saved portfolios"),
-            disabled=not names,
-            key=HISTORY_PORTFOLIO_KEY,
-            on_change=_change_history_portfolio,
-            help="Choosing a saved portfolio also loads it into the main Portfolio X-Ray.",
-        )
-    if not analyzed_inputs_valid or not analyzed_signature:
-        st.info("Analyze your current Portfolio X-Ray holdings to enable historical returns.")
-        return
-    try:
-        unit, holdings = analyzed_signature
-        positions = [{"ticker": ticker, "amount": float(amount)} for ticker, amount in holdings]
-        weights = portfolio_weights(positions)
-    except (TypeError, ValueError):
-        st.warning("Re-analyze your portfolio to refresh the historical return inputs.")
-        return
 
-    today = date.today()
-    latest = today - timedelta(days=1)
-    default_start = max(date(2000, 1, 1), today - timedelta(days=365))
-    with date_col:
-        start = st.date_input(
-            "Start date", value=default_start, min_value=date(2000, 1, 1),
-            max_value=latest, key="portfolio_xray_history_start",
-        )
-    with run_col:
-        clicked = st.button(
-            "Calculate returns", type="primary",
-            key="portfolio_xray_calculate_history", use_container_width=True,
-        )
 
-    unavailable = unsupported_assets(weights)
-    if unavailable:
-        amount = 100 * sum(unavailable.values())
-        tickers = ", ".join(unavailable)
-        st.warning(
-            f"Complete portfolio returns cannot be calculated: direct Treasury "
-            f"or other CUSIP positions ({tickers}) represent {amount:.2f}% "
-            "of this allocation. Historical bond values and coupon cash flows "
-            "are not available. No return is assumed for these positions."
-        )
-
-    signature = (analyzed_signature, start)
-    cache_key = HISTORY_RESULT_KEY
-    if clicked:
-        st.session_state.pop(cache_key, None)
-        if not unavailable:
-            symbols = tuple(sorted(set(weights) - {"Cash & Cash Inv"} | {"SPY"}))
-            try:
-                with st.spinner("Retrieving dividend-adjusted historical prices…"):
-                    prices = _history_prices(symbols, start, today + timedelta(days=1))
-                    outcome = simulate_returns(positions, start, today, prices)
-                st.session_state[cache_key] = (signature, outcome)
-            except (HistoricalCoverageError, ValueError) as exc:
-                st.warning(str(exc))
-            except Exception:
-                st.warning(
-                    "Historical price data could not be retrieved right now. "
-                    "Please retry later. No estimate was substituted."
-                )
-
-    saved = st.session_state.get(cache_key)
-    if not saved or saved[0] != signature or unavailable:
-        return
-    data = saved[1]
+def _render_single_history(data: dict) -> None:
     st.caption(
         f"Common observed closing dates: {data['start']} to {data['end']}. "
         "Initial allocation held without rebalancing; cash assumed 0% yield."
@@ -187,9 +134,224 @@ def render_historical_returns(
                 "Contribution (pp)": st.column_config.NumberColumn(format="%+.2f"),
             },
         )
+    _show_simulation_disclaimer()
+
+
+def _render_multiple_history(data: dict) -> None:
     st.caption(
-        "Simulated historical performance is not your actual trading return. "
-        "No transaction history, cash flows, tax impact, investment fees, or "
-        "survivorship adjustment for today's holdings is included. "
-        "Excess return = portfolio return minus SPY return in percentage points."
+        f"Common observed closing dates: {data['start']} to {data['end']}. "
+        "All portfolios are simulated on the same sessions with no rebalancing; "
+        "cash assumes 0% yield."
     )
+    st.metric("SPY return", f"{data['spy_pct']:+.2f}%")
+    st.dataframe(
+        data["summary"],
+        hide_index=True, use_container_width=True,
+        column_config={
+            "Portfolio return %": st.column_config.NumberColumn(format="%+.2f%%"),
+            "SPY return %": st.column_config.NumberColumn(format="%+.2f%%"),
+            "Excess return (pp)": st.column_config.NumberColumn(format="%+.2f"),
+        },
+    )
+    chart = go.Figure()
+    colors = ["#50B9F1", "#BA8EFF", "#55D3B2", "#F099A6", "#81B1F4"]
+    for idx, series in enumerate(data["series"]):
+        chart.add_trace(go.Scatter(
+            x=data["chart"]["Date"], y=data["chart"][series["key"]],
+            name=series["name"], mode="lines",
+            line=dict(width=2.5, color=colors[idx % len(colors)]),
+        ))
+    chart.add_trace(go.Scatter(
+        x=data["chart"]["Date"], y=data["chart"]["SPY"],
+        name="SPY (dividends adjusted)", mode="lines",
+        line=dict(width=2.1, color="#F3BD57", dash="dash"),
+    ))
+    chart.update_layout(
+        height=390,
+        xaxis_title="Date", yaxis_title="Growth of 100 (index, not dollars)",
+        margin=dict(l=12, r=12, t=16, b=14),
+        legend=dict(orientation="h", y=1.15, x=0),
+        hovermode="x unified",
+    )
+    st.plotly_chart(style_blue_figure(chart), use_container_width=True)
+    with st.expander("Returns and contributions by portfolio"):
+        detail = st.selectbox(
+            "Portfolio details", options=list(data["outcomes"]),
+            key="portfolio_xray_history_comparison_details",
+        )
+        if detail in data["outcomes"]:
+            st.dataframe(
+                data["outcomes"][detail]["contributions"],
+                hide_index=True, use_container_width=True,
+            )
+    _show_simulation_disclaimer()
+
+
+def render_historical_returns(
+    analyzed_signature: tuple | None,
+    analyzed_inputs_valid: bool,
+) -> None:
+    """Compare a single loaded X-Ray or 2–5 saved portfolios, on demand."""
+    st.divider()
+    st.markdown("#### HISTORICAL PORTFOLIO RETURNS")
+    st.caption(
+        "Hypothetical buy-and-hold of the entered allocation, without rebalancing. "
+        "Adjusted ETF/stock prices include dividends and splits; returns are "
+        "before taxes and fees."
+    )
+    names = _sync_history_portfolio_selection()
+
+    # Compact option: the extra inputs are not rendered at all in the default
+    # single-portfolio view.
+    mode_col, _spacer = st.columns([2.3, 4.7], gap="small")
+    with mode_col:
+        mode = st.selectbox(
+            "Analysis mode",
+            ["Single Portfolio", "Compare Multiple Portfolios"],
+            key=HISTORY_MODE_KEY,
+            label_visibility="collapsed",
+            on_change=_reset_historical_results,
+        )
+
+    is_compare = mode == "Compare Multiple Portfolios"
+    today = date.today()
+    latest = today - timedelta(days=1)
+    default_start = max(date(2000, 1, 1), today - timedelta(days=365))
+    selector_col, date_col, run_col = st.columns(
+        [2.1, 1.65, 1.9], gap="small", vertical_alignment="bottom"
+    )
+    selected: list[str] = []
+    with selector_col:
+        if is_compare:
+            # Preserve user choices across reruns, but discard deleted names.
+            state = st.session_state
+            current = state.get(HISTORY_MULTI_KEY)
+            if not isinstance(current, list):
+                current = []
+                active = loaded_portfolio_chart_name()
+                if active in names:
+                    current = [active]
+            state[HISTORY_MULTI_KEY] = [
+                name for name in current if name in names
+            ][:5]
+            st.multiselect(
+                "Portfolios to compare", options=names,
+                key=HISTORY_MULTI_KEY, max_selections=5,
+                placeholder="Select 2–5 saved portfolios",
+                on_change=_reset_historical_results,
+            )
+            selected = list(st.session_state.get(HISTORY_MULTI_KEY, []))
+        else:
+            st.selectbox(
+                "Portfolio", options=names, index=None,
+                placeholder=("Current / unsaved" if names else "No saved portfolios"),
+                disabled=not names, key=HISTORY_PORTFOLIO_KEY,
+                on_change=_change_history_portfolio,
+                help="Choosing a saved portfolio also loads it into the main Portfolio X-Ray.",
+            )
+    with date_col:
+        start = st.date_input(
+            "Start date", value=default_start, min_value=date(2000, 1, 1),
+            max_value=latest, key="portfolio_xray_history_start",
+        )
+    with run_col:
+        clicked = st.button(
+            "Calculate returns", type="primary",
+            disabled=is_compare and len(selected) < 2,
+            key="portfolio_xray_calculate_history", use_container_width=True,
+        )
+
+    if is_compare:
+        if len(selected) < 2:
+            st.caption("Select at least two saved portfolios to enable comparison.")
+            return
+        saved = st.session_state.get(SAVED_NS + "portfolios", {})
+        try:
+            snapshot = _comparison_snapshot(selected)
+            portfolios = {
+                name: [{"ticker": t, "amount": amount} for t, amount in holdings]
+                for name, _unit, holdings in snapshot
+            }
+            signature = ("compare", snapshot, start)
+        except (KeyError, TypeError, ValueError) as exc:
+            st.warning(f"Unable to compare selected portfolios: {exc}")
+            return
+        if clicked:
+            st.session_state.pop(HISTORY_RESULT_KEY, None)
+            try:
+                symbols = {"SPY"}
+                for positions in portfolios.values():
+                    symbols.update(
+                        portfolio_weights(positions).keys()
+                    )
+                symbols.discard("Cash & Cash Inv")
+                with st.spinner("Loading historical prices for selected portfolios…"):
+                    prices = _history_prices(
+                        tuple(sorted(symbols)), start, today + timedelta(days=1)
+                    )
+                    result = simulate_multiple_returns(
+                        portfolios, start, today, prices
+                    )
+                st.session_state[HISTORY_RESULT_KEY] = (signature, result)
+            except (HistoricalCoverageError, ValueError) as exc:
+                st.warning(str(exc))
+            except Exception:
+                st.warning(
+                    "Historical prices could not be retrieved for all selected "
+                    "portfolios. Please retry; no incomplete comparison is shown."
+                )
+    else:
+        if not analyzed_inputs_valid or not analyzed_signature:
+            st.info("Analyze your current Portfolio X-Ray holdings to enable historical returns.")
+            return
+        try:
+            _unit, holdings = analyzed_signature
+            positions = [
+                {"ticker": ticker, "amount": float(amount)}
+                for ticker, amount in holdings
+            ]
+            weights = portfolio_weights(positions)
+        except (TypeError, ValueError):
+            st.warning("Re-analyze your portfolio to refresh the historical return inputs.")
+            return
+
+        unsupported = unsupported_assets(weights)
+        if unsupported:
+            amount = sum(unsupported.values()) * 100
+            st.warning(
+                "Complete portfolio returns cannot be calculated: "
+                f"direct Treasury/CUSIP positions ({', '.join(unsupported)}) "
+                f"represent {amount:.2f}% of the allocation. Reliable "
+                "historical bond prices and cash flows are unavailable."
+            )
+        signature = ("single", analyzed_signature, start)
+        if clicked:
+            st.session_state.pop(HISTORY_RESULT_KEY, None)
+            if not unsupported:
+                symbols = tuple(sorted(
+                    (set(weights) - {"Cash & Cash Inv"}) | {"SPY"}
+                ))
+                try:
+                    with st.spinner("Retrieving dividend-adjusted historical prices…"):
+                        prices = _history_prices(
+                            symbols, start, today + timedelta(days=1)
+                        )
+                        result = simulate_returns(
+                            positions, start, today, prices
+                        )
+                    st.session_state[HISTORY_RESULT_KEY] = (signature, result)
+                except (HistoricalCoverageError, ValueError) as exc:
+                    st.warning(str(exc))
+                except Exception:
+                    st.warning(
+                        "Historical price data could not be retrieved right now. "
+                        "Please retry; no estimate was substituted."
+                    )
+
+    saved_result = st.session_state.get(HISTORY_RESULT_KEY)
+    if not saved_result or saved_result[0] != signature:
+        return
+    if is_compare:
+        _render_multiple_history(saved_result[1])
+    elif not unsupported:
+        _render_single_history(saved_result[1])
