@@ -194,7 +194,8 @@ def portfolio_rows(positions, etfs, failures=None):
     results = sorted(({
         "Stock": stock, "Amount ($)": round(value, 2),
         "Portfolio %": round(100 * value / total, 3),
-        "From": ", ".join(f"{src}: USD {v:,.2f}" for src, v in sorted(contributors[stock].items())),
+        "Direct Amount": round(contributors[stock].get("Direct", 0.0), 2),
+        "ETF Amount": round(value - contributors[stock].get("Direct", 0.0), 2),
         "Unresolved": stock.startswith(("Unresolved ", "Unreported ")),
         "_value": value,
     } for stock, value in dollars.items() if value > 1e-7),
