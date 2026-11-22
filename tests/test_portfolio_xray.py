@@ -118,7 +118,9 @@ assert abs(sum(r["_value"] for r in bad) - 3000) < 1e-7
 assert {r["Stock"]: r for r in bad}["Unresolved AVLV"]["ETF Amount"] == 2500
 assert {r["Stock"]: r for r in bad}["AAPL"]["Direct Amount"] == 500
 labels, amounts = pie_data(bad)
-assert "Unresolved ETF exposure" in labels
+assert "AVLV" in labels
+assert "Unresolved ETF exposure" not in labels
+assert dict(zip(labels, amounts))["AVLV"] == 2500
 assert abs(sum(amounts) - 3000) < 1e-7
 assert abs(bad_info["mapped"] - 500) < 1e-7
 
@@ -138,13 +140,13 @@ assert len(full_labels) == 501
 assert full_labels[0] == "STOCK000"
 assert full_labels[499] == "STOCK499"
 assert "Other stocks" not in full_labels
-assert full_labels[-1] == "Unresolved ETF exposure"
+assert full_labels[-1] == "TEST"
 assert abs(sum(full_amounts) - 502.5) < 1e-8
 assert pie_legend_labels(["NVDA", "Other stocks"], [371, 629]) == [
     "NVDA 37.1%", "Other stocks 62.9%",
 ]
-assert pie_legend_labels(["NVDA", "Unresolved ETF exposure"], [371, 629]) == [
-    "NVDA 37.1%", "Unresolved ETF exposure 62.9%",
+assert pie_legend_labels(["NVDA", "TLT"], [371, 629]) == [
+    "NVDA 37.1%", "TLT 62.9%",
 ]
 # Unknown ticker classification should not crash an imported portfolio or
 # misrepresent an unverified position as an ETF.
@@ -162,8 +164,42 @@ assert unknown["Unverified UNKN"]["ETF Amount"] == 0
 assert unknown["91282CMB4"]["Unresolved"] is False
 assert unknown["Cash & Cash Inv"]["Unresolved"] is False
 labels, amounts = pie_data(unknown_rows)
-assert "Unclassified positions" in labels
+assert "UNKN" in labels
+assert "Unclassified positions" not in labels
 assert abs(sum(amounts) - 100) < 1e-10
+
+# Each missing ETF's ticker is shown on the donut and in its legend, rather
+# than pooling all missing holdings into a misleading generic 31% slice.
+breakdown, breakdown_info = portfolio_rows(
+    [
+        {"type": "ETF", "ticker": "TLT", "amount": 5.0},
+        {"type": "ETF", "ticker": "VTEB", "amount": 6.0},
+        {"type": "ETF", "ticker": "SPMO", "amount": 10.0},
+        {"type": "UNKNOWN", "ticker": "MYSTERY", "amount": 1.0},
+    ],
+    {"SPMO": Holdings("SPMO", {"NVDA": .8}, "synthetic")},
+)
+names, values = pie_data(breakdown)
+slices = dict(zip(names, values))
+assert abs(sum(values) - 22.0) < 1e-8
+assert abs(breakdown_info["unresolved"] - 14.0) < 1e-8
+assert slices["TLT"] == 5
+assert slices["VTEB"] == 6
+assert slices["SPMO"] == 2.0
+assert slices["MYSTERY"] == 1.0
+assert abs(slices["NVDA"] - 8.0) < 1e-8
+assert "Unresolved ETF exposure" not in names
+assert "Unclassified positions" not in names
+
+# If a ticker is also present among mapped ETF constituents, do not lose a
+# slice or silently recategorize the unverified direct position.
+collision_rows = [
+    {"Stock": "NVDA", "_value": 8.0, "Unresolved": False},
+    {"Stock": "Unverified NVDA", "_value": 3.0, "Unresolved": True},
+]
+collision_names, collision_amounts = pie_data(collision_rows)
+assert collision_names == ["NVDA", "NVDA"]
+assert collision_amounts == [8.0, 3.0]
 
 assert pie_legend_labels(["No data"], [0]) == ["No data"]
 try:
