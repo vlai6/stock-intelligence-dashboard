@@ -11,7 +11,7 @@ from portfolio_xray_saved import (
     render_saved_portfolio_controls, loaded_portfolio_chart_name,
     portfolio_png_filename, NS as SAVED_NS,
 )
-from portfolio_xray_csv import parse_portfolio_csv
+from portfolio_xray_csv import parse_portfolio_csv, export_portfolio_csv
 from portfolio_xray import (
     ticker_of, issuer_holdings, portfolio_rows, pie_data, pie_legend_labels,
     security_type, tickerinside_identifiers,
@@ -139,6 +139,44 @@ def _import_portfolio_csv():
     )
 
 
+def _analyzed_portfolio_share_csv() -> tuple[bytes, str] | None:
+    """Export only the inputs behind the visible analysis, never stale edits."""
+    state = st.session_state
+    if not state.get("portfolio_xray_results"):
+        return None
+    signature = state.get("portfolio_xray_results_signature")
+    if not isinstance(signature, tuple) or len(signature) != 2:
+        return None
+    unit = state.get("portfolio_xray_unit_mode", "usd")
+    if unit != signature[0]:
+        return None
+    try:
+        count = int(state.get("portfolio_xray_row_count", 0))
+        table = pd.DataFrame([
+            {
+                "Ticker": state.get(f"portfolio_xray_ticker_{i}", ""),
+                "Amount ($)": state.get(f"portfolio_xray_amount_{i}", 0.0),
+            }
+            for i in range(count)
+        ])
+        positions = _clean_positions(table)
+        current_signature = (
+            unit, tuple((p["ticker"], float(p["amount"])) for p in positions)
+        )
+        if current_signature != signature:
+            return None
+        data = export_portfolio_csv(positions, unit)
+    except (ValueError, TypeError, OverflowError):
+        return None
+
+    name = loaded_portfolio_chart_name()
+    filename = (
+        portfolio_png_filename(name) + ".csv"
+        if name else "portfolio_xray_portfolio.csv"
+    )
+    return data, filename
+
+
 def render_portfolio_xray():
     st.markdown("#### PORTFOLIO X-RAY")
     st.caption("Look through ETFs and directly held stocks to see combined stock exposure.")
@@ -195,18 +233,23 @@ def render_portfolio_xray():
     left, right = st.columns([2, 3], gap="medium")
     with left:
         render_saved_portfolio_controls()
-        with st.popover("Import CSV", use_container_width=False):
-            st.file_uploader(
-                "Ticker, Amount CSV", type=["csv"],
-                key="portfolio_xray_csv_file",
-                on_change=_import_portfolio_csv,
-                help="Exactly two columns: Ticker, Amount. All values must be "
-                     "percentages (such as 12.29%) or all dollar amounts.",
-            )
-            st.caption(
-                "Percentages are weights, not USD. Cash and Treasury CUSIPs "
-                "stay as directly owned non-stock positions."
-            )
+        import_col, export_col = st.columns([1, 1], gap="small")
+        with import_col:
+            with st.popover("Import CSV", use_container_width=True):
+                st.file_uploader(
+                    "Ticker, Amount CSV", type=["csv"],
+                    key="portfolio_xray_csv_file",
+                    on_change=_import_portfolio_csv,
+                    help="Exactly two columns: Ticker, Amount. All values must be "
+                         "percentages (such as 12.29%) or all dollar amounts.",
+                )
+                st.caption(
+                    "Percentages are weights, not USD. Cash and Treasury CUSIPs "
+                    "stay as directly owned non-stock positions."
+                )
+        with export_col:
+            csv_export_slot = st.empty()
+
         csv_feedback = st.session_state.pop("portfolio_xray_csv_feedback", None)
         if csv_feedback:
             status, message = csv_feedback
@@ -275,6 +318,25 @@ def render_portfolio_xray():
                     st.session_state["portfolio_xray_results"] = None
                     st.session_state.pop("portfolio_xray_results_signature", None)
                     st.error(str(exc))
+
+        # Fill the already-reserved slot after Analyze / Load completes, so
+        # the download and upload controls remain side by side on first render.
+        share_file = _analyzed_portfolio_share_csv()
+        with csv_export_slot:
+            st.download_button(
+                "Download CSV",
+                data=share_file[0] if share_file else b"",
+                file_name=share_file[1] if share_file else "portfolio_xray_portfolio.csv",
+                mime="text/csv",
+                disabled=share_file is None,
+                use_container_width=True,
+                key="portfolio_xray_export_csv",
+                help=(
+                    "Export the positions used in the displayed X-Ray. "
+                    "Upload into another Portfolio X-Ray to recreate the allocation. "
+                    "Re-analyze any edits before exporting."
+                ),
+            )
     with right:
         result = st.session_state.get("portfolio_xray_results")
         if not result:
