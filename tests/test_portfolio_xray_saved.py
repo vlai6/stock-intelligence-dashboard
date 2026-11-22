@@ -83,4 +83,24 @@ with patch("portfolio_xray_saved.st.session_state", state):
 assert state[NS + "loaded_name"] is None
 assert "Copy" not in state[NS + "portfolios"]
 
-print("PASS: saved portfolio validation, automatic load analysis, and loaded-state flags")
+# Percentage-based imported portfolios keep their weight units through save/load.
+state[NS + "selected"] = "Other"
+state[NS + "units"] = {"Other": "pct", "Core ETFs": "usd"}
+with patch("portfolio_xray_saved.st.session_state", state):
+    _load_selected()
+assert state["portfolio_xray_unit_mode"] == "pct"
+assert state["portfolio_xray_auto_analyze"] is True
+assert state["portfolio_xray_amount_0"] == 25.0
+state["portfolio_xray_unit_mode"] = "pct"
+with patch("portfolio_xray_saved.st.session_state", state):
+    _save_current("Percentage Portfolio")
+assert state[NS + "units"]["Percentage Portfolio"] == "pct"
+
+# Legacy saves without a units mapping default to dollars, not percentages.
+state[NS + "units"] = {}
+state[NS + "selected"] = "Core ETFs"
+with patch("portfolio_xray_saved.st.session_state", state):
+    _load_selected()
+assert state["portfolio_xray_unit_mode"] == "usd"
+
+print("PASS: saved portfolio validation, auto load and percent/dollar unit persistence")
