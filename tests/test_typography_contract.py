@@ -86,12 +86,14 @@ assert "not guaranteed to move in opposite directions" in philosophy
 assert "from portfolio_xray_ui import render_portfolio_xray" in philosophy
 assert philosophy.index("render_portfolio_xray()") < philosophy.index("INDIVIDUAL-STOCK STRATEGIES")
 xray = source("portfolio_xray_ui.py")
-assert "st.columns([1, 1], gap=\"medium\")" in xray
+assert "st.columns([2, 3], gap=\"medium\")" in xray
 assert "portfolio_xray_left" in xray and "portfolio_xray_right" in xray
 assert "pie_legend_labels(labels, amounts)" in xray
-assert 'size=13, color="#DEEAF7"' in xray
+assert 'font:13px/1.35 Inter' in xray
+assert "grid-template-columns:12px minmax(0, 1fr) 55px" in xray
 assert "textfont=dict(family=\"Inter, Segoe UI, Arial, sans-serif\", size=13)" in xray
 assert 'st.session_state.setdefault("portfolio_xray_row_count", 1)' in xray
+assert 'if ticker or (amount is not None and float(amount) > 0):' in xray
 assert "st.file_uploader(" not in xray
 assert "SelectboxColumn(" not in xray
 assert 'expanded=False' in philosophy

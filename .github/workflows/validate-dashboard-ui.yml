@@ -123,22 +123,26 @@ jobs:
           assert 'from portfolio_xray_ui import render_portfolio_xray' in philosophy
           assert philosophy.index('render_portfolio_xray()') < philosophy.index('INDIVIDUAL-STOCK STRATEGIES')
           xray = Path('portfolio_xray_ui.py').read_text()
-          assert 'st.columns([1, 1], gap="medium")' in xray
+          assert 'st.columns([2, 3], gap="medium")' in xray
           assert 'if not result:' in xray
           assert 'return  # Deliberately blank until the first Analyze action.' in xray
           assert '["Pie chart", "Table"]' in xray
-          # A single initial row; next row added when its ticker and amount
-          # are both provided. No manual Add Row control or form batching.
+          # One initial row; either populated field automatically adds a row.
           assert 'st.session_state.setdefault("portfolio_xray_row_count", 1)' in xray
-          assert 'def _append_xray_row_when_complete():' in xray
-          assert 'on_change=_append_xray_row_when_complete' in xray
+          assert 'def _append_xray_row_when_started():' in xray
+          assert 'if ticker or (amount is not None and float(amount) > 0):' in xray
+          assert 'on_change=_append_xray_row_when_started' in xray
           assert 'st.text_input(' in xray and 'st.number_input(' in xray
           assert 'st.data_editor(' not in xray
           assert 'st.form(' not in xray
           assert 'pie_legend_labels(labels, amounts)' in xray
-          assert 'labels=legend_labels' in xray
-          assert 'customdata=labels' in xray
-          assert 'size=13, color="#DEEAF7"' in xray
+          assert 'showlegend=False' in xray
+          assert 'chart_col, legend_col = st.columns([7, 3], gap="small")' in xray
+          assert 'grid-template-columns:12px minmax(0, 1fr) 55px' in xray
+          assert 'si-xray-legend-ticker' in xray
+          assert 'si-xray-legend-percent' in xray
+          assert 'pie_legend_labels(labels, amounts)' in xray
+          assert 'style="background:{color}"' in xray
           assert 'Stock' in xray and 'ETF' in xray
           assert 'portfolio_rows(classified, snapshots, errors)' in xray
           assert 'security_type(ticker)' in xray
@@ -149,7 +153,7 @@ jobs:
           assert 'st.file_uploader(' not in xray
           assert 'st.download_button(' not in xray
           assert 'CSV/XLSX' not in xray
-          assert 'st.columns([1, 1], gap="medium")' in xray
+          assert 'st.columns([2, 3], gap="medium")' in xray
           # The front page must clearly distinguish the actual SPY-funded
           # backtest from an *untested* fundamentals-assisted strategy.
           assert 'HOW THE ROTATING STRATEGY WORKED' in philosophy
