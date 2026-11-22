@@ -1,4 +1,4 @@
-"""Stock Intelligence: navigation-only entrypoint for Streamlit Cloud."""
+"""Stock Intelligence Toolkit: navigation-only entrypoint for Streamlit Cloud."""
 
 import streamlit as st
 
@@ -6,7 +6,7 @@ import streamlit as st
 
 # stock_intelligence_ui_router_v1
 
-st.set_page_config(page_title='Stock Intelligence',
+st.set_page_config(page_title='Stock Intelligence Toolkit',
 
                    layout='wide', initial_sidebar_state='collapsed')
 
