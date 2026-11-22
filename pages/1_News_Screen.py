@@ -33,7 +33,7 @@ from etf_scan_results import load_etf_scores, etf_score_map
 from custom_watchlists import (
     DRAFT_KEY, render_custom_list, render_working_list,
     named_groups, active_named_group, activate_named_group,
-    save_named_group, remove_named_group,
+    save_named_group, remove_named_group, removable_stock_list,
 )
 from scanner_email_watchlist import (
     AlertSnapshot,
@@ -141,6 +141,22 @@ st.markdown(r"""
 .ns-etf-weight {font-size:var(--si-type-caption);color:#75D3BA;margin:3px 0 5px;white-space:nowrap;}
 .ns-auto-pills {display:flex;gap:7px;flex-wrap:wrap;align-items:center;padding:7px 0;}
 .ns-auto-pill {border:1px solid #244461;background:rgba(16,31,48,.57);border-radius:7px;padding:7px 10px;color:#9FD3F6;font-size:var(--si-type-caption);}
+.st-key-ns_editable_stock_pills [data-testid="stButton"] button {
+  background:rgba(16,31,48,.57) !important;
+  color:#9FD3F6 !important;
+  border:1px solid #244461 !important;
+  border-radius:7px !important;
+  min-height:34px !important;
+  padding:4px 8px !important;
+  font-size:var(--si-type-caption) !important;
+  white-space:nowrap !important;
+}
+.st-key-ns_editable_stock_pills [data-testid="stButton"] button:hover {
+  background:rgba(29,64,97,.90) !important;
+  border-color:#4485B2 !important;
+  color:#E5F5FF !important;
+}
+.st-key-ns_editable_stock_pills [data-testid="stHorizontalBlock"] {gap:6px !important;}
 .ns-company {font-size:var(--si-type-data);color:#8FA9BF;margin-top:5px;line-height:1.3;min-height:28px;overflow:hidden;}
 .ns-quote {text-align:right;font-variant-numeric:tabular-nums;min-width:92px;}
 .ns-price {color:#E1F2FC;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:1.05rem;font-weight:750;}
@@ -648,7 +664,7 @@ TODAYS_SCAN_LABEL = "Today's Regression Scan's Stocks"
 SP500_LABEL = "S&P 500 Top 10 Holdings"
 CUSTOM_ETF_LABEL = "Other ETF — Top 10 Holdings"
 CUSTOM_STOCK_LABEL = "Saved Groups"
-WORKING_STOCK_LABEL = "Working List (Unsaved)"
+WORKING_STOCK_LABEL = "Custom List (Unsaved)"
 BUILTIN_GROUP_OPTIONS = [
     TODAYS_SCAN_LABEL, SP500_LABEL, CUSTOM_ETF_LABEL, WORKING_STOCK_LABEL,
 ]
@@ -688,6 +704,10 @@ group_options = BUILTIN_GROUP_OPTIONS + [_group_option(name) for name in group_n
 last_selected = st.session_state.get('ns_group_select')
 if last_selected in ('Custom List', CUSTOM_STOCK_LABEL):
     last_selected = _group_option(active_named_group())
+elif last_selected == 'Working List (Unsaved)':
+    last_selected = WORKING_STOCK_LABEL
+if st.session_state.get('ns_group_loaded') == 'Working List (Unsaved)':
+    st.session_state['ns_group_loaded'] = WORKING_STOCK_LABEL
 if last_selected not in group_options:
     last_selected = TODAYS_SCAN_LABEL
 st.session_state['ns_group_select'] = last_selected
@@ -735,6 +755,21 @@ def _delete_selected_news_group():
         if st.session_state.get('ns_group_loaded') == option:
             st.session_state['ns_group_loaded'] = TODAYS_SCAN_LABEL
         st.session_state['ns_group_select'] = st.session_state['ns_group_loaded']
+
+
+def _remove_displayed_stock(ticker: str):
+    """Remove from a copy of the visible list, never the preset/saved source.
+
+    Streamlit button callbacks execute before widget instantiation, so we can
+    safely update the top dropdown and loaded source without state errors.
+    """
+    current = list(st.session_state.get('ns_watchlist', []))
+    remaining = removable_stock_list(current, ticker)
+    if len(remaining) == len(current):
+        return
+    st.session_state[DRAFT_KEY] = remaining
+    st.session_state['ns_group_select'] = WORKING_STOCK_LABEL
+    st.session_state['ns_group_loaded'] = WORKING_STOCK_LABEL
 
 
 # One compact toolbar like Portfolio X-Ray; a different choice must be loaded.
@@ -846,9 +881,25 @@ if watchlist:
                        else ('CUSTOM STOCKS' if mode == CUSTOM_STOCK_LABEL
                              else 'ETF CONSTITUENTS · ' + html.escape(selected_etf)))) +
                 '</div>', unsafe_allow_html=True)
-    tags = ''.join('<span class="ns-auto-pill">' + html.escape(symbol.replace('BRK-B', 'BRK.B'))
-                   + '</span>' for symbol in watchlist)
-    st.markdown('<div class="ns-auto-pills">' + tags + '</div>', unsafe_allow_html=True)
+    # Every visible ticker is removable, including read-only ETF/scan presets.
+    # Click × to create an unsaved Custom List copy without changing its source.
+    with st.container(key="ns_editable_stock_pills"):
+        for offset in range(0, len(watchlist), 10):
+            symbols = watchlist[offset:offset + 10]
+            widths = [max(7, len(symbol) + 3) for symbol in symbols]
+            filler = max(12, 105 - sum(widths))
+            columns = st.columns(widths + [filler], gap="small")
+            for index, (column, symbol) in enumerate(zip(columns, symbols)):
+                label = symbol.replace("BRK-B", "BRK.B")
+                with column:
+                    st.button(
+                        f"{label} ×",
+                        key=f"ns_remove_visible_{offset + index}_{symbol}",
+                        help=f"Remove {label} and switch to Custom List (Unsaved)",
+                        on_click=_remove_displayed_stock,
+                        args=(symbol,),
+                        use_container_width=True,
+                    )
 
 control_left, sigma_col, control_right = st.columns([3.15, 0.7, 1.15], vertical_alignment="center")
 with sigma_col:
