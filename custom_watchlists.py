@@ -252,15 +252,13 @@ def render_custom_list() -> list[str]:
         with add_col:
             add = st.form_submit_button("Add", type="primary", use_container_width=True)
     if add:
-        requested = [v for v in re.split(r"[,;\s]+", typed.strip()) if v]
-        invalid = [value for value in requested if not valid_symbol(value)]
+        requested, invalid = parse_working_tickers(typed)
         if invalid:
             st.error("Invalid ticker(s): " + ", ".join(invalid[:8]))
         elif not requested:
             st.warning("Enter at least one ticker.")
         else:
-            extras = list(dict.fromkeys(valid_symbol(value) for value in requested))
-            extras = [value for value in extras if value not in current]
+            extras = [value for value in requested if value not in current]
             if len(current) + len(extras) > MAX_TICKERS:
                 st.warning(f"Each group supports up to {MAX_TICKERS} stocks.")
             elif not extras:
