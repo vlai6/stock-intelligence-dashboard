@@ -105,7 +105,7 @@ def render_portfolio_xray():
                     height=183, use_container_width=True,
                     key="portfolio_xray_editor",
                 )
-                 submitted = st.form_submit_button(
+                submitted = st.form_submit_button(
                     "Analyze portfolio", type="primary", use_container_width=True
                 )
             st.caption("ETFs and individual stocks are identified automatically.")
@@ -144,7 +144,7 @@ def render_portfolio_xray():
                         "Portfolio %": st.column_config.NumberColumn(format="%.2f%%"),
                     },
                 )
-             else:
+            else:
                 labels, amounts = pie_data(rows)
                 fig = go.Figure(go.Pie(
                     labels=labels, values=amounts, hole=.58, sort=False,
