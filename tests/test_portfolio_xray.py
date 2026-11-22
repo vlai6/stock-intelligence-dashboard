@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from portfolio_xray import Holdings, parse_rows, portfolio_rows, pie_data, ticker_of
+from portfolio_xray import Holdings, parse_rows, portfolio_rows, pie_data, ticker_of, security_type
 
 rows = [
     ["Fund holdings data", "", ""],
@@ -16,6 +16,20 @@ snap = parse_rows(rows, "TEST", "synthetic fixture")
 assert abs(snap.coverage - 0.95) < 1e-10
 assert abs(snap.weights["NVDA"] - 0.1) < 1e-10
 assert ticker_of("brk.b") == "BRK.B"
+assert security_type("SPY") == "ETF"
+assert security_type("SPMO") == "ETF"
+assert security_type("AVLV") == "ETF"
+assert security_type("NVDA") == "STOCK"
+assert security_type("AAPL") == "STOCK"
+assert security_type("CUSTOMEQUITY", quote_lookup=lambda _: {"quoteType": "EQUITY"}) == "STOCK"
+assert security_type("CUSTOMFUND", quote_lookup=lambda _: {"quoteType": "ETF"}) == "ETF"
+try:
+    security_type("AMBIGUOUS", quote_lookup=lambda _: {})
+except ValueError:
+    pass
+else:
+    raise AssertionError("Unknown symbols must not be silently categorized")
+
 
 # Fractional weights should work and must not be automatically magnified.
 fraction = parse_rows([

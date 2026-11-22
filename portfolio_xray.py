@@ -11,6 +11,57 @@ VALID = re.compile(r"^[A-Z][A-Z0-9.\-]{0,12}$")
 SPDR = {"SPY", "SPYG", "SPYV", "SPYD", "XLK", "XLF", "XLV", "XLE", "XLY", "XLP", "XLI", "XLU", "XLC", "XLRE", "SDY"}
 INVESCO = {"SPMO", "XMMO", "XSMO", "QQQ", "QQQM", "RSP", "SPLV"}
 
+# Curated commonly used ETF identifiers. Identity does not imply that complete
+# issuer holdings can be downloaded; unsupported funds remain unresolved.
+OTHER_ETFS = {
+    "VOO", "VTI", "VTV", "VGT", "VUG", "VXUS", "VEA", "VWO", "VT",
+    "AVLV", "AVUV", "AVDV", "AVEM", "AVDE", "AVUS", "AVMC",
+    "SPYI", "SPLG", "IVV", "IWM", "IJH", "IJR", "QUAL", "MTUM",
+    "AIQ", "SMH", "SOXX", "TLT", "GLD", "SLV", "SGOV", "BND", "SCHD",
+    "DRAM", "XSD", "XLK", "XMMO", "SPMO", "XSMO",
+}
+
+# A small offline fallback for frequently used blue-chip equities; other
+# symbols are identified using fresh Yahoo Finance quote metadata.
+KNOWN_STOCKS = {
+    "NVDA", "AAPL", "MSFT", "AMD", "AVGO", "QCOM", "MU", "INTC",
+    "TSM", "ASML", "ARM", "GOOG", "GOOGL", "AMZN", "META", "TSLA",
+    "BABA", "DOX", "NFLX", "UNH", "MCD", "ORCL", "HD", "PEP",
+    "CRWD", "NOW", "ALNY", "ROL", "SCI", "DFS", "POST",
+}
+
+
+def security_type(ticker: str, quote_lookup=None) -> str:
+    """Classify ETF or equity without relying on an editable Type field.
+
+    Known ETF identifiers get priority; for other symbols Yahoo Finance
+    quoteType must explicitly indicate ETF or EQUITY. Missing/ambiguous
+    metadata raises rather than silently interpreting a fund as one stock.
+    """
+    ticker = ticker_of(ticker)
+    if ticker in SPDR or ticker in INVESCO or ticker in OTHER_ETFS:
+        return "ETF"
+    if ticker in KNOWN_STOCKS:
+        return "STOCK"
+    if quote_lookup is None:
+        import yfinance as yf
+        quote_lookup = lambda symbol: yf.Ticker(symbol).info
+    try:
+        meta = quote_lookup(ticker) or {}
+        qtype = str(meta.get("quoteType") or meta.get("typeDisp") or "").upper()
+        if qtype in {"ETF", "EXCHANGE TRADED FUND"}:
+            return "ETF"
+        if qtype in {"EQUITY", "COMMON STOCK", "STOCK"}:
+            return "STOCK"
+    except Exception as exc:
+        raise ValueError(
+            f"Couldn't identify {ticker} as ETF or stock; market quote data unavailable."
+        ) from exc
+    raise ValueError(
+        f"Couldn't identify {ticker} as an ETF or individual stock; check the ticker."
+    )
+
+
 @dataclass(frozen=True)
 class Holdings:
     ticker: str
@@ -127,7 +178,7 @@ def _download(url, params=None):
 
 
 def issuer_holdings(ticker):
-    """Official feeds when available; other ETFs require user-provided files."""
+    """Official feeds when available; otherwise preserve unresolved exposure."""
     ticker = ticker_of(ticker)
     if ticker in SPDR:
         url = ("https://www.ssga.com/library-content/products/fund-data/"
@@ -139,7 +190,7 @@ def issuer_holdings(ticker):
             "audienceType": "Investor", "action": "download", "ticker": ticker
         })
         return parse_file(ticker + ".csv", data, ticker)
-    raise ValueError(f"{ticker} has no automatic full-holdings adapter; upload its issuer holdings CSV/XLSX")
+    raise ValueError(f"{ticker}: full holdings are not available from an automatic issuer feed")
 
 
 def portfolio_rows(positions, etfs, failures=None):

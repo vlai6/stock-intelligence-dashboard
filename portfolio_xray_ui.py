@@ -1,14 +1,13 @@
 """Compact two-column ETF + direct-stock X-ray on Investment Philosophy."""
 from __future__ import annotations
-from pathlib import Path
-import re
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
 from dashboard_theme import style_blue_figure
 from portfolio_xray import (
-    ticker_of, parse_file, issuer_holdings, portfolio_rows, pie_data,
+    ticker_of, issuer_holdings, portfolio_rows, pie_data,
+    security_type,
 )
 
 @st.cache_data(ttl=6 * 3600, show_spinner=False)
@@ -17,10 +16,9 @@ def _cached_issuer_holdings(ticker: str):
 
 
 def _clean_positions(table: pd.DataFrame) -> list[dict]:
-    positions = []
-    errors = []
+    """Only ticker and dollar amount are entered; no user-provided asset type."""
+    positions, errors = [], []
     for index, raw in table.iterrows():
-        kind = str(raw.get("Type", "ETF") or "ETF").strip()
         symbol = str(raw.get("Ticker", "") or "").strip()
         amount_raw = raw.get("Amount ($)", 0)
         try:
@@ -29,56 +27,43 @@ def _clean_positions(table: pd.DataFrame) -> list[dict]:
             amount = 0.0
         if not symbol and not amount:
             continue
-        if not symbol or amount <= 0:
-            errors.append(f"Row {index + 1}: provide both ticker and positive amount.")
-            continue
-        if kind not in ("ETF", "Stock"):
-            errors.append(f"Row {index + 1}: choose ETF or Stock.")
+        if not symbol or not (amount > 0):
+            errors.append(f"Row {index + 1}: provide a ticker and positive amount.")
             continue
         try:
             symbol = ticker_of(symbol)
         except ValueError as exc:
             errors.append(f"Row {index + 1}: {exc}")
             continue
-        positions.append({"type": kind, "ticker": symbol, "amount": amount})
+        positions.append({"ticker": symbol, "amount": amount})
     if errors:
         raise ValueError(" ".join(errors))
     if not positions:
-        raise ValueError("Add an ETF or stock and a dollar amount.")
+        raise ValueError("Add at least one ticker and dollar amount.")
     if len(positions) > 30:
         raise ValueError("This tool supports up to 30 portfolio positions per analysis.")
     return positions
 
 
-def _uploaded_holdings(files, etf_tickers: set[str]):
-    """Associate uploads using TICKER.csv or TICKER-anything.xlsx naming."""
-    uploaded, errors = {}, {}
-    for item in files:
-        prefix = re.split(r"[^A-Za-z0-9]", Path(item.name).stem.upper())[0]
-        if prefix not in etf_tickers:
-            errors[item.name] = "Name the file after a portfolio ETF, e.g. AVLV.csv"
-            continue
-        if prefix in uploaded:
-            errors[item.name] = f"Two uploads were provided for {prefix}"
-            continue
-        try:
-            uploaded[prefix] = parse_file(item.name, item.getvalue(), prefix)
-        except Exception as exc:
-            errors[prefix] = str(exc)
-    return uploaded, errors
+@st.cache_data(ttl=24 * 3600, show_spinner=False)
+def _security_type(ticker: str) -> str:
+    """Use known ETF identities or live quote metadata; never guess an unknown."""
+    return security_type(ticker)
 
 
-def _analyze(positions, files):
-    etfs = {position["ticker"] for position in positions if position["type"] == "ETF"}
-    snapshots, errors = _uploaded_holdings(files, etfs)
+def _analyze(positions):
+    classified = [
+        {**position, "type": _security_type(position["ticker"])}
+        for position in positions
+    ]
+    etfs = {pos["ticker"] for pos in classified if pos["type"] == "ETF"}
+    snapshots, errors = {}, {}
     for ticker in sorted(etfs):
-        if ticker in snapshots:
-            continue
         try:
             snapshots[ticker] = _cached_issuer_holdings(ticker)
         except Exception as exc:
             errors[ticker] = str(exc).splitlines()[0][:185]
-    return portfolio_rows(positions, snapshots, errors)
+    return portfolio_rows(classified, snapshots, errors)
 
 
 def render_portfolio_xray():
@@ -104,13 +89,10 @@ def render_portfolio_xray():
             with st.form("portfolio_xray_inputs", border=False):
                 editor = st.data_editor(
                     pd.DataFrame([
-                        {"Type": "ETF", "Ticker": "", "Amount ($)": 0.0},
-                        {"Type": "Stock", "Ticker": "", "Amount ($)": 0.0},
+                        {"Ticker": "", "Amount ($)": 0.0},
+                        {"Ticker": "", "Amount ($)": 0.0},
                     ]),
                     column_config={
-                        "Type": st.column_config.SelectboxColumn(
-                            "Type", options=["ETF", "Stock"], required=True, width="small"
-                        ),
                         "Ticker": st.column_config.TextColumn(
                             "Ticker", help="An ETF or individual stock symbol", width="small"
                         ),
@@ -123,21 +105,15 @@ def render_portfolio_xray():
                     height=183, use_container_width=True,
                     key="portfolio_xray_editor",
                 )
-                with st.expander("ETF holdings file (if needed)", expanded=False):
-                    uploads = st.file_uploader(
-                        "Issuer CSV/XLSX files; name each as TICKER.csv or TICKER.xlsx",
-                        type=["csv", "xlsx"], accept_multiple_files=True,
-                        key="portfolio_xray_uploads", label_visibility="visible",
-                    )
                 submitted = st.form_submit_button(
                     "Analyze portfolio", type="primary", use_container_width=True
                 )
-            st.caption("Direct stocks need no file. ETF data use issuer holdings or an uploaded full-holdings file.")
+            st.caption("ETFs and individual stocks are identified automatically.")
             if submitted:
                 try:
                     positions = _clean_positions(editor)
                     with st.spinner("Loading ETF holdings…"):
-                        st.session_state["portfolio_xray_results"] = _analyze(positions, uploads or [])
+                        st.session_state["portfolio_xray_results"] = _analyze(positions)
                 except Exception as exc:
                     st.session_state["portfolio_xray_results"] = None
                     st.error(str(exc))
@@ -168,11 +144,6 @@ def render_portfolio_xray():
                         "Portfolio %": st.column_config.NumberColumn(format="%.2f%%"),
                     },
                 )
-                st.download_button(
-                    "Download exposures CSV", data=pd.DataFrame(visible).to_csv(index=False),
-                    file_name="portfolio_xray_exposure.csv", mime="text/csv",
-                    use_container_width=True,
-                )
             else:
                 labels, amounts = pie_data(rows)
                 fig = go.Figure(go.Pie(
@@ -195,8 +166,8 @@ def render_portfolio_xray():
             if info["unresolved"] > 0.01:
                 st.warning(
                     f"USD {info['unresolved']:,.2f} in ETF exposure could not be "
-                    "resolved to stocks. Upload the missing fund's full-holdings "
-                    "CSV/XLSX; amounts are not redistributed."
+                    "resolved to stocks because full issuer holdings were unavailable. "
+                    "Amounts are not redistributed."
                 )
             if info["failed"]:
                 with st.expander("Unavailable holdings sources", expanded=False):
@@ -207,4 +178,4 @@ def render_portfolio_xray():
                     st.dataframe(pd.DataFrame(info["sources"]), hide_index=True,
                                  use_container_width=True)
             st.caption("Ticker-level look-through; share classes remain separate. "
-                       "ETF holdings dates may differ.")
+                       "ETF holdings dates may differ. Unavailable funds stay unresolved.")

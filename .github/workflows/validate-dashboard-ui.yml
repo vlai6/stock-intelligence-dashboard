@@ -130,7 +130,15 @@ jobs:
           assert 'num_rows="dynamic"' in xray
           assert 'height=183' in xray
           assert 'Stock' in xray and 'ETF' in xray
-          assert 'portfolio_rows(positions, snapshots, errors)' in xray
+          assert 'portfolio_rows(classified, snapshots, errors)' in xray
+          assert 'security_type(ticker)' in xray
+          assert '"Ticker": "", "Amount ($)": 0.0' in xray
+          assert 'SelectboxColumn(' not in xray
+          assert '"Type": "ETF"' not in xray
+          assert 'st.file_uploader(' not in xray
+          assert 'st.download_button(' not in xray
+          assert 'CSV/XLSX' not in xray
+          assert 'st.columns([1, 1], gap="medium")' in xray
           # The front page must clearly distinguish the actual SPY-funded
           # backtest from an *untested* fundamentals-assisted strategy.
           assert 'HOW THE ROTATING STRATEGY WORKED' in philosophy
