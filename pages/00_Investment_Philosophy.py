@@ -14,6 +14,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from dashboard_theme import apply_dashboard_theme, render_page_header
+from portfolio_xray_ui import render_portfolio_xray
 
 apply_dashboard_theme()
 render_page_header(
@@ -118,6 +119,8 @@ st.caption(
     "but they are not guaranteed to move in opposite directions or outperform SPY. "
     "Evaluate the combined portfolio after fees and taxes."
 )
+
+render_portfolio_xray()
 
 st.divider()
 st.markdown("## INDIVIDUAL-STOCK STRATEGIES")
