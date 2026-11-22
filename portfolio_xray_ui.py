@@ -255,6 +255,7 @@ def render_portfolio_xray():
         if not result:
             return  # Deliberately blank until the first Analyze action.
         rows, info = result
+        result_is_pct = st.session_state.get("portfolio_xray_results_unit", "usd") == "pct"
         with st.container(key="portfolio_xray_right"):
             # Preserve a user's existing Table selection after the label rename.
             if st.session_state.get("portfolio_xray_display") == "Table":
@@ -265,30 +266,48 @@ def render_portfolio_xray():
                 key="portfolio_xray_display",
             )
             st.caption(
-                f"Total: USD {info['total']:,.2f}  ·  "
-                f"Mapped: {info['mapped']/info['total']:.1%}  ·  "
-                f"Positions: {sum(not row['Unresolved'] for row in rows)}"
+                (f"Imported allocation: {info['total']:.2f}%  ·  "
+                 if result_is_pct else f"Total: USD {info['total']:,.2f}  ·  ")
+                + f"Identified: {info['mapped']/info['total']:.1%}  ·  "
+                + f"Positions: {sum(not row['Unresolved'] for row in rows)}"
             )
             if mode == "Full Table":
-                visible = [
-                    {
-                        "Ticker": r["Stock"],
-                        "Amount ($)": r["Amount ($)"],
-                        "Portfolio %": r["Portfolio %"],
-                        "ETF Amount ($)": r["ETF Amount"],
-                        "Individual Amount ($)": r["Direct Amount"],
+                if result_is_pct:
+                    visible = [
+                        {
+                            "Ticker": r["Stock"],
+                            "Portfolio %": r["Portfolio %"],
+                            "ETF Allocation (%)": round(r["ETF Amount"], 3),
+                            "Individual Allocation (%)": round(r["Direct Amount"], 3),
+                        }
+                        for r in rows
+                    ]
+                    column_config = {
+                        "Portfolio %": st.column_config.NumberColumn(format="%.2f%%"),
+                        "ETF Allocation (%)": st.column_config.NumberColumn(format="%.3f%%"),
+                        "Individual Allocation (%)": st.column_config.NumberColumn(format="%.3f%%"),
                     }
-                    for r in rows
-                ]
-                st.dataframe(
-                    pd.DataFrame(visible), hide_index=True,
-                    height=250, use_container_width=True,
-                    column_config={
+                else:
+                    visible = [
+                        {
+                            "Ticker": r["Stock"],
+                            "Amount ($)": r["Amount ($)"],
+                            "Portfolio %": r["Portfolio %"],
+                            "ETF Amount ($)": r["ETF Amount"],
+                            "Individual Amount ($)": r["Direct Amount"],
+                        }
+                        for r in rows
+                    ]
+                    column_config = {
                         "Amount ($)": st.column_config.NumberColumn(format="$%.2f"),
                         "Portfolio %": st.column_config.NumberColumn(format="%.2f%%"),
                         "ETF Amount ($)": st.column_config.NumberColumn(format="$%.2f"),
                         "Individual Amount ($)": st.column_config.NumberColumn(format="$%.2f"),
-                    },
+                    }
+                st.dataframe(
+                    pd.DataFrame(visible), hide_index=True,
+                    height=250, use_container_width=True,
+                    column_config=column_config,
                 )
             else:
                 labels, amounts = pie_data(rows)
@@ -317,13 +336,19 @@ def render_portfolio_xray():
                 legend_labels = pie_legend_labels(labels, amounts)
                 # Percentages under 1% remain visible on hover, not as labels.
                 slice_text = [f"{pct:.1f}%" if pct >= 1.0 else "" for pct in percentages]
+                hover_description = (
+                    "%{label}: %{value:.3f} percentage points "
+                    "(%{percent} of imported positions)<extra></extra>"
+                    if result_is_pct else
+                    "%{label}: $%{value:,.2f} (%{percent})<extra></extra>"
+                )
                 chart_col, legend_col = st.columns([7, 3], gap="small")
                 with chart_col:
                     fig = go.Figure(go.Pie(
                         labels=labels, values=amounts, hole=.58, sort=False,
                         text=slice_text, textinfo="text", textposition="inside",
                         textfont=dict(family="Inter, Segoe UI, Arial, sans-serif", size=13),
-                        hovertemplate="%{label}: $%{value:,.2f} (%{percent})<extra></extra>",
+                        hovertemplate=hover_description,
                         marker=dict(colors=pie_colors, line=dict(color="#091624", width=0.4)),
                     ))
                     fig.update_layout(
@@ -358,12 +383,24 @@ def render_portfolio_xray():
                         + "".join(rows_html) + '</div>',
                         unsafe_allow_html=True,
                     )
-            if info["unresolved"] > 0.01:
+            if info["unresolved"] > (0.001 if result_is_pct else 0.01):
+                unresolved_amount = (
+                    f"{info['unresolved']:.3f} percentage points"
+                    if result_is_pct else f"USD {info['unresolved']:,.2f}"
+                )
                 st.warning(
-                    f"USD {info['unresolved']:,.2f} in ETF exposure could not be "
-                    "mapped to stocks from TickerInside's reported fund holdings "
-                    "(such as cash, bonds, derivatives, or missing data). "
-                    "Amounts are not redistributed."
+                    f"{unresolved_amount} of ETF exposure could not be "
+                    "mapped to underlying stocks from TickerInside. "
+                    "Missing weights are not redistributed."
+                )
+            if info.get("other_assets", 0) > 0:
+                known_nonstock = (
+                    f"{info['other_assets']:.2f} percentage points"
+                    if result_is_pct else f"USD {info['other_assets']:,.2f}"
+                )
+                st.caption(
+                    f"Cash and Treasury CUSIPs: {known_nonstock} are retained as "
+                    "separate non-stock positions, not converted into equities."
                 )
             if info["failed"]:
                 with st.expander("Unresolved holdings details", expanded=False):
