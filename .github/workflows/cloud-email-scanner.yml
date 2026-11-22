@@ -1,4 +1,4 @@
-name: Stock Intelligence - Regression Email Alerts
+name: Stock Intelligence Toolkit - Regression Email Alerts
 
 on:
   workflow_dispatch:
@@ -72,7 +72,7 @@ jobs:
       PYTHONUNBUFFERED: '1'
 
     steps:
-      - name: Check out Stock Intelligence Dashboard source
+      - name: Check out Stock Intelligence Toolkit source
         uses: actions/checkout@v6
 
       - name: Diagnose scheduled trigger
