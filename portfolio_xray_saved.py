@@ -260,7 +260,7 @@ def render_saved_portfolio_controls():
         )
     with save_col:
         with st.popover("Save portfolio", use_container_width=True):
-            with st.form(NS + "save_form", clear_on_submit=True):
+            with st.form(NS + "save_form", clear_on_submit=True, border=False):
                 name = st.text_input(
                     "Portfolio name", max_chars=MAX_NAME_LENGTH,
                     placeholder="e.g. Core ETFs",
