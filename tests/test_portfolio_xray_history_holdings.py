@@ -21,7 +21,7 @@ from portfolio_xray_history_holdings import (
     HistoricalHoldingsUnavailable, parse_historical_holdings,
     exposure_changes, _historical_holdings_payload,
 )
-from portfolio_xray_ui import _analyze, _holdings_date_changed
+from portfolio_xray_ui import _analyze, _portfolio_input_changed
 
 requested = date(2025, 6, 30)
 payload = {
@@ -107,17 +107,38 @@ assert info["historical_unavailable"] == ["VOO"]
 assert "historical_comparison" not in info
 assert any(r["Stock"] == "Unresolved VOO" for r in rows)
 
+# The new Date value is read directly from each row. Direct stock dates
+# remain metadata and do not trigger an ETF historical holdings request.
+dated_positions = [
+    {"ticker": "VOO", "amount": 60.0, "date": "2025-06-30"},
+    {"ticker": "NVDA", "amount": 40.0, "date": "2024-12-31"},
+]
+with patch("portfolio_xray_ui._security_type", side_effect=lambda ticker: (
+    "ETF" if ticker == "VOO" else "STOCK"
+)), patch("portfolio_xray_ui._cached_historical_issuer_holdings",
+          return_value=historical) as dated_fetch, patch(
+    "portfolio_xray_ui._cached_issuer_holdings", return_value=latest,
+):
+    dated_rows, dated_info = _analyze(dated_positions)
+assert dated_info["historical_dates"] == {"VOO": "2025-06-30"}
+assert dated_fetch.call_count == 1
+assert dated_fetch.call_args.args == ("VOO", requested)
+assert abs(sum(r["_value"] for r in dated_rows) - 100.0) < 1e-8
+
 state = {
-    "portfolio_xray_results": (["old"], {}),
-    "portfolio_xray_results_signature": ("pct", (("VOO", 60.0),)),
+    "portfolio_xray_saved_loaded_name": "Dated",
     "portfolio_xray_historical_result": "old time series",
-    "portfolio_xray_auto_analyze": False,
+    "portfolio_xray_row_count": 2,
+    "portfolio_xray_ticker_0": "VOO",
+    "portfolio_xray_amount_0": 60.0,
+    "portfolio_xray_date_0": requested,
+    "portfolio_xray_ticker_1": "",
+    "portfolio_xray_amount_1": 0.0,
+    "portfolio_xray_date_1": None,
 }
 with patch("portfolio_xray_ui.st.session_state", state):
-    _holdings_date_changed()
-assert state["portfolio_xray_results"] is None
-assert "portfolio_xray_results_signature" not in state
+    _portfolio_input_changed()
+assert state["portfolio_xray_saved_loaded_name"] is None
 assert "portfolio_xray_historical_result" not in state
-assert state["portfolio_xray_auto_analyze"] is True
 
-print("PASS: dated ETF reports, missing SPY history, look-through comparison, invalidation")
+print("PASS: dated ETF reports, missing SPY history, per-row look-through and edits")
