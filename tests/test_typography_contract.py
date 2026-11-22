@@ -83,6 +83,11 @@ for ticker in ("SPMO", "XMMO", "AVLV", "VTV"):
     assert ticker in philosophy
 assert "not forecasts of outperformance" in philosophy
 assert "not guaranteed to move in opposite directions" in philosophy
+assert "from portfolio_xray_ui import render_portfolio_xray" in philosophy
+assert philosophy.index("render_portfolio_xray()") < philosophy.index("INDIVIDUAL-STOCK STRATEGIES")
+xray = source("portfolio_xray_ui.py")
+assert "st.columns([1, 1], gap=\"medium\")" in xray
+assert "portfolio_xray_left" in xray and "portfolio_xray_right" in xray
 assert 'expanded=False' in philosophy
 
 # Background is shared rather than implemented separately in each page.
