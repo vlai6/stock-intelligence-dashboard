@@ -191,58 +191,12 @@ def _delete_group():
 
 
 def render_custom_list() -> list[str]:
-    """Show saved groups and immediately display the actively loaded group."""
+    """Edit tickers in the loaded saved group; the News Screener owns its toolbar."""
     _init()
     lists = st.session_state[NS + "lists"]
     active = st.session_state[NS + "active"]
-
-    st.caption("SAVED GROUPS")
-    select_col, load_col, create_col, delete_col = st.columns(
-        [3.9, 1.1, 2.2, 1.2], gap="small", vertical_alignment="bottom"
-    )
-    with select_col:
-        st.selectbox(
-            "Saved groups", list(lists),
-            key=NS + "selected", label_visibility="collapsed",
-        )
-    selected = st.session_state.get(NS + "selected")
-    with load_col:
-        already_loaded = selected == active
-        st.button(
-            "Load", key=NS + "load_group", on_click=_load_group,
-            type="primary", disabled=already_loaded or not selected,
-            use_container_width=True,
-            help="Already loaded" if already_loaded else "Load and show this group's news",
-        )
-    with create_col:
-        with st.popover("Create group", use_container_width=True):
-            st.text_input(
-                "Group name", key=NS + "new_group_name",
-                placeholder="e.g. AI stocks",
-            )
-            st.caption("Creates an empty group. Added or removed tickers save automatically.")
-            st.button(
-                "Create", key=NS + "create_group", on_click=_create_group,
-                use_container_width=True,
-            )
-    with delete_col:
-        with st.popover(
-            "Delete", disabled=len(lists) <= 1 or not selected,
-            use_container_width=True,
-        ):
-            st.caption(f"Delete '{selected}' and its saved tickers?")
-            st.button(
-                "Confirm delete", key=NS + "confirm_delete",
-                on_click=_delete_group, use_container_width=True,
-            )
-
-    feedback = st.session_state.pop(NS + "feedback", None)
-    if feedback:
-        kind, message = feedback
-        getattr(st, kind)(message)
-
-    # Keep add/remove ticker editing, applied to the loaded group only.
     current = list(lists[active])
+
     with st.form("ns_custom_add_stocks", clear_on_submit=True, border=False):
         ticker_col, add_col, unused = st.columns(
             [4.1, 1.3, 4.6], gap="small", vertical_alignment="bottom"
@@ -258,7 +212,7 @@ def render_custom_list() -> list[str]:
         elif not requested:
             st.warning("Enter at least one ticker.")
         else:
-            extras = [value for value in requested if value not in current]
+            extras = [symbol for symbol in requested if symbol not in current]
             if len(current) + len(extras) > MAX_TICKERS:
                 st.warning(f"Each group supports up to {MAX_TICKERS} stocks.")
             elif not extras:
@@ -268,9 +222,8 @@ def render_custom_list() -> list[str]:
                 _queue_write()
                 st.rerun()
 
-    st.caption("Groups are saved in this browser. Choosing a different group requires Load.")
     current = list(lists[active])
-    st.markdown("**" + active.replace("*", "\\*") + "** · " + str(len(current)) + " stocks")
+    st.caption(f"{active} · {len(current)} stock(s) · saved in this browser.")
     if current:
         for start in range(0, len(current), 5):
             segment = current[start:start + 5]
@@ -287,6 +240,75 @@ def render_custom_list() -> list[str]:
     else:
         st.info("This group is empty. Add tickers above to start.")
     return current
+
+def named_groups() -> list[str]:
+    """Return names from the existing browser-backed saved-groups store."""
+    _init()
+    return list(st.session_state[NS + "lists"])
+
+
+def active_named_group() -> str:
+    _init()
+    return st.session_state[NS + "active"]
+
+
+def activate_named_group(name: str) -> bool:
+    """Load one group before the News Screener renders its stock list."""
+    _init()
+    if name not in st.session_state[NS + "lists"]:
+        return False
+    if st.session_state[NS + "active"] != name:
+        st.session_state[NS + "active"] = name
+        st.session_state[NS + "selected"] = name
+        _queue_write()
+    return True
+
+
+def save_named_group(name: str, symbols: list[str]) -> tuple[bool, str]:
+    """Save a screenshot's displayed tickers; overwrite an existing name like X-Ray.
+
+    Empty groups are valid so users can create one before adding stocks.
+    Keeps the prior browser localStorage key, preserving all existing groups.
+    """
+    _init()
+    name = str(name or "").strip()
+    if not name or len(name) > 32:
+        return False, "Enter a group name between 1 and 32 characters."
+    if not isinstance(symbols, list):
+        return False, "Invalid group stocks."
+    clean = [valid_symbol(v) for v in symbols]
+    if any(not symbol for symbol in clean):
+        return False, "The displayed group contains an invalid ticker."
+    clean = list(dict.fromkeys(clean))
+    if len(clean) > MAX_TICKERS:
+        return False, f"Groups support at most {MAX_TICKERS} tickers."
+    lists = st.session_state[NS + "lists"]
+    if name not in lists and len(lists) >= MAX_LISTS:
+        return False, f"Only {MAX_LISTS} named groups are supported."
+    replaced = name in lists
+    lists[name] = clean
+    st.session_state[NS + "active"] = name
+    st.session_state[NS + "selected"] = name
+    _queue_write()
+    return True, f"{'Updated' if replaced else 'Saved'} group '{name}' ({len(clean)} tickers)."
+
+
+def remove_named_group(name: str) -> tuple[bool, str]:
+    """Delete a saved group; built-in screener presets never enter this store."""
+    _init()
+    lists = st.session_state[NS + "lists"]
+    if name not in lists:
+        return False, "Only saved groups can be deleted."
+    lists.pop(name)
+    if not lists:
+        # Retain an editable empty default, compatible with older localStorage.
+        lists["My Stocks"] = []
+    if st.session_state[NS + "active"] == name:
+        st.session_state[NS + "active"] = next(iter(lists))
+    st.session_state[NS + "selected"] = st.session_state[NS + "active"]
+    _queue_write()
+    return True, f"Deleted group '{name}'."
+
 
 
 # A working list is intentionally session-only until Save displayed as list.
