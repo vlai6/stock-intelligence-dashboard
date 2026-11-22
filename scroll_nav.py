@@ -38,6 +38,18 @@ CSS = """
   box-shadow: 0 6px 20px rgba(0,0,0,.32);
   scrollbar-width: thin;
 }
+.si-scroll-nav::before {
+  content: "Stock Intelligence Toolkit";
+  flex-shrink: 0;
+  color: #e6f0fa;
+  font-size: .83rem;
+  font-weight: 750;
+  letter-spacing: .01em;
+  padding: 0 15px 0 6px;
+  margin-right: 8px;
+  border-right: 1px solid #24405a;
+  white-space: nowrap;
+}
 .si-scroll-nav button {
   flex-shrink: 0;
   border: 1px solid transparent;
@@ -59,6 +71,10 @@ CSS = """
   color: #c5eaff;
   border-color: #21466b;
 }
+@media(max-width:900px) {
+  /* Preserve all five section links on smaller screens. */
+  .si-scroll-nav::before { display:none; }
+}
 @media(max-width:700px) {
   .si-scroll-nav { top: 48px; padding-inline: 8px; }
   .si-scroll-nav button { padding: 8px 9px; font-size:.8rem; }
@@ -77,7 +93,7 @@ export default function({parentElement, data, setTriggerValue}) {
     nav.id = navId;
   }
   nav.className = "si-scroll-nav";
-  nav.setAttribute("aria-label", "Dashboard sections");
+  nav.setAttribute("aria-label", "Stock Intelligence Toolkit sections");
   const owner = Symbol("si-scroll-nav-owner");
   nav.__siOwner = owner;
   // Re-rendering the component must never append a second copy of the tabs.
