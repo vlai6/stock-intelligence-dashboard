@@ -1135,6 +1135,8 @@ if st.session_state.loaded:
         st.error(f"Unable to load dashboard: {exc}")
 
 else:
-    st.info("Enter a ticker and click Load Stock.")
+    # Keep the empty-state hint within the same compact column as the selector.
+    with search_col:
+        st.info("Enter a ticker and click Load Stock.")
 
 # si_20261120_repairs_v1
