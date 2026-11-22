@@ -95,6 +95,20 @@ def render_portfolio_xray():
        padding:10px 12px;
     }
     .st-key-portfolio_xray_left [data-testid="stForm"] {border:0 !important;padding:0 !important;}
+    /* Tighten portfolio inputs only: slightly shorter fields and row spacing. */
+    .st-key-portfolio_xray_left [data-testid="stVerticalBlock"] {gap:0.55rem;}
+    .st-key-portfolio_xray_left [data-testid="stTextInput"] [data-baseweb="input"],
+    .st-key-portfolio_xray_left [data-testid="stNumberInput"] [data-baseweb="input"] {
+        min-height:34px !important;
+        height:34px !important;
+    }
+    .st-key-portfolio_xray_left [data-testid="stTextInput"] input,
+    .st-key-portfolio_xray_left [data-testid="stNumberInput"] input {
+        min-height:34px !important;
+        height:34px !important;
+        padding-top:0 !important;
+        padding-bottom:0 !important;
+    }
     .st-key-portfolio_xray_left [data-testid="stDataFrame"] {max-height:228px;}
     .st-key-portfolio_xray_right [data-testid="stDataFrame"] {font-size:var(--si-type-data);}
     /* Aligned holding and percentage columns, independent of name lengths. */
