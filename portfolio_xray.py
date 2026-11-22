@@ -204,20 +204,21 @@ def portfolio_rows(positions, etfs, failures=None):
                      "unresolved": unresolved, "sources": details, "failed": failures}
 
 
-def pie_data(results, max_stocks=9):
+def pie_data(results):
+    """Include every resolved stock as its own slice; never aggregate small stocks.
+
+    The legend and on-slice text may hide small percentages, but the pie and
+    hover details always retain all individual stock exposure. Only genuinely
+    unresolved ETF exposure is combined into a distinct non-stock slice.
+    """
     known = [r for r in results if not r["Unresolved"]]
     missing = [r for r in results if r["Unresolved"]]
-    names = [r["Stock"] for r in known[:max_stocks]]
-    amounts = [r["_value"] for r in known[:max_stocks]]
-    remainder = sum(r["_value"] for r in known[max_stocks:])
-    if remainder:
-        names.append("Other stocks")
-        amounts.append(remainder)
+    names = [r["Stock"] for r in known]
+    amounts = [r["_value"] for r in known]
     if missing:
         names.append("Unresolved ETF exposure")
         amounts.append(sum(r["_value"] for r in missing))
     return names, amounts
-
 
 def pie_legend_labels(labels, amounts):
     """Show portfolio allocation in every slice's legend label, to 0.1%."""
