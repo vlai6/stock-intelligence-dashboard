@@ -57,16 +57,22 @@ def historical_dates_for_positions(positions: list[dict],
                                    etfs: set[str]) -> dict[str, date]:
     """Dated ETF symbols only; reject contradictory dates for one fund."""
     dates: dict[str, date] = {}
+    # A blank date means latest, so a mix of blank/dates for the same ETF
+    # cannot use one ETF-level holdings snapshot without silently changing
+    # part of the user's allocation.
+    seen: dict[str, str] = {}
     for p in positions:
         ticker = p["ticker"]
-        iso = normalized_position_date(p.get("date"))
-        if not iso or ticker not in etfs:
+        if ticker not in etfs:
             continue
-        day = date.fromisoformat(iso)
-        if ticker in dates and dates[ticker] != day:
+        iso = normalized_position_date(p.get("date"))
+        if ticker in seen and seen[ticker] != iso:
             raise ValueError(
-                f"{ticker} appears with different holdings dates. "
-                "Use one as-of date per ETF ticker, or consolidate the rows."
+                f"{ticker} appears with different holdings dates "
+                "(including blank/latest). Use one date per ETF ticker, "
+                "or consolidate these rows."
             )
-        dates[ticker] = day
+        seen[ticker] = iso
+        if iso:
+            dates[ticker] = date.fromisoformat(iso)
     return dates
