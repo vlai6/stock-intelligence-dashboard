@@ -103,6 +103,7 @@ def _write_to_browser():
         "version": version,
         "selected": st.session_state.get(NS + "selected"),
         "portfolios": st.session_state[NS + "portfolios"],
+        "units": st.session_state.get(NS + "units", {}),
     }, separators=(",", ":"))
     script = (
         "(function(){try{const k=" + json.dumps(STORAGE_KEY) + ";"
@@ -139,6 +140,14 @@ def _initialize() -> bool:
         if selected not in saved:
             selected = next(iter(saved), None)
         st.session_state[NS + "portfolios"] = saved
+        existing_units = record.get("units", {}) if isinstance(record, dict) else {}
+        if not isinstance(existing_units, dict):
+            existing_units = {}
+        # Old saved portfolios have dollar amounts and no units mapping.
+        st.session_state[NS + "units"] = {
+            name: "pct" if existing_units.get(name) == "pct" else "usd"
+            for name in saved
+        }
         st.session_state[NS + "selected"] = selected
         try:
             revision = int(record.get("version", 0) or 0) if isinstance(record, dict) else 0
@@ -196,6 +205,9 @@ def _save_current(raw_name: str):
         return
     replaced = name in saved
     saved[name] = positions
+    st.session_state.setdefault(NS + "units", {})[name] = (
+        "pct" if st.session_state.get("portfolio_xray_unit_mode") == "pct" else "usd"
+    )
     st.session_state[NS + "selected"] = name
     # These inputs are now exactly the selected saved portfolio.
     st.session_state[NS + "loaded_name"] = name
@@ -223,6 +235,9 @@ def _load_selected():
         st.session_state[f"portfolio_xray_ticker_{index}"] = row["ticker"] if row else ""
         st.session_state[f"portfolio_xray_amount_{index}"] = float(row["amount"]) if row else 0.0
     st.session_state["portfolio_xray_row_count"] = min(MAX_POSITIONS, len(positions) + 1)
+    st.session_state["portfolio_xray_unit_mode"] = (
+        "pct" if st.session_state.get(NS + "units", {}).get(name) == "pct" else "usd"
+    )
     # The X-Ray renderer consumes this one-shot request after recreating its
     # inputs, then runs the exact same analysis used by Analyze portfolio.
     st.session_state["portfolio_xray_results"] = None
@@ -238,6 +253,7 @@ def _delete_selected():
     if name not in portfolios:
         return
     portfolios.pop(name)
+    st.session_state.setdefault(NS + "units", {}).pop(name, None)
     if st.session_state.get(NS + "loaded_name") == name:
         st.session_state[NS + "loaded_name"] = None
     st.session_state[NS + "selected"] = next(iter(portfolios), None)
