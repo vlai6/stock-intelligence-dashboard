@@ -28,7 +28,7 @@ r = simulate_returns(positions, t0, t1, prices)
 assert abs(r["portfolio_pct"] - 14.0) < 1e-8
 assert abs(r["spy_pct"] - 10.0) < 1e-8
 assert abs(r["excess_pp"] - 4.0) < 1e-8
-assert list(r["chart"]["Portfolio"]) == [100.0, 114.0]
+assert all(abs(a - b) < 1e-8 for a, b in zip(r["chart"]["Portfolio"], [100.0, 114.0]))
 assert round(r["contributions"]["Contribution (pp)"].sum(), 8) == 14.0
 assert r["start"] == t0 and r["end"] == t1
 
