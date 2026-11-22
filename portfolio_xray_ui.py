@@ -6,7 +6,8 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from dashboard_theme import style_blue_figure
-from portfolio_xray_saved import render_saved_portfolio_controls
+from portfolio_xray_saved import render_saved_portfolio_controls, NS as SAVED_NS
+from portfolio_xray_csv import parse_portfolio_csv
 from portfolio_xray import (
     ticker_of, issuer_holdings, portfolio_rows, pie_data, pie_legend_labels,
     security_type, tickerinside_identifiers,
@@ -89,6 +90,35 @@ def _append_xray_row_when_started():
         st.session_state["portfolio_xray_row_count"] = count + 1
 
 
+def _import_portfolio_csv():
+    """Upload callback: assign input widget state before the editor renders."""
+    upload = st.session_state.get("portfolio_xray_csv_file")
+    if upload is None:
+        return
+    try:
+        positions, unit, notices = parse_portfolio_csv(upload.getvalue())
+    except ValueError as exc:
+        st.session_state["portfolio_xray_csv_feedback"] = ("error", str(exc))
+        return
+    for index in range(30):
+        row = positions[index] if index < len(positions) else None
+        st.session_state[f"portfolio_xray_ticker_{index}"] = row["ticker"] if row else ""
+        st.session_state[f"portfolio_xray_amount_{index}"] = (
+            float(row["amount"]) if row else 0.0
+        )
+    st.session_state["portfolio_xray_row_count"] = min(30, len(positions) + 1)
+    st.session_state["portfolio_xray_unit_mode"] = unit
+    st.session_state["portfolio_xray_results"] = None
+    st.session_state["portfolio_xray_auto_analyze"] = True
+    st.session_state[SAVED_NS + "loaded_name"] = None
+    st.session_state["portfolio_xray_csv_feedback"] = (
+        "warning" if notices else "success",
+        (f"Imported {len(positions)} positions in "
+         + ("percentage" if unit == "pct" else "dollar")
+         + " mode. " + " ".join(notices)),
+    )
+
+
 def render_portfolio_xray():
     st.markdown("#### PORTFOLIO X-RAY")
     st.caption("Look through ETFs and directly held stocks to see combined stock exposure.")
@@ -145,6 +175,22 @@ def render_portfolio_xray():
     left, right = st.columns([2, 3], gap="medium")
     with left:
         render_saved_portfolio_controls()
+        with st.popover("Import CSV", use_container_width=False):
+            st.file_uploader(
+                "Ticker, Amount CSV", type=["csv"],
+                key="portfolio_xray_csv_file",
+                on_change=_import_portfolio_csv,
+                help="Exactly two columns: Ticker, Amount. All values must be "
+                     "percentages (such as 12.29%) or all dollar amounts.",
+            )
+            st.caption(
+                "Percentages are weights, not USD. Cash and Treasury CUSIPs "
+                "stay as directly owned non-stock positions."
+            )
+        csv_feedback = st.session_state.pop("portfolio_xray_csv_feedback", None)
+        if csv_feedback:
+            status, message = csv_feedback
+            getattr(st, status)(message)
         with st.container(key="portfolio_xray_left"):
             # Fresh portfolios start with SPY filled in and a blank second row.
             # Never overwrite previously entered values or a loaded saved portfolio.
@@ -152,11 +198,13 @@ def render_portfolio_xray():
                 st.session_state.setdefault("portfolio_xray_ticker_0", "SPY")
                 st.session_state["portfolio_xray_row_count"] = 2
             count = st.session_state["portfolio_xray_row_count"]
+            input_unit = st.session_state.get("portfolio_xray_unit_mode", "usd")
+            is_pct = input_unit == "pct"
             header_ticker, header_amount = st.columns([1, 1], gap="small")
             with header_ticker:
                 st.caption("Ticker")
             with header_amount:
-                st.caption("Amount ($)")
+                st.caption("Weight (%)" if is_pct else "Amount ($)")
             for index in range(count):
                 ticker_col, amount_col = st.columns([1, 1], gap="small")
                 with ticker_col:
@@ -169,9 +217,9 @@ def render_portfolio_xray():
                     )
                 with amount_col:
                     st.number_input(
-                        f"Amount ($) {index + 1}",
+                        f"{'Weight (%)' if is_pct else 'Amount ($)'} {index + 1}",
                         key=f"portfolio_xray_amount_{index}",
-                        min_value=0.0, step=100.0, format="%.2f",
+                        min_value=0.0, step=0.1 if is_pct else 100.0, format="%.2f",
                         label_visibility="collapsed",
                         on_change=_append_xray_row_when_started,
                     )
@@ -179,7 +227,10 @@ def render_portfolio_xray():
                 "Analyze portfolio", type="primary", use_container_width=True,
                 key="portfolio_xray_analyze",
             )
-            st.caption("ETFs and individual stocks are identified automatically.")
+            st.caption(
+                "Amounts are allocation percentages, not dollar values."
+                if is_pct else "ETFs and individual stocks are identified automatically."
+            )
             # Loading a saved portfolio queues this after widget state is restored.
             # Both Load and Analyze use the same validation and X-Ray pipeline.
             auto_analyze = bool(st.session_state.pop("portfolio_xray_auto_analyze", False))
@@ -195,6 +246,7 @@ def render_portfolio_xray():
                     positions = _clean_positions(editor)
                     with st.spinner("Loading ETF holdings…"):
                         st.session_state["portfolio_xray_results"] = _analyze(positions)
+                        st.session_state["portfolio_xray_results_unit"] = input_unit
                 except Exception as exc:
                     st.session_state["portfolio_xray_results"] = None
                     st.error(str(exc))
