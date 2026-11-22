@@ -184,7 +184,7 @@ def portfolio_rows(positions, etfs, failures=None):
             # is a stock or omitting it (both would distort exposure).
             missing = "Unverified " + ticker
             dollars[missing] += amount
-            contributors[missing]["Unclassified"] += amount
+            contributors[missing]["Direct"] += amount
             continue
         if kind in {"STOCK", "OTHER"}:
             dollars[ticker] += amount
