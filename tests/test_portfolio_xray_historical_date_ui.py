@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import ast
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from unittest.mock import patch
 import sys
@@ -62,7 +62,7 @@ assert position_signature([
     {"ticker": "VGT", "amount": 20, "date": "2025-11-22"},
 ]) == (("SPY", 10.0), ("VGT", 20.0, "2025-11-22"))
 
-for invalid in ["2025/11/22", "2026-11-23", "2018-01-01", "not-a-date"]:
+for invalid in ["2025/11/22", (date.today() + timedelta(days=1)).isoformat(), "2018-01-01", "not-a-date"]:
     try:
         normalized_position_date(invalid)
     except ValueError:
