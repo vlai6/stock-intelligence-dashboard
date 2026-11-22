@@ -231,6 +231,18 @@ def portfolio_rows(positions, etfs, failures=None):
                      "sources": details, "failed": failures}
 
 
+def display_ticker(stock: str) -> str:
+    """Use the actual ticker in pie labels and Full Table, not status prefixes.
+
+    The original names and Unresolved flags remain in result rows for
+    coverage calculations and diagnostic messages.
+    """
+    for prefix in ("Unresolved ", "Unreported ", "Unverified "):
+        if stock.startswith(prefix):
+            return stock[len(prefix):]
+    return stock
+
+
 def pie_data(results):
     """Show each position by ticker, including ETFs with unresolved holdings.
 
@@ -245,13 +257,7 @@ def pie_data(results):
     )
     names, amounts = [], []
     for row in ordered:
-        label = str(row["Stock"])
-        if row["Unresolved"]:
-            for prefix in ("Unresolved ", "Unreported ", "Unverified "):
-                if label.startswith(prefix):
-                    label = label[len(prefix):]
-                    break
-        names.append(label)
+        names.append(display_ticker(str(row["Stock"])))
         amounts.append(row["_value"])
     return names, amounts
 
