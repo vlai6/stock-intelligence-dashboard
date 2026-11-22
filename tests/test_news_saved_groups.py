@@ -7,7 +7,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from custom_watchlists import (
     NS, _clean_lists, _create_group, _delete_group, _load_group,
-    parse_working_tickers, valid_symbol,
+    named_groups, active_named_group, activate_named_group,
+    save_named_group, remove_named_group, parse_working_tickers, valid_symbol,
 )
 
 # Existing browser-saved groups remain compatible with the new UI.
@@ -72,4 +73,40 @@ with patch("custom_watchlists.st.session_state", state):
 assert state[NS + "lists"] == {"My Stocks": ["NVDA", "MU"]}
 assert state[NS + "feedback"][0] == "error"
 
-print("PASS: saved groups create/load/delete, existing data and loaded-group state")
+# Unified toolbar saves a displayed preset into a named editable group.
+with patch("custom_watchlists.st.session_state", state):
+    assert named_groups() == ["My Stocks"]
+    ok, message = save_named_group("Research", ["nvda", "MU", "NVDA"])
+assert ok and "Saved" in message
+assert state[NS + "lists"]["Research"] == ["NVDA", "MU"]
+assert state[NS + "active"] == "Research"
+
+# Overwriting an existing name follows the Portfolio X-Ray save semantics.
+with patch("custom_watchlists.st.session_state", state):
+    ok, message = save_named_group("Research", ["AAPL"])
+assert ok and "Updated" in message
+assert state[NS + "lists"]["Research"] == ["AAPL"]
+
+# Empty groups can be created and edited later.
+with patch("custom_watchlists.st.session_state", state):
+    ok, _ = save_named_group("Empty", [])
+    assert ok and active_named_group() == "Empty"
+    assert activate_named_group("Research")
+assert state[NS + "active"] == "Research"
+
+# Delete never touches predefined News Screener source options. If deleting
+# the last group, restore the editable empty default instead of leaving None.
+with patch("custom_watchlists.st.session_state", state):
+    ok, _ = remove_named_group("Research")
+    assert ok
+    ok, _ = remove_named_group("Empty")
+    assert ok
+    ok, _ = remove_named_group("My Stocks")
+    assert ok
+assert state[NS + "lists"] == {"My Stocks": []}
+assert state[NS + "active"] == "My Stocks"
+with patch("custom_watchlists.st.session_state", state):
+    ok, _ = remove_named_group("Not a real group")
+assert not ok
+
+print("PASS: saved groups create/load/save/overwrite/delete, legacy data and active flags")
