@@ -88,6 +88,10 @@ assert philosophy.index("render_portfolio_xray()") < philosophy.index("INDIVIDUA
 xray = source("portfolio_xray_ui.py")
 assert "st.columns([1, 1], gap=\"medium\")" in xray
 assert "portfolio_xray_left" in xray and "portfolio_xray_right" in xray
+assert "pie_legend_labels(labels, amounts)" in xray
+assert 'size=13, color="#DEEAF7"' in xray
+assert "textfont=dict(family=\"Inter, Segoe UI, Arial, sans-serif\", size=13)" in xray
+assert 'st.session_state.setdefault("portfolio_xray_row_count", 1)' in xray
 assert "st.file_uploader(" not in xray
 assert "SelectboxColumn(" not in xray
 assert 'expanded=False' in philosophy
