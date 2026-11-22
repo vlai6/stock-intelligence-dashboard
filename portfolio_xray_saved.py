@@ -260,14 +260,16 @@ def render_saved_portfolio_controls():
         )
     with save_col:
         with st.popover("Save portfolio", use_container_width=True):
-            with st.form(NS + "save_form", clear_on_submit=True, border=False):
-                name = st.text_input(
-                    "Portfolio name", max_chars=MAX_NAME_LENGTH,
-                    placeholder="e.g. Core ETFs",
-                )
-                st.caption("Saving an existing name replaces its saved positions.")
-                submitted = st.form_submit_button("Save", use_container_width=True)
-            if submitted:
+            # Use a standard input rather than a form: Streamlit's form-only
+            # "Press Enter to submit" overlay collides with the character
+            # counter and typed portfolio name in this narrow popover.
+            name = st.text_input(
+                "Portfolio name",
+                placeholder="e.g. Core ETFs",
+                key=NS + "name_input",
+            )
+            st.caption("Saving an existing name replaces its saved positions.")
+            if st.button("Save", key=NS + "save_button", use_container_width=True):
                 _save_current(name)
     with delete_col:
         with st.popover("Delete", use_container_width=True, disabled=not names):
