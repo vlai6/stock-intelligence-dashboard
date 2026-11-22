@@ -84,6 +84,7 @@ class Holdings:
     weights: dict[str, float]  # Each is a fraction of fund NAV
     source: str
     as_of: str = ""
+    page_url: str = ""
 
     @property
     def coverage(self):
@@ -139,11 +140,15 @@ def issuer_holdings(ticker: str) -> Holdings:
         proportions = {symbol: weight / total for symbol, weight in proportions.items()}
     source_layer = str(data.get("source_layer") or "unspecified").replace("_", " ")
     as_of = str(data.get("holdings_as_of") or data.get("report_date") or "")
+    page_url = str(data.get("page_url") or "")
+    if not page_url.startswith("https://tickerinside.com/"):
+        page_url = ""
     return Holdings(
         ticker=ticker,
         weights=proportions,
         source=f"TickerInside ({source_layer})",
         as_of=as_of,
+        page_url=page_url,
     )
 
 def portfolio_rows(positions, etfs, failures=None):
@@ -181,7 +186,8 @@ def portfolio_rows(positions, etfs, failures=None):
             contributors[missing][ticker] += gap
         details.append({
             "ETF": ticker, "Coverage": f"{holdings.coverage:.1%}",
-            "As of": holdings.as_of or "Check issuer", "Source": holdings.source,
+            "As of": holdings.as_of or "Unknown", "Source": holdings.source,
+            "TickerInside page": holdings.page_url,
         })
     if total <= 0:
         raise ValueError("Add at least one position before analyzing")
