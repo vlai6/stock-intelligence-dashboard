@@ -81,7 +81,7 @@ assert "Value ≠ buying every stock" in philosophy
 assert philosophy.index("Why ETFs, momentum, value and quality?") < philosophy.index("FEATURED ETF FACTORS") < philosophy.index("INDIVIDUAL-STOCK STRATEGIES")
 for ticker in ("SPMO", "XMMO", "AVLV", "VTV"):
     assert ticker in philosophy
-assert "not a prediction of which fund will outperform" in philosophy
+assert "not forecasts of outperformance" in philosophy
 assert "not guaranteed to move in opposite directions" in philosophy
 assert 'expanded=False' in philosophy
 
