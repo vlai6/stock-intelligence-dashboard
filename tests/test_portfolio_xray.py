@@ -110,6 +110,25 @@ labels, amounts = pie_data(bad)
 assert "Unresolved ETF exposure" in labels
 assert abs(sum(amounts) - 3000) < 1e-7
 assert abs(bad_info["mapped"] - 500) < 1e-7
+
+# Keep all 500 distinct underlying stocks as individual pie slices rather than
+# collapsing most into an "Other stocks" bucket. Legend filtering is UI-only.
+many = [
+    {
+        "Stock": f"STOCK{i:03d}",
+        "_value": 1.0,
+        "Unresolved": False,
+    }
+    for i in range(500)
+]
+many.append({"Stock": "Unresolved TEST", "_value": 2.5, "Unresolved": True})
+full_labels, full_amounts = pie_data(many)
+assert len(full_labels) == 501
+assert full_labels[0] == "STOCK000"
+assert full_labels[499] == "STOCK499"
+assert "Other stocks" not in full_labels
+assert full_labels[-1] == "Unresolved ETF exposure"
+assert abs(sum(full_amounts) - 502.5) < 1e-8
 assert pie_legend_labels(["NVDA", "Other stocks"], [371, 629]) == [
     "NVDA 37.1%", "Other stocks 62.9%",
 ]
