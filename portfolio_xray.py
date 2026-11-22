@@ -67,8 +67,12 @@ def tickerinside_identifiers() -> dict[str, str]:
 
 
 def security_type(ticker: str, identifiers: dict[str, str] | None = None) -> str:
-    """Classify from TickerInside only, without a Yahoo or guessed fallback."""
+    """TickerInside classifies stocks/ETFs; explicit cash/Treasury IDs are other."""
     ticker = ticker_of(ticker)
+    # Cash and Treasury CUSIPs are already non-equity holdings supplied by
+    # the user. Don't attempt to look these up as TickerInside stock tickers.
+    if ticker == "Cash & Cash Inv" or re.fullmatch(r"\d[A-Z0-9]{8}", ticker):
+        return "OTHER"
     kinds = identifiers if identifiers is not None else tickerinside_identifiers()
     kind = kinds.get(ticker)
     if kind not in {"ETF", "STOCK"}:
@@ -93,8 +97,17 @@ class Holdings:
 
 def ticker_of(value):
     ticker = str(value or "").strip().upper().replace("/", ".")
+    if ticker in {
+        "CASH", "CASH & CASH INV", "CASH & CASH INVESTMENTS",
+        "CASH & EQUIVALENTS", "CASH AND CASH INVESTMENTS",
+    }:
+        return "Cash & Cash Inv"
+    # Nine-character CUSIPs such as 912797WG8 and 91282CMB4 represent
+    # directly owned securities, not unsupported stock tickers.
+    if re.fullmatch(r"\d[A-Z0-9]{8}", ticker):
+        return ticker
     if not VALID.fullmatch(ticker):
-        raise ValueError("Ticker must contain letters, digits, dots or hyphens")
+        raise ValueError("Ticker must be a symbol, Treasury CUSIP, or cash entry")
     return ticker
 
 
@@ -158,16 +171,19 @@ def portfolio_rows(positions, etfs, failures=None):
     contributors = defaultdict(lambda: defaultdict(float))
     total = 0.0
     details = []
+    other_total = 0.0
     for position in positions:
         ticker = ticker_of(position["ticker"])
         amount = float(position["amount"])
         kind = str(position["type"]).strip().upper()
-        if kind not in {"ETF", "STOCK"} or not math.isfinite(amount) or amount <= 0:
-            raise ValueError("Every position needs ETF/Stock, ticker, and positive amount")
+        if kind not in {"ETF", "STOCK", "OTHER"} or not math.isfinite(amount) or amount <= 0:
+            raise ValueError("Every position needs stock, ETF or other type, and positive amount")
         total += amount
-        if kind == "STOCK":
+        if kind in {"STOCK", "OTHER"}:
             dollars[ticker] += amount
             contributors[ticker]["Direct"] += amount
+            if kind == "OTHER":
+                other_total += amount
             continue
         holdings = etfs.get(ticker)
         if holdings is None:
@@ -202,7 +218,8 @@ def portfolio_rows(positions, etfs, failures=None):
         key=lambda row: row["_value"], reverse=True)
     unresolved = sum(x["_value"] for x in results if x["Unresolved"])
     return results, {"total": total, "mapped": total - unresolved,
-                     "unresolved": unresolved, "sources": details, "failed": failures}
+                     "unresolved": unresolved, "other_assets": other_total,
+                     "sources": details, "failed": failures}
 
 
 def pie_data(results):
