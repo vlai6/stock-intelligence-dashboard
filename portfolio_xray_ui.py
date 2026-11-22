@@ -7,7 +7,10 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from dashboard_theme import style_blue_figure
-from portfolio_xray_saved import render_saved_portfolio_controls, NS as SAVED_NS
+from portfolio_xray_saved import (
+    render_saved_portfolio_controls, loaded_portfolio_chart_name,
+    portfolio_png_filename, NS as SAVED_NS,
+)
 from portfolio_xray_csv import parse_portfolio_csv
 from portfolio_xray import (
     ticker_of, issuer_holdings, portfolio_rows, pie_data, pie_legend_labels,
@@ -99,6 +102,12 @@ def _append_xray_row_when_started():
     amount = st.session_state.get(f"portfolio_xray_amount_{last}", 0.0)
     if ticker or (amount is not None and float(amount) > 0):
         st.session_state["portfolio_xray_row_count"] = count + 1
+
+
+def _portfolio_input_changed():
+    """Mark edited inputs as unsaved, retaining existing auto-row behavior."""
+    st.session_state[SAVED_NS + "loaded_name"] = None
+    _append_xray_row_when_started()
 
 
 def _import_portfolio_csv():
@@ -224,7 +233,7 @@ def render_portfolio_xray():
                         key=f"portfolio_xray_ticker_{index}",
                         placeholder="e.g. SPY" if index == 0 else "Ticker",
                         label_visibility="collapsed",
-                        on_change=_append_xray_row_when_started,
+                        on_change=_portfolio_input_changed,
                     )
                 with amount_col:
                     st.number_input(
@@ -232,7 +241,7 @@ def render_portfolio_xray():
                         key=f"portfolio_xray_amount_{index}",
                         min_value=0.0, step=0.1 if is_pct else 100.0, format="%.2f",
                         label_visibility="collapsed",
-                        on_change=_append_xray_row_when_started,
+                        on_change=_portfolio_input_changed,
                     )
             submitted = st.button(
                 "Analyze portfolio", type="primary", use_container_width=True,
@@ -258,8 +267,13 @@ def render_portfolio_xray():
                     with st.spinner("Loading ETF holdings…"):
                         st.session_state["portfolio_xray_results"] = _analyze(positions)
                         st.session_state["portfolio_xray_results_unit"] = input_unit
+                        st.session_state["portfolio_xray_results_signature"] = (
+                            input_unit,
+                            tuple((p["ticker"], float(p["amount"])) for p in positions),
+                        )
                 except Exception as exc:
                     st.session_state["portfolio_xray_results"] = None
+                    st.session_state.pop("portfolio_xray_results_signature", None)
                     st.error(str(exc))
     with right:
         result = st.session_state.get("portfolio_xray_results")
@@ -267,6 +281,7 @@ def render_portfolio_xray():
             return  # Deliberately blank until the first Analyze action.
         rows, info = result
         result_is_pct = st.session_state.get("portfolio_xray_results_unit", "usd") == "pct"
+        chart_portfolio_name = loaded_portfolio_chart_name()
         with st.container(key="portfolio_xray_right"):
             # Preserve a user's existing Table selection after the label rename.
             if st.session_state.get("portfolio_xray_display") == "Table":
@@ -389,6 +404,20 @@ def render_portfolio_xray():
                                               size=13, color="#B8D3E7",
                                           ))],
                     )
+                    # The saved name becomes part of the exported image only
+                    # when the currently analyzed positions match that portfolio.
+                    # Unloaded or edited portfolios have no chart title.
+                    if chart_portfolio_name:
+                        fig.update_layout(
+                            title=dict(
+                                text=escape(chart_portfolio_name),
+                                x=0.5, xanchor="center",
+                                font=dict(
+                                    family="Inter, Segoe UI, Arial, sans-serif",
+                                    size=18, color="#DEEAF7",
+                                ),
+                            )
+                        )
                     # Plotly exports the chart client-side, including outside
                     # ticker labels. No additional Python image dependency needed.
                     st.plotly_chart(
@@ -402,7 +431,7 @@ def render_portfolio_xray():
                             "modeBarButtons": [["toImage"]],
                             "toImageButtonOptions": {
                                 "format": "png",
-                                "filename": "portfolio_xray_pie_chart",
+                                "filename": portfolio_png_filename(chart_portfolio_name),
                                 "width": 1200,
                                 "height": 650,
                                 "scale": 2,
