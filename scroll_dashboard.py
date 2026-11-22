@@ -66,8 +66,18 @@ def _make_fragment(section: str):
         if section in st.session_state["si_loaded_sections"]:
             _render_existing_section(section)
         else:
-            st.markdown("#### " + dict(SECTIONS)[section])
+            section_title = dict(SECTIONS)[section]
+            st.markdown("#### " + section_title)
             st.caption("This section loads automatically when you scroll here.")
+            # A visible fallback keeps every section reachable even if the
+            # browser's scroll observer fails to fire or another section
+            # is spending time fetching news / prices.
+            if st.button(
+                "Load " + section_title, key=f"si_load_section_{section}",
+                help="Open this section now",
+            ):
+                st.session_state["si_loaded_sections"].add(section)
+                st.rerun(scope="fragment")
     return display
 
 
