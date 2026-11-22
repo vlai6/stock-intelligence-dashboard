@@ -20,7 +20,7 @@ def _cached_issuer_holdings(ticker: str):
 
 
 def _clean_positions(table: pd.DataFrame) -> list[dict]:
-    """Only ticker and dollar amount are entered; no user-provided asset type."""
+    """Validate ticker and positive amount; units are selected by CSV/editor mode."""
     positions, errors = [], []
     for index, raw in table.iterrows():
         symbol = str(raw.get("Ticker", "") or "").strip()
@@ -437,4 +437,5 @@ def render_portfolio_xray():
                         unsafe_allow_html=True,
                     )
             st.caption("Ticker-level look-through; share classes remain separate. "
-                       "ETF holdings dates may differ; non-stock and missing exposures stay unresolved.")
+                       "ETF holdings dates may differ. Direct cash and Treasury holdings "
+                       "remain separate; missing ETF exposure stays unresolved.")
