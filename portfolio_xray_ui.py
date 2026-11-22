@@ -345,8 +345,17 @@ def render_portfolio_xray():
                     else:
                         pie_colors.append("#284558" if index % 2 == 0 else "#315469")
                 legend_labels = pie_legend_labels(labels, amounts)
-                # Percentages under 1% remain visible on hover, not as labels.
-                slice_text = [f"{pct:.1f}%" if pct >= 1.0 else "" for pct in percentages]
+                # Plotly's outside text positions draw connector/leader lines
+                # from every labeled slice. Keep the 1% threshold so the ETF
+                # long tail is still present without hundreds of labels.
+                slice_text = [
+                    f"{label}  {pct:.1f}%" if pct >= 1.0 else ""
+                    for label, pct in zip(labels, percentages)
+                ]
+                slice_text_positions = [
+                    "outside" if pct >= 1.0 else "none"
+                    for pct in percentages
+                ]
                 hover_description = (
                     "%{label}: %{value:.3f} percentage points "
                     "(%{percent} of imported positions)<extra></extra>"
@@ -357,13 +366,22 @@ def render_portfolio_xray():
                 with chart_col:
                     fig = go.Figure(go.Pie(
                         labels=labels, values=amounts, hole=.58, sort=False,
-                        text=slice_text, textinfo="text", textposition="inside",
-                        textfont=dict(family="Inter, Segoe UI, Arial, sans-serif", size=13),
+                        # Outside labels have automatic leader lines. No label
+                        # for holdings under 1%, but every slice remains.
+                        text=slice_text, textinfo="text",
+                        textposition=slice_text_positions,
+                        outsidetextfont=dict(
+                            family="Inter, Segoe UI, Arial, sans-serif",
+                            size=12, color="#DDEAF7",
+                        ),
+                        automargin=True,
                         hovertemplate=hover_description,
                         marker=dict(colors=pie_colors, line=dict(color="#091624", width=0.4)),
                     ))
                     fig.update_layout(
-                        height=320, margin=dict(l=2, r=2, t=4, b=4),
+                        # Extra vertical room lets Plotly place outside tickers
+                        # without squeezing the donut or clipping connectors.
+                        height=440, margin=dict(l=18, r=18, t=16, b=16),
                         showlegend=False,
                         annotations=[dict(text="Portfolio", x=.5, y=.5,
                                           showarrow=False, font=dict(
