@@ -232,11 +232,11 @@ def portfolio_rows(positions, etfs, failures=None):
 
 
 def pie_data(results):
-    """Include every resolved stock as its own slice; never aggregate small stocks.
+    """Include all verified stocks and non-stock assets as separate slices.
 
-    The legend and on-slice text may hide small percentages, but the pie and
-    hover details always retain all individual stock exposure. Only genuinely
-    unresolved ETF exposure is combined into a distinct non-stock slice.
+    Small holdings remain on the pie even when omitted from its legend.
+    Missing ETF exposure and unclassified positions are kept as distinct
+    unresolved categories instead of being redistributed.
     """
     known = [r for r in results if not r["Unresolved"]]
     missing = [r for r in results if r["Unresolved"]]
