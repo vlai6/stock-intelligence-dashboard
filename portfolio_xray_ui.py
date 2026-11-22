@@ -14,6 +14,9 @@ from portfolio_xray_saved import (
 )
 from portfolio_xray_csv import parse_portfolio_csv, export_portfolio_csv
 from portfolio_xray_history_ui import render_historical_returns
+from portfolio_xray_holdings_dates_ui import (
+    selected_holdings_dates, _holdings_date_changed,
+)
 from portfolio_xray_history_holdings import (
     historical_issuer_holdings, exposure_changes,
 )
@@ -61,78 +64,6 @@ def _clean_positions(table: pd.DataFrame) -> list[dict]:
 def _cached_historical_issuer_holdings(ticker: str, requested: date):
     """Date-specific SEC holdings; never substitute a current snapshot."""
     return historical_issuer_holdings(ticker, requested)
-
-
-def _holdings_date_changed():
-    """Invalidate stale look-through when requested ETF dates change."""
-    st.session_state["portfolio_xray_results"] = None
-    st.session_state.pop("portfolio_xray_results_signature", None)
-    st.session_state.pop("portfolio_xray_historical_result", None)
-    st.session_state["portfolio_xray_auto_analyze"] = True
-
-
-def _historical_date_settings(etfs: list[str]) -> dict[str, date] | None:
-    """Compact opt-in historical date selector; overrides scoped to each ETF."""
-    with st.popover("ETF Holdings Date", use_container_width=True):
-        choice = st.selectbox(
-            "Holdings view", ["Latest available", "Historical as-of"],
-            key="portfolio_xray_holdings_mode",
-            on_change=_holdings_date_changed,
-        )
-        if choice != "Historical as-of":
-            st.caption("Showing latest TickerInside holdings for each ETF.")
-            return None
-        st.date_input(
-            "Default as-of date",
-            min_value=date(2019, 9, 30),
-            max_value=date.today(),
-            value=date.today() - timedelta(days=365),
-            key="portfolio_xray_holdings_date",
-            on_change=_holdings_date_changed,
-        )
-        st.caption(
-            "Selects the most recent available quarterly SEC holdings "
-            "at or before this date. Report dates differ by ETF."
-        )
-        if etfs:
-            with st.expander("Individual ETF dates"):
-                st.checkbox(
-                    "Use different dates per ETF",
-                    key="portfolio_xray_individual_etf_dates",
-                    on_change=_holdings_date_changed,
-                )
-                if st.session_state.get("portfolio_xray_individual_etf_dates"):
-                    for ticker in etfs:
-                        st.date_input(
-                            f"{ticker} as-of date",
-                            min_value=date(2019, 9, 30),
-                            max_value=date.today(),
-                            value=st.session_state.get(
-                                "portfolio_xray_holdings_date",
-                                date.today() - timedelta(days=365),
-                            ),
-                            key=f"portfolio_xray_etf_asof_{ticker}",
-                            on_change=_holdings_date_changed,
-                        )
-        st.caption(
-            "Historical coverage is not available for every ticker "
-            "(for example, SPY). Missing holdings remain unresolved."
-        )
-    if st.session_state.get("portfolio_xray_holdings_mode") != "Historical as-of":
-        return None
-    common = st.session_state.get(
-        "portfolio_xray_holdings_date", date.today() - timedelta(days=365),
-    )
-    use_individual = st.session_state.get(
-        "portfolio_xray_individual_etf_dates", False,
-    )
-    return {
-        ticker: (
-            st.session_state.get(f"portfolio_xray_etf_asof_{ticker}", common)
-            if use_individual else common
-        )
-        for ticker in etfs
-    }
 
 
 @st.cache_data(ttl=24 * 3600, show_spinner=False)
@@ -422,14 +353,13 @@ def render_portfolio_xray():
                 })
             except Exception:
                 etfs_entered = []
-            action_col, date_col = st.columns([1.7, 1.1], gap="small")
-            with action_col:
-                submitted = st.button(
-                    "Analyze portfolio", type="primary", use_container_width=True,
-                    key="portfolio_xray_analyze",
-                )
-            with date_col:
-                historical_dates = _historical_date_settings(etfs_entered)
+            # Dates are configured below, in Historical Portfolio Returns.
+            # Read their current state here before running X-Ray look-through.
+            historical_dates = selected_holdings_dates(etfs_entered)
+            submitted = st.button(
+                "Analyze portfolio", type="primary", use_container_width=True,
+                key="portfolio_xray_analyze",
+            )
             header_ticker, header_amount = st.columns([1, 1], gap="small")
             with header_ticker:
                 st.caption("Ticker")
@@ -501,7 +431,7 @@ def render_portfolio_xray():
             # Keep the linked historical-portfolio selector accessible even
             # before first analysis or when a prior analysis failed. Selecting
             # a saved portfolio here restores inputs and analyzes the main X-Ray.
-            render_historical_returns(None, False)
+            render_historical_returns(None, False, etfs_entered)
             return
         rows, info = result
         result_is_pct = st.session_state.get("portfolio_xray_results_unit", "usd") == "pct"
@@ -833,4 +763,5 @@ def render_portfolio_xray():
             render_historical_returns(
                 st.session_state.get("portfolio_xray_results_signature"),
                 _analyzed_portfolio_share_csv() is not None,
+                etfs_entered,
             )
