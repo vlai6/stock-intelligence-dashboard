@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from portfolio_xray import Holdings, parse_rows, portfolio_rows, pie_data, ticker_of, security_type
+from portfolio_xray import Holdings, parse_rows, portfolio_rows, pie_data, pie_legend_labels, ticker_of, security_type
 
 rows = [
     ["Fund holdings data", "", ""],
@@ -68,6 +68,21 @@ labels, amounts = pie_data(bad)
 assert "Unresolved ETF exposure" in labels
 assert abs(sum(amounts) - 3000) < 1e-7
 assert abs(bad_info["mapped"] - 500) < 1e-7
+# Legend percentages are based on total portfolio exposure, including unknown
+# holdings, not the total of the mapped subset alone.
+assert pie_legend_labels(["NVDA", "Other stocks"], [371, 629]) == [
+    "NVDA 37.1%", "Other stocks 62.9%",
+]
+assert pie_legend_labels(["NVDA", "Unresolved ETF exposure"], [371, 629]) == [
+    "NVDA 37.1%", "Unresolved ETF exposure 62.9%",
+]
+assert pie_legend_labels(["No data"], [0]) == ["No data"]
+try:
+    pie_legend_labels(["A"], [1, 2])
+except ValueError:
+    pass
+else:
+    raise AssertionError("Legend labels must match their amounts")
 
 try:
     parse_rows([["Ticker", "Weight"], ["AAPL", "111"]], "BAD", "synthetic")
