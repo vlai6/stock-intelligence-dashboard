@@ -78,10 +78,10 @@ with st.expander("Momentum factor — research, evidence and risks", expanded=Fa
 
 **What to evaluate:** Momentum methodology (lookback and weighting), drawdowns, sector/mega-cap concentration, turnover, after-tax results, fees and overlap with SPY/VOO.
 
-**ETF implementations worth researching** — recommendations are about **factor exposure**, not a prediction of which fund will outperform:
+**ETF examples** — these describe different forms of factor exposure, not forecasts of outperformance:
 
-- **[SPMO](https://www.invesco.com/us/en/financial-products/etfs/invesco-sp-500-momentum-etf.html)** — primary candidate for a **U.S. large-cap momentum** tilt alongside a broad-market ETF core.
-- **[XMMO](https://www.invesco.com/us/en/financial-products/etfs/invesco-sp-midcap-momentum-etf.html)** — optional **mid-cap momentum** diversification, with different size exposure and potentially more volatility.
+- **[SPMO](https://www.invesco.com/us/en/financial-products/etfs/invesco-sp-500-momentum-etf.html)** — an ETF tracking momentum-selected **U.S. large-cap stocks** from the S&P 500.
+- **[XMMO](https://www.invesco.com/us/en/financial-products/etfs/invesco-sp-midcap-momentum-etf.html)** — an ETF tracking momentum-selected **U.S. mid-cap stocks** from the S&P MidCap 400.
 
 **Primary research:** [Jegadeesh & Titman (1993)](https://doi.org/10.1111/j.1540-6261.1993.tb04702.x) · [Daniel & Moskowitz (2016)](https://doi.org/10.1016/j.jfineco.2015.12.002) · [Value and Momentum Everywhere (2013)](https://www.aqr.com/Insights/Research/Journal-Article/Value-and-Momentum-Everywhere)
 """)
@@ -104,11 +104,11 @@ with st.expander("Value factor — research, evidence and risks", expanded=False
 
 **What to evaluate:** Valuation ratios alongside profitability and balance-sheet strength, value methodology, sector exposure, expense ratio, turnover and after-tax returns versus the same-period broad-market benchmark.
 
-**ETF implementations worth researching:**
+**ETF examples:**
 
-- **[AVLV](https://www.avantisinvestors.com/avantis-investments/en-us/avantis-us-large-cap-value-etf/)** — preferred research candidate for **large-cap value with a profitability-aware approach**, rather than price-only cheapness.
-- **[VTV](https://advisors.vanguard.com/investments/products/vtv/vanguard-value-etf)** — straightforward, **low-cost diversified large-cap value** alternative.
-- **[AVUV](https://www.avantisinvestors.com/avantis-investments/en-us/avantis-us-small-cap-value-etf/)** — optional **small-cap value/profitability** exposure with higher size and liquidity risk; not a necessary core holding.
+- **[AVLV](https://www.avantisinvestors.com/avantis-investments/en-us/avantis-us-large-cap-value-etf/)** — an actively managed **U.S. large-cap value ETF** considering valuations and profitability.
+- **[VTV](https://advisors.vanguard.com/investments/products/vtv/vanguard-value-etf)** — an index-tracking **U.S. large-cap value ETF** with broad exposure to value stocks.
+- **[AVUV](https://www.avantisinvestors.com/avantis-investments/en-us/avantis-us-small-cap-value-etf/)** — an actively managed **U.S. small-cap value ETF** considering valuations and profitability.
 
 **Primary research:** [Fama & French (1993)](https://doi.org/10.1016/0304-405X(93)90023-5) · [Fama & French (2015)](https://doi.org/10.1016/j.jfineco.2014.10.010) · [Kenneth French factor definitions](https://mba.tuck.dartmouth.edu/pages/Faculty/ken.french/Data_Library/f-f_factors.html) · [Value and Momentum Everywhere (2013)](https://www.aqr.com/Insights/Research/Journal-Article/Value-and-Momentum-Everywhere)
 """)
