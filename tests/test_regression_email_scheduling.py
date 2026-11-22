@@ -15,13 +15,21 @@ from regression_scanner.schedule_guard import (
 def at(year, month, day, hour, minute, second=0):
     return datetime(year, month, day, hour, minute, second, tzinfo=timezone.utc)
 
-# UTC conversion and NY daylight saving changes (Monday dates).
+# UTC conversion, NY daylight saving, weekends, and holiday-adjacent weekdays.
+# A UTC schedule starts only Mon-Fri, and the scanner separately checks the
+# NYSE calendar before downloading any stocks.
 assert should_send("schedule", EST_CRON, at(2026, 11, 23, 13, 35))
 assert not should_send("schedule", EDT_CRON, at(2026, 11, 23, 12, 35))
 assert should_send("schedule", EDT_CRON, at(2026, 7, 20, 12, 35))
 assert not should_send("schedule", EST_CRON, at(2026, 7, 20, 13, 35))
 assert not should_send("schedule", EST_CRON, at(2026, 11, 20, 21, 26))
 assert not should_send("schedule", EST_CRON, at(2026, 11, 23, 16, 0))
+assert not should_send("schedule", EST_CRON, at(2026, 11, 21, 13, 30))  # Saturday
+assert not should_send("schedule", EST_CRON, at(2026, 11, 22, 13, 30))  # Sunday
+assert not should_send("schedule", EST_CRON, at(2026, 11, 23, 15, 30))  # after 10:30 AM ET
+assert not should_send("schedule", EST_CRON, at(2026, 11, 23, 13, 0))  # before morning window
+assert should_send("schedule", EST_CRON, at(2026, 11, 23, 15, 29))  # 10:29 AM ET
+# Summer/winter DST switchover is handled by the expected UTC cron.
 assert not should_send("push", EST_CRON, at(2026, 11, 23, 13, 35))
 assert should_send("workflow_dispatch", "", at(2026, 11, 21, 1, 0))
 
@@ -30,6 +38,13 @@ assert "cron: '30 12 * * 1-5'" in workflow
 assert "cron: '30 13 * * 1-5'" in workflow
 assert "timezone:" not in workflow
 assert "ENABLE_CLOUD_SCHEDULE" not in workflow
+assert "SEND_EVERY_SCAN: '1'" in workflow
+assert "SMTP_HOST: ${{ secrets.SMTP_HOST }}" in workflow
+assert "SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}" in workflow
+assert "ALERT_TO: ${{ vars.ALERT_TO || secrets.ALERT_TO }}" in workflow
+assert "if: ${{ needs.schedule-gate.outputs.run_scan == 'true' }}" in workflow
+# A weekday job must get a live scanner, not the manual test-email default.
+assert 'github.event_name == \'schedule\' && \'live\' || inputs.mode' in workflow
 assert "needs.schedule-gate.outputs.run_scan == 'true'" in workflow
 assert "python regression_scanner/schedule_guard.py" in workflow
 
@@ -61,6 +76,11 @@ assert next_day.startswith("Nov 24, 2026 | Potentially Undervalued Stocks:")
 assert next_day != one, "Different trading days should have different subjects"
 assert "new/worsened" in one
 
+scanner_src = (ROOT / "regression_scanner/automated_scan.py").read_text()
+assert 'if not force_market_day and not market_open_today()' in scanner_src
+assert 'send_every_scan = os.getenv("SEND_EVERY_SCAN", "1")' in scanner_src
+assert 'if alerts or send_failures or send_every_scan:' in scanner_src
+assert 'send_email(subject, body, html_body=html_body)' in scanner_src
 mailer = (ROOT / "regression_scanner/emailer.py").read_text()
 assert 'message["Message-ID"] = make_msgid()' in mailer
 assert 'message["Date"] = format_datetime' in mailer

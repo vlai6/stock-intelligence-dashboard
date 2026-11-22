@@ -65,7 +65,11 @@ assert "nav.replaceChildren();" in nav
 philosophy = source("pages/00_Investment_Philosophy.py")
 assert philosophy.count('with st.expander("Momentum factor — research, evidence and risks"') == 1
 assert philosophy.count('with st.expander("Value factor — research, evidence and risks"') == 1
-assert philosophy.index("What the historical data show") < philosophy.index("ETF implementations worth researching")
+assert philosophy.index("What the historical data show") < philosophy.index("**ETF examples**")
+assert "primary candidate for a" not in philosophy
+assert "preferred research candidate" not in philosophy
+assert "optional **mid-cap momentum**" not in philosophy
+assert "optional **small-cap value/profitability**" not in philosophy
 assert "1965–1989" in philosophy
 assert "March–May 2009" in philosophy
 assert "163%" in philosophy and "8%" in philosophy
@@ -77,7 +81,7 @@ assert "Value ≠ buying every stock" in philosophy
 assert philosophy.index("Why ETFs, momentum, value and quality?") < philosophy.index("FEATURED ETF FACTORS") < philosophy.index("INDIVIDUAL-STOCK STRATEGIES")
 for ticker in ("SPMO", "XMMO", "AVLV", "VTV"):
     assert ticker in philosophy
-assert "not a prediction of which fund will outperform" in philosophy
+assert "not forecasts of outperformance" in philosophy
 assert "not guaranteed to move in opposite directions" in philosophy
 assert 'expanded=False' in philosophy
 
