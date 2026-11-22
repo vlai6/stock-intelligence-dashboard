@@ -39,7 +39,7 @@ assert 'latest_snapshots[ticker] = _cached_issuer_holdings(ticker)' in ui
 assert 'f"{URL_ROOT}/history/{symbol.lower()}/{as_of.isoformat()}.json"' in history
 assert 'if report_date > requested:' in history
 assert '"holdings_at_date_not_enabled"' not in history  # generic 404 reason preserved
-assert '"historical report does not provide a valid holdings date."' in history
+assert "historical report does not provide a valid holdings date." in history
 assert 'def exposure_changes(' in history
 
 # Historical price returns are a separate feature with the original input
