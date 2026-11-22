@@ -6,6 +6,10 @@ on:
       - "app.py"
       - "dashboard_theme.py"
       - "pages/00_Investment_Philosophy.py"
+      - "portfolio_xray.py"
+      - "portfolio_xray_ui.py"
+      - "tests/test_portfolio_xray.py"
+      - "requirements.txt"
       - ".streamlit/config.toml"
       - "pages/0_Stock_Intelligence.py"
       - "pages/1_News_Screen.py"
@@ -33,7 +37,9 @@ jobs:
           python-version: "3.12"
       - name: Compile modified Streamlit pages
         run: |
-          python -m py_compile app.py dashboard_theme.py pages/0_Stock_Intelligence.py regression_scanner/app.py
+          python -m py_compile app.py dashboard_theme.py pages/00_Investment_Philosophy.py pages/0_Stock_Intelligence.py regression_scanner/app.py portfolio_xray.py portfolio_xray_ui.py
+      - name: Validate portfolio X-ray calculations without network
+        run: python tests/test_portfolio_xray.py
       - name: Verify Eastern morning scheduling and fresh email subjects
         run: |
           python -m py_compile regression_scanner/schedule_guard.py regression_scanner/automated_scan.py regression_scanner/emailer.py
@@ -114,6 +120,17 @@ jobs:
           philosophy = Path('pages/00_Investment_Philosophy.py').read_text()
           assert 'label="Open Regression Scanner"' not in philosophy
           assert 'with st.expander("Backtest details and limitations"' in philosophy
+          assert 'from portfolio_xray_ui import render_portfolio_xray' in philosophy
+          assert philosophy.index('render_portfolio_xray()') < philosophy.index('INDIVIDUAL-STOCK STRATEGIES')
+          xray = Path('portfolio_xray_ui.py').read_text()
+          assert 'st.columns([1, 1], gap="medium")' in xray
+          assert 'if not result:' in xray
+          assert 'return  # Deliberately blank until the first Analyze action.' in xray
+          assert '["Pie chart", "Table"]' in xray
+          assert 'num_rows="dynamic"' in xray
+          assert 'height=183' in xray
+          assert 'Stock' in xray and 'ETF' in xray
+          assert 'portfolio_rows(positions, snapshots, errors)' in xray
           # The front page must clearly distinguish the actual SPY-funded
           # backtest from an *untested* fundamentals-assisted strategy.
           assert 'HOW THE ROTATING STRATEGY WORKED' in philosophy
