@@ -325,15 +325,17 @@ def render_portfolio_xray():
         with import_col:
             with st.popover("Import CSV", use_container_width=True):
                 st.file_uploader(
-                    "Ticker, Amount CSV", type=["csv"],
+                    "Date, Ticker, Amount CSV", type=["csv"],
                     key="portfolio_xray_csv_file",
                     on_change=_import_portfolio_csv,
-                    help="Exactly two columns: Ticker, Amount. All values must be "
-                         "percentages (such as 12.29%) or all dollar amounts.",
+                    help="Date, Ticker, Amount (or legacy Ticker, Amount). "
+                         "Date is optional and selects historical ETF constituents; "
+                         "all weights must be percentages or all dollar amounts.",
                 )
                 st.caption(
-                    "Percentages are weights, not USD. Cash and Treasury CUSIPs "
-                    "stay as directly owned non-stock positions."
+                    "Date is optional (YYYY-MM-DD). Blank uses latest ETF "
+                    "holdings. Stock/CUSIP dates are retained but do not "
+                    "change X-Ray stock exposure or historical price returns."
                 )
         with export_col:
             csv_export_slot = st.empty()
@@ -351,32 +353,32 @@ def render_portfolio_xray():
             count = st.session_state["portfolio_xray_row_count"]
             input_unit = st.session_state.get("portfolio_xray_unit_mode", "usd")
             is_pct = input_unit == "pct"
-            # Per-ticker dates are for ETFs only, not directly held stocks.
-            try:
-                directory = _cached_tickerinside_identifiers()
-                etfs_entered = sorted({
-                    str(st.session_state.get(f"portfolio_xray_ticker_{index}") or "").strip().upper()
-                    for index in range(count)
-                    if directory.get(
-                        str(st.session_state.get(f"portfolio_xray_ticker_{index}") or "").strip().upper()
-                    ) == "ETF"
-                })
-            except Exception:
-                etfs_entered = []
-            # Dates are configured below, in Historical Portfolio Returns.
-            # Read their current state here before running X-Ray look-through.
-            historical_dates = selected_holdings_dates(etfs_entered)
             submitted = st.button(
                 "Analyze portfolio", type="primary", use_container_width=True,
                 key="portfolio_xray_analyze",
             )
-            header_ticker, header_amount = st.columns([1, 1], gap="small")
+            header_date, header_ticker, header_amount = st.columns(
+                [1.27, 1.08, 1.04], gap="small"
+            )
+            with header_date:
+                st.caption("Date")
             with header_ticker:
                 st.caption("Ticker")
             with header_amount:
                 st.caption("Weight (%)" if is_pct else "Amount ($)")
             for index in range(count):
-                ticker_col, amount_col = st.columns([1, 1], gap="small")
+                date_col, ticker_col, amount_col = st.columns(
+                    [1.27, 1.08, 1.04], gap="small"
+                )
+                with date_col:
+                    st.date_input(
+                        f"Date {index + 1}",
+                        value=None, min_value=date(2019, 9, 30),
+                        max_value=date.today(), format="YYYY-MM-DD",
+                        key=f"portfolio_xray_date_{index}",
+                        label_visibility="collapsed",
+                        on_change=_portfolio_input_changed,
+                    )
                 with ticker_col:
                     st.text_input(
                         f"Ticker {index + 1}",
@@ -394,8 +396,10 @@ def render_portfolio_xray():
                         on_change=_portfolio_input_changed,
                     )
             st.caption(
-                "Amounts are allocation percentages, not dollar values."
-                if is_pct else "ETFs and individual stocks are identified automatically."
+                "Dates select historical ETF constituent snapshots; blank "
+                "uses latest. "
+                + ("Amounts are allocation percentages." if is_pct
+                   else "ETFs and individual stocks are identified automatically.")
             )
             # Loading a saved portfolio queues this after widget state is restored.
             # Both Load and Analyze use the same validation and X-Ray pipeline.
@@ -403,6 +407,7 @@ def render_portfolio_xray():
             if submitted or auto_analyze:
                 editor = pd.DataFrame([
                     {
+                        "Date": st.session_state.get(f"portfolio_xray_date_{i}"),
                         "Ticker": st.session_state.get(f"portfolio_xray_ticker_{i}", ""),
                         "Amount ($)": st.session_state.get(f"portfolio_xray_amount_{i}", 0.0),
                     }
@@ -411,11 +416,11 @@ def render_portfolio_xray():
                 try:
                     positions = _clean_positions(editor)
                     with st.spinner("Loading ETF holdings…"):
-                        st.session_state["portfolio_xray_results"] = _analyze(positions, historical_dates)
+                        st.session_state["portfolio_xray_results"] = _analyze(positions)
                         st.session_state["portfolio_xray_results_unit"] = input_unit
                         st.session_state["portfolio_xray_results_signature"] = (
                             input_unit,
-                            tuple((p["ticker"], float(p["amount"])) for p in positions),
+                            position_signature(positions),
                         )
                 except Exception as exc:
                     st.session_state["portfolio_xray_results"] = None
@@ -441,7 +446,7 @@ def render_portfolio_xray():
             # Keep the linked historical-portfolio selector accessible even
             # before first analysis or when a prior analysis failed. Selecting
             # a saved portfolio here restores inputs and analyzes the main X-Ray.
-            render_historical_returns(None, False, etfs_entered)
+            render_historical_returns(None, False)
             return
         rows, info = result
         result_is_pct = st.session_state.get("portfolio_xray_results_unit", "usd") == "pct"
@@ -773,5 +778,4 @@ def render_portfolio_xray():
             render_historical_returns(
                 st.session_state.get("portfolio_xray_results_signature"),
                 _analyzed_portfolio_share_csv() is not None,
-                etfs_entered,
             )
