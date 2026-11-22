@@ -40,7 +40,9 @@ def _clean_positions(table: pd.DataFrame) -> list[dict]:
             amount = float(amount_raw)
         except (TypeError, ValueError):
             amount = 0.0
-        if not symbol and not amount:
+        # A date alone is incomplete; don't silently discard it.
+        row_date = raw.get("Date")
+        if not symbol and not amount and not row_date:
             continue
         if not symbol or not (amount > 0):
             errors.append(f"Row {index + 1}: provide a ticker and positive amount.")
@@ -163,6 +165,13 @@ def _portfolio_input_changed():
     st.session_state[SAVED_NS + "loaded_name"] = None
     st.session_state.pop("portfolio_xray_historical_result", None)
     _append_xray_row_when_started()
+
+
+def _portfolio_date_changed():
+    """Date changes invalidate the earlier ETF look-through immediately."""
+    _portfolio_input_changed()
+    st.session_state["portfolio_xray_results"] = None
+    st.session_state.pop("portfolio_xray_results_signature", None)
 
 
 def _import_portfolio_csv():
@@ -377,7 +386,7 @@ def render_portfolio_xray():
                         max_value=date.today(), format="YYYY-MM-DD",
                         key=f"portfolio_xray_date_{index}",
                         label_visibility="collapsed",
-                        on_change=_portfolio_input_changed,
+                        on_change=_portfolio_date_changed,
                     )
                 with ticker_col:
                     st.text_input(
