@@ -95,8 +95,17 @@ assert abs(exposure["MSFT"]["_value"] - 4200) < 1e-8
 assert abs(exposure["AAPL"]["_value"] - 3900) < 1e-8
 assert abs(exposure["Unreported SPMO"]["_value"] - 300) < 1e-8
 assert abs(sum(r["_value"] for r in out) - 11000) < 1e-8
-assert "Direct" in exposure["NVDA"]["From"]
-assert "SPMO" in exposure["NVDA"]["From"]
+# Direct positions and aggregated ETF exposure must add up to each stock's value.
+assert exposure["NVDA"]["Direct Amount"] == 1000
+assert exposure["NVDA"]["ETF Amount"] == 1600
+assert exposure["MSFT"]["Direct Amount"] == 0
+assert exposure["MSFT"]["ETF Amount"] == 4200
+assert exposure["Unreported SPMO"]["Direct Amount"] == 0
+assert exposure["Unreported SPMO"]["ETF Amount"] == 300
+assert all(
+    abs(r["Direct Amount"] + r["ETF Amount"] - r["Amount ($)"]) < 0.011
+    for r in out
+)
 
 # Missing fund data never silently becomes an artificial fully mapped position.
 bad, bad_info = portfolio_rows(
@@ -106,6 +115,8 @@ bad, bad_info = portfolio_rows(
 )
 assert bad_info["unresolved"] == 2500
 assert abs(sum(r["_value"] for r in bad) - 3000) < 1e-7
+assert {r["Stock"]: r for r in bad}["Unresolved AVLV"]["ETF Amount"] == 2500
+assert {r["Stock"]: r for r in bad}["AAPL"]["Direct Amount"] == 500
 labels, amounts = pie_data(bad)
 assert "Unresolved ETF exposure" in labels
 assert abs(sum(amounts) - 3000) < 1e-7
