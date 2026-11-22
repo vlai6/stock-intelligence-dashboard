@@ -146,6 +146,25 @@ assert pie_legend_labels(["NVDA", "Other stocks"], [371, 629]) == [
 assert pie_legend_labels(["NVDA", "Unresolved ETF exposure"], [371, 629]) == [
     "NVDA 37.1%", "Unresolved ETF exposure 62.9%",
 ]
+# Unknown ticker classification should not crash an imported portfolio or
+# misrepresent an unverified position as an ETF.
+unknown_rows, unknown_info = portfolio_rows([
+    {"type": "UNKNOWN", "ticker": "UNKN", "amount": 45},
+    {"type": "OTHER", "ticker": "91282CMB4", "amount": 50},
+    {"type": "OTHER", "ticker": "Cash & Cash Inv", "amount": 5},
+], {})
+assert abs(unknown_info["total"] - 100) < 1e-10
+assert unknown_info["unresolved"] == 45
+assert unknown_info["other_assets"] == 55
+unknown = {r["Stock"]: r for r in unknown_rows}
+assert unknown["Unverified UNKN"]["Direct Amount"] == 45
+assert unknown["Unverified UNKN"]["ETF Amount"] == 0
+assert unknown["91282CMB4"]["Unresolved"] is False
+assert unknown["Cash & Cash Inv"]["Unresolved"] is False
+labels, amounts = pie_data(unknown_rows)
+assert "Unclassified positions" in labels
+assert abs(sum(amounts) - 100) < 1e-10
+
 assert pie_legend_labels(["No data"], [0]) == ["No data"]
 try:
     pie_legend_labels(["A"], [1, 2])
