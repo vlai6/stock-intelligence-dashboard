@@ -226,11 +226,11 @@ def _current_positions() -> list[dict]:
             amount = float(value or 0.0)
         except (TypeError, ValueError) as exc:
             raise ValueError(f"Row {index + 1}: enter a valid amount.") from exc
-        if not symbol and amount == 0:
+        row_date = st.session_state.get(f"portfolio_xray_date_{index}")
+        if not symbol and amount == 0 and not row_date:
             continue
         if not symbol or not math.isfinite(amount) or amount <= 0:
-            raise ValueError(f"Row {index + 1}: enter a ticker and positive dollar amount.")
-        row_date = st.session_state.get(f"portfolio_xray_date_{index}")
+            raise ValueError(f"Row {index + 1}: enter a ticker and positive amount.")
         try:
             positions.append(position_with_date(ticker_of(symbol), amount, row_date))
         except ValueError as exc:
