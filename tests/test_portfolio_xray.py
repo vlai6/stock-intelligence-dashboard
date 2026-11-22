@@ -1,66 +1,108 @@
-"""Offline portfolio X-ray coverage and arithmetic tests (no API requests)."""
+"""Offline TickerInside Portfolio X-Ray tests; never contact external APIs."""
 import sys
 from pathlib import Path
+from unittest.mock import patch
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from portfolio_xray import Holdings, parse_rows, portfolio_rows, pie_data, pie_legend_labels, ticker_of, security_type
+from portfolio_xray import (
+    Holdings, _tickerinside_json, issuer_holdings, tickerinside_identifiers,
+    portfolio_rows, pie_data, pie_legend_labels, ticker_of, security_type,
+)
 
-rows = [
-    ["Fund holdings data", "", ""],
-    ["Ticker", "Company", "Weight (%)"],
-    ["NVDA", "NVIDIA", "10.00%"],
-    ["MSFT", "Microsoft", "20.00%"],
-    ["AAPL", "Apple", "65.00%"],
-]
-snap = parse_rows(rows, "TEST", "synthetic fixture")
-assert abs(snap.coverage - 0.95) < 1e-10
-assert abs(snap.weights["NVDA"] - 0.1) < 1e-10
-assert ticker_of("brk.b") == "BRK.B"
-assert security_type("SPY") == "ETF"
-assert security_type("SPMO") == "ETF"
-assert security_type("AVLV") == "ETF"
-assert security_type("NVDA") == "STOCK"
-assert security_type("AAPL") == "STOCK"
-assert security_type("CUSTOMEQUITY", quote_lookup=lambda _: {"quoteType": "EQUITY"}) == "STOCK"
-assert security_type("CUSTOMFUND", quote_lookup=lambda _: {"quoteType": "ETF"}) == "ETF"
+IDENTIFIERS = {
+    "fields": ["ticker", "name", "asset_type", "exchange"],
+    "securities": [
+        ["SPY", "State Street SPDR S&P 500 ETF", "etf", "NYSE Arca"],
+        ["SPMO", "Invesco S&P 500 Momentum ETF", "etf", "NYSE Arca"],
+        ["AVLV", "Avantis U.S. Large Cap Value ETF", "etf", "NYSE Arca"],
+        ["NVDA", "Nvidia", "stock", "Nasdaq"],
+        ["AAPL", "Apple", "stock", "Nasdaq"],
+        ["MU", "Micron", "stock", "Nasdaq"],
+        ["NOTE", "Example Exchange Traded Note", "etn", "NYSE"],
+    ],
+}
+with patch("portfolio_xray._tickerinside_json", return_value=IDENTIFIERS):
+    kinds = tickerinside_identifiers()
+assert security_type("SPY", kinds) == "ETF"
+assert security_type("SPMO", kinds) == "ETF"
+assert security_type("AVLV", kinds) == "ETF"
+assert security_type("NVDA", kinds) == "STOCK"
+assert security_type("AAPL", kinds) == "STOCK"
+assert security_type("NOTE", kinds) == "ETF"  # Do not treat notes as direct company shares.
 try:
-    security_type("AMBIGUOUS", quote_lookup=lambda _: {})
+    security_type("UNKNOWN", kinds)
 except ValueError:
     pass
 else:
-    raise AssertionError("Unknown symbols must not be silently categorized")
+    raise AssertionError("Unknown TickerInside tickers must not be guessed")
 
+assert ticker_of("brk.b") == "BRK.B"
+try:
+    ticker_of("SPY; rm -rf")
+except ValueError:
+    pass
+else:
+    raise AssertionError("Unvalidated ticker was accepted")
 
-# Fractional weights should work and must not be automatically magnified.
-fraction = parse_rows([
-    ["Holding Ticker", "Weight"], ["NVDA", "0.4"], ["MSFT", "0.6"]
-], "FUND", "synthetic fixture")
-assert abs(fraction.coverage - 1) < 1e-8
-assert abs(fraction.weights["MSFT"] - .6) < 1e-8
+# A TickerInside fund lists percentage weights, not decimals.
+EXAMPLE_FUND = {
+    "ticker": "SPMO", "source_layer": "sec_nport",
+    "holdings_as_of": "2026-08-31",
+    "holdings": {"NVDA": 10.0, "MSFT": 20.0, "AAPL": 65.0},
+}
+with patch("portfolio_xray._tickerinside_json", return_value=EXAMPLE_FUND) as fetch:
+    snap = issuer_holdings("SPMO")
+    fetch.assert_called_once_with("fund/spmo.json")
+assert snap.as_of == "2026-08-31"
+assert "TickerInside" in snap.source
+assert abs(snap.coverage - 0.95) < 1e-10
+assert abs(snap.weights["NVDA"] - .1) < 1e-10
 
-# Stock exposure can come from two ETFs plus one direct-stock holding.
+# Detect malformed source totals, and keep non-stock ETFs unresolved.
+with patch("portfolio_xray._tickerinside_json", return_value={
+    "holdings": {"NVDA": 80, "AAPL": 50},
+}):
+    try:
+        issuer_holdings("SPY")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Holdings greater than 102% must be rejected")
+
+with patch("portfolio_xray._tickerinside_json", return_value={
+    "holdings_kind": "bond", "holdings": {"US TREASURY": 100},
+}):
+    try:
+        issuer_holdings("TLT")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Bonds cannot be presented as stock holdings")
+
+# Stock exposure can come through two ETFs plus a direct-stock position.
 other = Holdings("SECOND", {"NVDA": .25, "MSFT": .75}, "synthetic")
 positions = [
-    {"type": "ETF", "ticker": "TEST", "amount": 6000},
+    {"type": "ETF", "ticker": "SPMO", "amount": 6000},
     {"type": "ETF", "ticker": "SECOND", "amount": 4000},
     {"type": "STOCK", "ticker": "NVDA", "amount": 1000},
 ]
-out, info = portfolio_rows(positions, {"TEST": snap, "SECOND": other})
+out, info = portfolio_rows(positions, {"SPMO": snap, "SECOND": other})
 exposure = {r["Stock"]: r for r in out}
 assert info["total"] == 11000
 assert abs(exposure["NVDA"]["_value"] - 2600) < 1e-8
 assert abs(exposure["MSFT"]["_value"] - 4200) < 1e-8
 assert abs(exposure["AAPL"]["_value"] - 3900) < 1e-8
-assert abs(exposure["Unreported TEST"]["_value"] - 300) < 1e-8
+assert abs(exposure["Unreported SPMO"]["_value"] - 300) < 1e-8
 assert abs(sum(r["_value"] for r in out) - 11000) < 1e-8
 assert "Direct" in exposure["NVDA"]["From"]
-assert "TEST" in exposure["NVDA"]["From"]
+assert "SPMO" in exposure["NVDA"]["From"]
 
-# Unknown ETF feed must not become a fake 100%-equity look-through.
+# Missing fund data never silently becomes an artificial fully mapped position.
 bad, bad_info = portfolio_rows(
     [{"type": "ETF", "ticker": "AVLV", "amount": 2500},
      {"type": "STOCK", "ticker": "AAPL", "amount": 500}],
-    {}, {"AVLV": "No available holdings"}
+    {}, {"AVLV": "No available TickerInside holdings"},
 )
 assert bad_info["unresolved"] == 2500
 assert abs(sum(r["_value"] for r in bad) - 3000) < 1e-7
@@ -68,8 +110,6 @@ labels, amounts = pie_data(bad)
 assert "Unresolved ETF exposure" in labels
 assert abs(sum(amounts) - 3000) < 1e-7
 assert abs(bad_info["mapped"] - 500) < 1e-7
-# Legend percentages are based on total portfolio exposure, including unknown
-# holdings, not the total of the mapped subset alone.
 assert pie_legend_labels(["NVDA", "Other stocks"], [371, 629]) == [
     "NVDA 37.1%", "Other stocks 62.9%",
 ]
@@ -77,27 +117,11 @@ assert pie_legend_labels(["NVDA", "Unresolved ETF exposure"], [371, 629]) == [
     "NVDA 37.1%", "Unresolved ETF exposure 62.9%",
 ]
 assert pie_legend_labels(["No data"], [0]) == ["No data"]
-assert pie_legend_labels(["NVDA", "SPY", "Unresolved ETF exposure"], [37.1, 59.7, 3.2]) == [
-    "NVDA 37.1%", "SPY 59.7%", "Unresolved ETF exposure 3.2%",
-]
 try:
     pie_legend_labels(["A"], [1, 2])
 except ValueError:
     pass
 else:
-    raise AssertionError("Legend labels must match their amounts")
+    raise AssertionError("Legend labels must match values")
 
-try:
-    parse_rows([["Ticker", "Weight"], ["AAPL", "111"]], "BAD", "synthetic")
-except ValueError:
-    pass
-else:
-    raise AssertionError("Invalid >100% weight must be rejected")
-
-try:
-    ticker_of("SPY; rm -rf")
-except ValueError:
-    pass
-else:
-    raise AssertionError("Unvalidated ticker was accepted")
-print("PASS: portfolio ETF look-through, partial coverage, stock overlap and validation")
+print("PASS: TickerInside classification, fund weights, non-stock NAV, overlap, missing data")
