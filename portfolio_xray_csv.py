@@ -18,6 +18,50 @@ MAX_CSV_ROWS = 500
 MAX_POSITIONS = 30
 
 
+
+def export_portfolio_csv(positions: list[dict], unit: str) -> bytes:
+    """Produce an exact round-trippable share file for the X-Ray CSV importer.
+
+    Export the *input* holdings (not ETF-expanded stocks): another user can
+    upload the file and run the same look-through on the same instruments.
+    Percentage weights retain the '%' suffix; dollar inputs never gain one.
+    """
+    if unit not in {"pct", "usd"}:
+        raise ValueError("Portfolio amount unit must be percentage or USD.")
+    if not isinstance(positions, list) or not 1 <= len(positions) <= MAX_POSITIONS:
+        raise ValueError(f"Export needs 1–{MAX_POSITIONS} valid portfolio positions.")
+
+    output = io.StringIO(newline="")
+    writer = csv.writer(output)
+    writer.writerow(["Ticker", "Amount"])
+    for index, item in enumerate(positions, start=1):
+        if not isinstance(item, dict):
+            raise ValueError(f"Position {index}: expected ticker and amount.")
+        ticker = ticker_of(item.get("ticker", ""))
+        try:
+            amount = float(item.get("amount"))
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError(f"Position {index}: amount must be numeric.") from exc
+        if not math.isfinite(amount) or amount <= 0:
+            raise ValueError(f"Position {index}: amount must be finite and positive.")
+        if unit == "pct" and amount > 100:
+            raise ValueError(f"Position {index}: weight exceeds 100%.")
+        # Python's float string is a shortest round-trippable representation.
+        # Do not round small allocations or convert percent points to fractions.
+        value = str(amount) + ("%" if unit == "pct" else "")
+        writer.writerow([ticker, value])
+
+    data = output.getvalue().encode("utf-8-sig")  # Excel-friendly UTF-8 BOM.
+    # The shared CSV must always be re-importable by this very same tool.
+    decoded, decoded_unit, _ = parse_portfolio_csv(data)
+    if decoded_unit != unit or decoded != [
+        {"ticker": ticker_of(item["ticker"]), "amount": float(item["amount"])}
+        for item in positions
+    ]:
+        raise ValueError("Unable to verify CSV export round-trip.")
+    return data
+
+
 def parse_portfolio_csv(payload: bytes) -> tuple[list[dict], str, list[str]]:
     """Return (positions, unit 'pct'|'usd', visible import warnings)."""
     if not isinstance(payload, bytes) or not payload:
