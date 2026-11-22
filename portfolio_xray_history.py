@@ -246,9 +246,13 @@ def simulate_multiple_returns(
     # simulate_returns verifies coverage and actual data recency for everyone.
     # All have the exact same dates because common was intersected first.
     chart = pd.DataFrame({"Date": common.index, "SPY": first["chart"]["SPY"].values})
-    rows = []
-    for name, result in outcomes.items():
-        chart[name] = result["chart"]["Portfolio"].values
+    rows, series = [], []
+    for idx, (name, result) in enumerate(outcomes.items()):
+        # Internal IDs avoid collisions with a user naming a saved portfolio
+        # "SPY", "Date", or another price-series column.
+        key = f"portfolio_{idx}"
+        chart[key] = result["chart"]["Portfolio"].values
+        series.append({"key": key, "name": name})
         rows.append({
             "Portfolio": name,
             "Portfolio return %": result["portfolio_pct"],
@@ -260,6 +264,7 @@ def simulate_multiple_returns(
         "end": first["end"],
         "spy_pct": first["spy_pct"],
         "chart": chart,
+        "series": series,
         "summary": pd.DataFrame(rows),
         "outcomes": outcomes,
     }
