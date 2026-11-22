@@ -277,8 +277,15 @@ def render_portfolio_xray():
                         st.caption(f"{symbol}: {problem}")
             if info["sources"]:
                 with st.expander("TickerInside holdings dates and coverage", expanded=False):
-                    st.dataframe(pd.DataFrame(info["sources"]), hide_index=True,
-                                 use_container_width=True)
+                    st.dataframe(
+                        pd.DataFrame(info["sources"]), hide_index=True,
+                        use_container_width=True,
+                        column_config={
+                            "TickerInside page": st.column_config.LinkColumn(
+                                "TickerInside page", display_text="View source"
+                            ),
+                        },
+                    )
             st.caption("Ticker-level look-through; share classes remain separate. "
                        "ETF holdings dates may differ; non-stock and missing exposures stay unresolved.")
             st.markdown(
