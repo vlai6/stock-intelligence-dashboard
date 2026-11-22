@@ -149,9 +149,10 @@ def simulate_returns(
     # Values represent holding initial shares constant and reinvesting
     # distributions (through auto_adjust). No periodic rebalancing.
     cash_weight = weights.get("Cash & Cash Inv", 0.0)
-    portfolio_growth = sum(
-        normalized[t] * w for t, w in weights.items() if t != "Cash & Cash Inv"
-    ) + cash_weight
+    portfolio_growth = pd.Series(cash_weight, index=actual.index, dtype=float)
+    for ticker, weight in weights.items():
+        if ticker != "Cash & Cash Inv":
+            portfolio_growth = portfolio_growth + normalized[ticker] * weight
     spy_growth = normalized["SPY"]
     out = pd.DataFrame({
         "Date": actual.index,
