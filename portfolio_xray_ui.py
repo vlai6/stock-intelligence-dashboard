@@ -1,7 +1,7 @@
 """Compact two-column ETF + direct-stock X-ray on Investment Philosophy."""
 from __future__ import annotations
 from html import escape
-from datetime import date, timedelta
+from datetime import date
 import re
 import pandas as pd
 import plotly.graph_objects as go
@@ -14,8 +14,8 @@ from portfolio_xray_saved import (
 )
 from portfolio_xray_csv import parse_portfolio_csv, export_portfolio_csv
 from portfolio_xray_history_ui import render_historical_returns
-from portfolio_xray_holdings_dates_ui import (
-    selected_holdings_dates, _holdings_date_changed,
+from portfolio_xray_dates import (
+    position_with_date, position_signature, historical_dates_for_positions,
 )
 from portfolio_xray_history_holdings import (
     historical_issuer_holdings, exposure_changes,
@@ -50,7 +50,12 @@ def _clean_positions(table: pd.DataFrame) -> list[dict]:
         except ValueError as exc:
             errors.append(f"Row {index + 1}: {exc}")
             continue
-        positions.append({"ticker": symbol, "amount": amount})
+        try:
+            entry = position_with_date(symbol, amount, raw.get("Date"))
+        except ValueError as exc:
+            errors.append(f"Row {index + 1}: {exc}")
+            continue
+        positions.append(entry)
     if errors:
         raise ValueError(" ".join(errors))
     if not positions:
@@ -93,16 +98,17 @@ def _analyze(positions, historical_dates: dict[str, date] | None = None):
             )
         classified.append({**position, "type": kind})
     etfs = {pos["ticker"] for pos in classified if pos["type"] == "ETF"}
+    # Each as-of date belongs to a position, not a global selector.
+    asof_dates = historical_dates_for_positions(positions, etfs)
+    if historical_dates:
+        asof_dates.update(historical_dates)  # historical API compatibility
     snapshots = {}
-    historical = historical_dates is not None
+    historical = bool(asof_dates)
     for ticker in sorted(etfs):
         try:
-            if historical:
-                requested = historical_dates.get(ticker)
-                if requested is None:
-                    raise ValueError(f"{ticker}: no historical date was selected.")
+            if ticker in asof_dates:
                 snapshots[ticker] = _cached_historical_issuer_holdings(
-                    ticker, requested
+                    ticker, asof_dates[ticker],
                 )
             else:
                 snapshots[ticker] = _cached_issuer_holdings(ticker)
@@ -112,7 +118,7 @@ def _analyze(positions, historical_dates: dict[str, date] | None = None):
     if historical:
         result_info["historical_dates"] = {
             symbol: requested.isoformat()
-            for symbol, requested in historical_dates.items()
+            for symbol, requested in asof_dates.items()
             if symbol in etfs
         }
         result_info["historical_unavailable"] = sorted(etfs - set(snapshots))
@@ -147,7 +153,8 @@ def _append_xray_row_when_started():
     last = count - 1
     ticker = str(st.session_state.get(f"portfolio_xray_ticker_{last}", "")).strip()
     amount = st.session_state.get(f"portfolio_xray_amount_{last}", 0.0)
-    if ticker or (amount is not None and float(amount) > 0):
+    row_date = st.session_state.get(f"portfolio_xray_date_{last}")
+    if ticker or row_date or (amount is not None and float(amount) > 0):
         st.session_state["portfolio_xray_row_count"] = count + 1
 
 
@@ -171,12 +178,16 @@ def _import_portfolio_csv():
     for index in range(30):
         row = positions[index] if index < len(positions) else None
         st.session_state[f"portfolio_xray_ticker_{index}"] = row["ticker"] if row else ""
+        st.session_state[f"portfolio_xray_date_{index}"] = (
+            date.fromisoformat(row["date"]) if row and row.get("date") else None
+        )
         st.session_state[f"portfolio_xray_amount_{index}"] = (
             float(row["amount"]) if row else 0.0
         )
     st.session_state["portfolio_xray_row_count"] = min(30, len(positions) + 1)
     st.session_state["portfolio_xray_unit_mode"] = unit
     st.session_state["portfolio_xray_results"] = None
+    st.session_state.pop("portfolio_xray_results_signature", None)
     st.session_state.pop("portfolio_xray_historical_result", None)
     st.session_state["portfolio_xray_auto_analyze"] = True
     st.session_state[SAVED_NS + "loaded_name"] = None
@@ -203,15 +214,14 @@ def _analyzed_portfolio_share_csv() -> tuple[bytes, str] | None:
         count = int(state.get("portfolio_xray_row_count", 0))
         table = pd.DataFrame([
             {
+                "Date": state.get(f"portfolio_xray_date_{i}"),
                 "Ticker": state.get(f"portfolio_xray_ticker_{i}", ""),
                 "Amount ($)": state.get(f"portfolio_xray_amount_{i}", 0.0),
             }
             for i in range(count)
         ])
         positions = _clean_positions(table)
-        current_signature = (
-            unit, tuple((p["ticker"], float(p["amount"])) for p in positions)
-        )
+        current_signature = (unit, position_signature(positions))
         if current_signature != signature:
             return None
         data = export_portfolio_csv(positions, unit)
