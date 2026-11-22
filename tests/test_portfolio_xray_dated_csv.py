@@ -96,6 +96,20 @@ with patch("portfolio_xray_ui.st.session_state", state), patch(
     assert _analyzed_portfolio_share_csv() is None
     state["portfolio_xray_date_0"] = date(2025, 1, 2)
 
+# Mixed dated and undated rows must preserve blank dates in the actual
+# pandas-backed X-Ray editor (including NaT where pandas infers it).
+import pandas as pd
+from portfolio_xray_ui import _clean_positions
+mixed_editor = pd.DataFrame([
+    {"Date": pd.Timestamp("2025-01-02"), "Ticker": "VOO", "Amount ($)": 50},
+    {"Date": pd.NaT, "Ticker": "SPY", "Amount ($)": 50},
+    {"Date": pd.NaT, "Ticker": "", "Amount ($)": 0},
+])
+assert _clean_positions(mixed_editor) == [
+    {"ticker": "VOO", "amount": 50.0, "date": "2025-01-02"},
+    {"ticker": "SPY", "amount": 50.0},
+]
+
 # Save and load historical ETF dates with the same session callbacks.
 state[NS + "portfolios"] = {}
 state[NS + "units"] = {}
