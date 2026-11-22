@@ -389,8 +389,26 @@ def render_portfolio_xray():
                                               size=13, color="#B8D3E7",
                                           ))],
                     )
-                    st.plotly_chart(style_blue_figure(fig), use_container_width=True,
-                                    config={"displayModeBar": False})
+                    # Plotly exports the chart client-side, including outside
+                    # ticker labels. No additional Python image dependency needed.
+                    st.plotly_chart(
+                        style_blue_figure(fig),
+                        use_container_width=True,
+                        config={
+                            "displayModeBar": True,
+                            "displaylogo": False,
+                            # Keep one compact camera/export icon instead of
+                            # Plotly's unrelated zoom/pan controls.
+                            "modeBarButtons": [["toImage"]],
+                            "toImageButtonOptions": {
+                                "format": "png",
+                                "filename": "portfolio_xray_pie_chart",
+                                "width": 1200,
+                                "height": 650,
+                                "scale": 2,
+                            },
+                        },
+                    )
                 with legend_col:
                     rows_html = [
                         '<div class="si-xray-legend-row">'
