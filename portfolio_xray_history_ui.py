@@ -280,10 +280,18 @@ def render_historical_returns(
             st.session_state.pop(HISTORY_RESULT_KEY, None)
             try:
                 symbols = {"SPY"}
-                for positions in portfolios.values():
-                    symbols.update(
-                        portfolio_weights(positions).keys()
-                    )
+                for name, positions in portfolios.items():
+                    weights = portfolio_weights(positions)
+                    unsupported = unsupported_assets(weights)
+                    if unsupported:
+                        missing_pct = sum(unsupported.values()) * 100
+                        raise HistoricalCoverageError(
+                            f"{name}: direct Treasury/CUSIP holdings "
+                            f"({', '.join(sorted(unsupported))}) represent "
+                            f"{missing_pct:.2f}% of this portfolio. Reliable "
+                            "historical bond values and coupons are unavailable."
+                        )
+                    symbols.update(weights.keys())
                 symbols.discard("Cash & Cash Inv")
                 with st.spinner("Loading historical prices for selected portfolios…"):
                     prices = _history_prices(
