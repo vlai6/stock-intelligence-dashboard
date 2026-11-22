@@ -31,7 +31,9 @@ from dashboard_theme import apply_dashboard_theme, render_page_header
 from etf_holdings import ETFHoldings, fetch_etf_holdings
 from etf_scan_results import load_etf_scores, etf_score_map
 from custom_watchlists import (
-    DRAFT_KEY, render_custom_list, render_working_list, save_displayed_watchlist,
+    DRAFT_KEY, render_custom_list, render_working_list,
+    named_groups, active_named_group, activate_named_group,
+    save_named_group, remove_named_group,
 )
 from scanner_email_watchlist import (
     AlertSnapshot,
@@ -639,19 +641,19 @@ def make_card(symbol: str, quote: dict, items: list[dict], scan: dict | None, fi
 
 
 
-# --- Read-only scanner + ETF presets, and browser-persisted custom lists ------
-# Old Main/POST storage is left untouched and intentionally not loaded here.
+# --- Built-in news sources plus persistent named stock groups ------------------
+# The existing browser storage key is unchanged. Read-only scan/ETF sources
+# remain available and can be saved as editable groups.
 TODAYS_SCAN_LABEL = "Today's Regression Scan's Stocks"
 SP500_LABEL = "S&P 500 Top 10 Holdings"
 CUSTOM_ETF_LABEL = "Other ETF — Top 10 Holdings"
 CUSTOM_STOCK_LABEL = "Saved Groups"
 WORKING_STOCK_LABEL = "Working List (Unsaved)"
-SCREEN_OPTIONS = [
-    TODAYS_SCAN_LABEL, SP500_LABEL, CUSTOM_ETF_LABEL,
-    WORKING_STOCK_LABEL, CUSTOM_STOCK_LABEL,
+BUILTIN_GROUP_OPTIONS = [
+    TODAYS_SCAN_LABEL, SP500_LABEL, CUSTOM_ETF_LABEL, WORKING_STOCK_LABEL,
 ]
+SAVED_GROUP_PREFIX = "Saved · "
 
-# User-provided SPY starter tickers, used only if Yahoo's holdings feed fails.
 ETF_STARTERS = {
     "SPY": ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "AVGO", "GOOG", "META", "TSLA", "BRK-B"],
 }
@@ -663,55 +665,122 @@ def cached_etf_holdings(ticker: str) -> ETFHoldings:
     return fetch_etf_holdings(ticker, limit=10)
 
 
-# Keep the selected source when navigating to other Streamlit pages.
-# Migrate old session labels without losing saved groups.
-if st.session_state.get('ns_group_select') == 'Custom List':
-    st.session_state['ns_group_select'] = CUSTOM_STOCK_LABEL
-if st.session_state.get('ns_group_select') not in SCREEN_OPTIONS:
-    st.session_state['ns_group_select'] = TODAYS_SCAN_LABEL
+def _group_option(name: str) -> str:
+    return SAVED_GROUP_PREFIX + name
 
-render_page_header('News Screener',
-                   'AI news agent · scan signals, ETF holdings, or saved groups',
-                   current='general')
 
-# Save submissions persist across the browser-storage initialization rerun.
-pending_save = st.session_state.get('ns_pending_list_save')
-if pending_save is not None:
-    success, message = save_displayed_watchlist(
-        pending_save['name'], pending_save['stocks']
-    )
-    st.session_state.pop('ns_pending_list_save', None)
-    st.session_state['ns_save_feedback'] = ('success' if success else 'error', message)
+def _saved_group_name(option: str) -> str | None:
+    if isinstance(option, str) and option.startswith(SAVED_GROUP_PREFIX):
+        return option[len(SAVED_GROUP_PREFIX):]
+    return None
+
+
+render_page_header(
+    'News Screener',
+    'AI news agent · scan signals, ETF holdings, or saved groups',
+    current='general',
+)
+
+# Read existing saved groups before creating the dropdown. The localStorage
+# bridge uses the same mechanism already used by Portfolio X-Ray.
+group_names = named_groups()
+group_options = BUILTIN_GROUP_OPTIONS + [_group_option(name) for name in group_names]
+last_selected = st.session_state.get('ns_group_select')
+if last_selected in ('Custom List', CUSTOM_STOCK_LABEL):
+    last_selected = _group_option(active_named_group())
+if last_selected not in group_options:
+    last_selected = TODAYS_SCAN_LABEL
+st.session_state['ns_group_select'] = last_selected
+
+if st.session_state.get('ns_group_loaded') not in group_options:
+    st.session_state['ns_group_loaded'] = last_selected
+
+
+def _load_selected_news_group():
+    """A pre-render callback loads the chosen source and updates the news."""
+    option = st.session_state.get('ns_group_select')
+    if option not in group_options:
+        return
+    name = _saved_group_name(option)
+    if name is not None and not activate_named_group(name):
+        st.session_state['ns_group_feedback'] = ('error', 'That saved group no longer exists.')
+        return
+    st.session_state['ns_group_loaded'] = option
+
+
+def _save_displayed_news_group():
+    """Save the currently displayed ticker list, including presets, by name."""
+    name = str(st.session_state.get('ns_new_group_name', '') or '').strip()
+    # The list is updated on every normal News Screener render.
+    displayed = list(st.session_state.get('ns_watchlist', []))
+    success, message = save_named_group(name, displayed)
+    st.session_state['ns_group_feedback'] = ('success' if success else 'error', message)
     if success:
-        st.session_state['ns_group_select'] = CUSTOM_STOCK_LABEL
-    st.rerun()
+        option = _group_option(name)
+        # Callbacks run before these widgets are rendered, avoiding the
+        # StreamlitWidgetAlreadyInstantiatedError seen in Portfolio X-Ray.
+        st.session_state['ns_group_select'] = option
+        st.session_state['ns_group_loaded'] = option
 
 
-def choose_saved_lists():
-    st.session_state['ns_group_select'] = CUSTOM_STOCK_LABEL
+def _delete_selected_news_group():
+    """Delete only named saved groups; built-in options are protected."""
+    option = st.session_state.get('ns_group_select')
+    name = _saved_group_name(option)
+    if name is None:
+        return
+    success, message = remove_named_group(name)
+    st.session_state['ns_group_feedback'] = ('success' if success else 'error', message)
+    if success:
+        if st.session_state.get('ns_group_loaded') == option:
+            st.session_state['ns_group_loaded'] = TODAYS_SCAN_LABEL
+        st.session_state['ns_group_select'] = st.session_state['ns_group_loaded']
 
 
-def start_blank_working_list():
-    st.session_state[DRAFT_KEY] = []
-    st.session_state['ns_group_select'] = WORKING_STOCK_LABEL
-
-
-selector_col, clear_col, saved_col, unused_space = st.columns(
-    [2.5, 1.65, 1.45, 4.4], gap='small', vertical_alignment='bottom'
+# One compact toolbar like Portfolio X-Ray; a different choice must be loaded.
+selector_col, load_col, save_col, delete_col, spacer_col = st.columns(
+    [3.6, 0.9, 1.8, 1.0, 2.7], gap='small', vertical_alignment='bottom'
 )
 with selector_col:
-    mode = st.selectbox('Stock group', SCREEN_OPTIONS, key='ns_group_select')
-with clear_col:
-    st.button('Clear & add stocks', key='ns_start_blank_list',
-              use_container_width=True, on_click=start_blank_working_list,
-              help='Start an empty working list. Your saved lists and regression scan are not deleted.')
-with saved_col:
-    st.button('Saved groups', key='ns_go_to_saved_lists',
-              use_container_width=True, on_click=choose_saved_lists,
-              help='View, create, load and delete saved stock groups.')
-feedback = st.session_state.pop('ns_save_feedback', None)
+    st.selectbox('Stock group', group_options, key='ns_group_select')
+selected_group_option = st.session_state['ns_group_select']
+with load_col:
+    already_loaded = selected_group_option == st.session_state['ns_group_loaded']
+    st.button(
+        'Load', key='ns_load_group', type='primary',
+        disabled=already_loaded, use_container_width=True,
+        on_click=_load_selected_news_group,
+        help='Already loaded' if already_loaded else 'Load stocks and show this group’s news',
+    )
+with save_col:
+    with st.popover('Save Group', use_container_width=True):
+        st.text_input(
+            'Group name', placeholder='e.g. Research stocks',
+            key='ns_new_group_name',
+        )
+        st.caption('Saves displayed tickers. An existing name will be updated.')
+        st.button(
+            'Save', key='ns_save_group_button',
+            use_container_width=True, on_click=_save_displayed_news_group,
+        )
+with delete_col:
+    with st.popover(
+        'Delete', disabled=_saved_group_name(selected_group_option) is None,
+        use_container_width=True,
+    ):
+        st.caption(f"Delete '{_saved_group_name(selected_group_option)}' and its saved tickers?")
+        st.button(
+            'Confirm delete', key='ns_delete_group_button',
+            use_container_width=True, on_click=_delete_selected_news_group,
+        )
+
+feedback = st.session_state.pop('ns_group_feedback', None)
 if feedback:
     getattr(st, feedback[0])(feedback[1])
+
+loaded_news_option = st.session_state['ns_group_loaded']
+mode = CUSTOM_STOCK_LABEL if _saved_group_name(loaded_news_option) is not None else loaded_news_option
+
 selected_etf = ''
 if mode == CUSTOM_ETF_LABEL:
     if 'ns_selected_etf' not in st.session_state:
@@ -763,40 +832,6 @@ else:
         watchlist = []
         st.warning(etf_data.error or f'No holdings were found for {selected_etf}. '
                    'The data provider does not cover every ETF.')
-
-# Save whichever tickers are currently displayed, regardless of their
-# source. Presets remain unchanged; saved copies are browser-local.
-if watchlist:
-    save_col, edit_col, unused = st.columns(
-        [1.8, 1.4, 6.8], gap="small", vertical_alignment="bottom"
-    )
-    def queue_displayed_group_save():
-        # Run before new widgets are instantiated. The pending snapshot
-        # survives browser-local storage initialization on the next rerun.
-        st.session_state['ns_pending_list_save'] = {
-            'name': st.session_state.get('ns_save_displayed_name', ''),
-            'stocks': watchlist.copy(),
-        }
-
-    with save_col:
-        with st.popover("Save displayed as group", use_container_width=True):
-            st.caption("Save the currently displayed tickers as a new group.")
-            st.text_input(
-                "Group name", placeholder="e.g. Research stocks",
-                key="ns_save_displayed_name",
-            )
-            st.button(
-                "Save group", key="ns_save_displayed_button",
-                on_click=queue_displayed_group_save,
-                use_container_width=True,
-            )
-    with edit_col:
-        if st.button("Edit displayed", key="ns_edit_displayed_stocks",
-                     use_container_width=True,
-                     help="Copy the stocks on screen into an editable working list."):
-            st.session_state[DRAFT_KEY] = watchlist.copy()
-            st.session_state['ns_group_select'] = WORKING_STOCK_LABEL
-            st.rerun()
 
 # The initial user-provided weights were deliberately not hardcoded: they can
 # become stale or differ between the index and ETF tracking it.
