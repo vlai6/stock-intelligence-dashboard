@@ -18,7 +18,7 @@ BLUE_SERIES = ('#41A5FF', '#668BFF', '#36C1E8', '#268AD1', '#98BFFE', '#74C8F7')
 
 
 PAGES = (
-    ('philosophy', 'Investment Philosophy', 'pages/00_Investment_Philosophy.py', '📚'),
+    ('philosophy', 'Portfolio Analysis', 'pages/00_Investment_Philosophy.py', '📚'),
     ('general', 'News Screener', 'pages/1_News_Screen.py', '📰'),
     ('scanner', 'Regression Scanner', 'regression_scanner/app.py', '📉'),
     ('stock', 'Metrics & Competition', 'pages/0_Stock_Intelligence.py', '📊'),
