@@ -6,7 +6,8 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from custom_watchlists import (
-    NS, _clean_lists, _create_group, _delete_group, _load_group, valid_symbol,
+    NS, _clean_lists, _create_group, _delete_group, _load_group,
+    parse_working_tickers, valid_symbol,
 )
 
 # Existing browser-saved groups remain compatible with the new UI.
@@ -18,6 +19,7 @@ assert _clean_lists({
     "AI theme": ["NVDA", "TSM"],
 }
 assert valid_symbol("nvda") == "NVDA"
+assert parse_working_tickers("NVDA MU,TSM") == (["NVDA", "MU", "TSM"], [])
 
 state = {
     NS + "lists": {"My Stocks": ["NVDA", "MU"], "Other": ["AAPL"]},
