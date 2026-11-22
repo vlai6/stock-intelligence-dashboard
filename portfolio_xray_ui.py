@@ -108,6 +108,7 @@ def _append_xray_row_when_started():
 def _portfolio_input_changed():
     """Mark edited inputs as unsaved, retaining existing auto-row behavior."""
     st.session_state[SAVED_NS + "loaded_name"] = None
+    st.session_state.pop("portfolio_xray_historical_result", None)
     _append_xray_row_when_started()
 
 
@@ -130,6 +131,7 @@ def _import_portfolio_csv():
     st.session_state["portfolio_xray_row_count"] = min(30, len(positions) + 1)
     st.session_state["portfolio_xray_unit_mode"] = unit
     st.session_state["portfolio_xray_results"] = None
+    st.session_state.pop("portfolio_xray_historical_result", None)
     st.session_state["portfolio_xray_auto_analyze"] = True
     st.session_state[SAVED_NS + "loaded_name"] = None
     st.session_state["portfolio_xray_csv_feedback"] = (
