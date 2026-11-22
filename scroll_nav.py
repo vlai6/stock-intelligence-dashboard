@@ -39,7 +39,7 @@ CSS = """
   scrollbar-width: thin;
 }
 .si-scroll-nav::before {
-  content: "Stock Intelligence Toolkit";
+  content: "STOCK INTELLIGENCE TOOLKIT";
   flex-shrink: 0;
   color: #e6f0fa;
   font-size: .83rem;
