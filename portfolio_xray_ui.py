@@ -331,11 +331,6 @@ def render_portfolio_xray():
                 disabled=share_file is None,
                 use_container_width=True,
                 key="portfolio_xray_export_csv",
-                help=(
-                    "Export the positions used in the displayed X-Ray. "
-                    "Upload into another Portfolio X-Ray to recreate the allocation. "
-                    "Re-analyze any edits before exporting."
-                ),
             )
     with right:
         result = st.session_state.get("portfolio_xray_results")
