@@ -445,6 +445,13 @@ def render_portfolio_xray():
                 with chart_col:
                     fig = go.Figure(go.Pie(
                         labels=labels, values=amounts, hole=.58, sort=False,
+                        # Shrink only the donut inside its existing plot.
+                        # The lower vertical domain leaves a separate band for
+                        # the saved portfolio title and outside ticker labels.
+                        domain=dict(
+                            x=[0.12, 0.88] if chart_portfolio_name else [0.08, 0.92],
+                            y=[0.08, 0.72] if chart_portfolio_name else [0.07, 0.91],
+                        ),
                         # Distinct IDs preserve separate exposure slices even
                         # when a direct stock and an unresolved fund share a label.
                         ids=[f"xray-holding-{i}" for i in range(len(labels))],
@@ -472,8 +479,11 @@ def render_portfolio_xray():
                             b=16,
                         ),
                         showlegend=False,
-                        annotations=[dict(text="Portfolio", x=.5, y=.5,
-                                          showarrow=False, font=dict(
+                        annotations=[dict(
+                            text="Portfolio", x=.5,
+                            # The center label must follow the shrunken donut.
+                            y=.40 if chart_portfolio_name else .49,
+                            showarrow=False, font=dict(
                                               family="Inter, Segoe UI, Arial, sans-serif",
                                               size=13, color="#B8D3E7",
                                           ))],
