@@ -40,6 +40,8 @@ def _historical_holdings_payload(ticker: str, as_of: date) -> dict:
                 body = response.json()
             except ValueError:
                 body = {}
+            if not isinstance(body, dict):
+                body = {}
             reason = str(body.get("reason") or "not_available")[:70]
             if reason == "before_first_report":
                 first = str(body.get("first_report") or "unknown date")
