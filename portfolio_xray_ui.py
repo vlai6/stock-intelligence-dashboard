@@ -146,9 +146,12 @@ def render_portfolio_xray():
     with left:
         render_saved_portfolio_controls()
         with st.container(key="portfolio_xray_left"):
-            # Exactly one initial row; entering a ticker OR dollar amount
-            # adds the next blank row, without an Add Row button.
-            count = st.session_state.setdefault("portfolio_xray_row_count", 1)
+            # Fresh portfolios start with SPY filled in and a blank second row.
+            # Never overwrite previously entered values or a loaded saved portfolio.
+            if "portfolio_xray_row_count" not in st.session_state:
+                st.session_state.setdefault("portfolio_xray_ticker_0", "SPY")
+                st.session_state["portfolio_xray_row_count"] = 2
+            count = st.session_state["portfolio_xray_row_count"]
             header_ticker, header_amount = st.columns([1, 1], gap="small")
             with header_ticker:
                 st.caption("Ticker")
