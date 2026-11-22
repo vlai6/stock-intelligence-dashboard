@@ -659,7 +659,11 @@ def render_portfolio_xray():
                         ),
                         showlegend=False,
                         annotations=[dict(
-                            text="Portfolio", x=.5,
+                            text=(
+                                "Historical ETF<br>holdings"
+                                if info.get("historical_dates") is not None
+                                else "Portfolio"
+                            ), x=.5,
                             y=sum(pie_domain["y"]) / 2,
                             xref="paper", yref="paper",
                             showarrow=False, font=dict(
