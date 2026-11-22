@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from dashboard_theme import style_blue_figure
-from portfolio_xray_holdings_dates_ui import render_holdings_dates
+from portfolio_xray_dates import position_signature
 from portfolio_xray_saved import (
     NS as SAVED_NS, _load_selected, loaded_portfolio_chart_name,
 )
@@ -41,7 +41,7 @@ def _comparison_snapshot(names: list[str]) -> tuple:
         (
             name,
             units.get(name, "usd") if isinstance(units, dict) else "usd",
-            tuple((p["ticker"], float(p["amount"])) for p in saved[name]),
+            position_signature(saved[name]),
         )
         for name in names
     )
@@ -191,7 +191,6 @@ def _render_multiple_history(data: dict) -> None:
 def render_historical_returns(
     analyzed_signature: tuple | None,
     analyzed_inputs_valid: bool,
-    etfs: list[str] | None = None,
 ) -> None:
     """Compare a single loaded X-Ray or 2–5 saved portfolios, on demand."""
     st.divider()
@@ -203,13 +202,8 @@ def render_historical_returns(
     )
     names = _sync_history_portfolio_selection()
 
-    # Holdings dates affect ETF composition in the main X-Ray, not the
-    # return simulation. Keep them beneath this section header, alongside
-    # the compact Single/Compare mode selector.
-    holdings_col, mode_col, _spacer = st.columns([2.1, 2.8, 2.1], gap="small")
-    with holdings_col:
-        render_holdings_dates(etfs or [])
-    # Extra portfolio selectors appear only in comparison mode.
+    # Additional portfolio selectors appear only in comparison mode.
+    mode_col, _spacer = st.columns([2.3, 4.7], gap="small")
     with mode_col:
         mode = st.selectbox(
             "Analysis mode",
@@ -274,7 +268,7 @@ def render_historical_returns(
         try:
             snapshot = _comparison_snapshot(selected)
             portfolios = {
-                name: [{"ticker": t, "amount": amount} for t, amount in holdings]
+                name: [{"ticker": h[0], "amount": float(h[1])} for h in holdings]
                 for name, _unit, holdings in snapshot
             }
             signature = ("compare", snapshot, start)
@@ -320,8 +314,7 @@ def render_historical_returns(
         try:
             _unit, holdings = analyzed_signature
             positions = [
-                {"ticker": ticker, "amount": float(amount)}
-                for ticker, amount in holdings
+                {"ticker": h[0], "amount": float(h[1])} for h in holdings
             ]
             weights = portfolio_weights(positions)
         except (TypeError, ValueError):
