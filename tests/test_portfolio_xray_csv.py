@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from portfolio_xray_csv import parse_portfolio_csv
+from portfolio_xray_csv import parse_portfolio_csv, export_portfolio_csv
 from portfolio_xray import portfolio_rows, security_type, ticker_of
 
 # Representative Excel-export content from the requested format; values are
@@ -118,4 +118,71 @@ with patch("portfolio_xray_ui.st.session_state", state):
 assert state["portfolio_xray_csv_feedback"][0] == "error"
 assert state["portfolio_xray_ticker_0"] == "AVGO"  # Bad import never wipes editor.
 
-print("PASS: portfolio CSV percent/dollar, CUSIP/cash, import callback and invalid inputs")
+# A downloaded CSV must round-trip unchanged through the public importer.
+# This is the actual user's two-column percentage format, including cash
+# and directly owned Treasury CUSIPs.
+exported_pct = export_portfolio_csv(positions, "pct")
+imported_pct, imported_unit, _ = parse_portfolio_csv(exported_pct)
+assert imported_unit == "pct"
+assert imported_pct == positions
+assert "91282CMB4,50.63%" in exported_pct.decode("utf-8-sig")
+assert "Cash & Cash Inv,5.71%" in exported_pct.decode("utf-8-sig")
+
+exported_usd = export_portfolio_csv(dollar, "usd")
+imported_usd, imported_unit, notes = parse_portfolio_csv(exported_usd)
+assert imported_unit == "usd" and not notes
+assert imported_usd == dollar
+assert b"SPY,1200.5" in exported_usd
+
+# Export refuses units and allocations the importer would not accept.
+for sample_positions, units in [
+    (positions, "unknown"),
+    ([{"ticker": "SPY", "amount": -5.0}], "usd"),
+    ([{"ticker": "NVDA", "amount": 55.0},
+      {"ticker": "SPY", "amount": 55.0}], "pct"),
+]:
+    try:
+        export_portfolio_csv(sample_positions, units)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Invalid export must be refused")
+
+# The UI shares only analyzed inputs that still match the editor's inputs.
+from portfolio_xray_ui import _analyzed_portfolio_share_csv
+
+share_state = {
+    "portfolio_xray_results": ([], {"total": 100.01}),
+    "portfolio_xray_unit_mode": "pct",
+    "portfolio_xray_row_count": len(positions) + 1,
+    "portfolio_xray_results_signature": (
+        "pct", tuple((p["ticker"], float(p["amount"])) for p in positions)
+    ),
+    "portfolio_xray_saved_loaded_name": None,
+}
+for index, position in enumerate(positions):
+    share_state[f"portfolio_xray_ticker_{index}"] = position["ticker"]
+    share_state[f"portfolio_xray_amount_{index}"] = position["amount"]
+share_state[f"portfolio_xray_ticker_{len(positions)}"] = ""
+share_state[f"portfolio_xray_amount_{len(positions)}"] = 0.0
+
+with patch("portfolio_xray_ui.st.session_state", share_state):
+    shared = _analyzed_portfolio_share_csv()
+assert shared is not None
+assert shared[1] == "portfolio_xray_portfolio.csv"
+assert parse_portfolio_csv(shared[0])[0] == positions
+
+with patch("portfolio_xray_ui.st.session_state", share_state):
+    share_state["portfolio_xray_amount_0"] = 15.0  # Edited but not analyzed
+    assert _analyzed_portfolio_share_csv() is None
+    share_state["portfolio_xray_amount_0"] = positions[0]["amount"]
+    share_state["portfolio_xray_results_signature"] = ("usd", ())
+    assert _analyzed_portfolio_share_csv() is None
+    share_state["portfolio_xray_results_signature"] = (
+        "pct", tuple((p["ticker"], float(p["amount"])) for p in positions)
+    )
+    share_state["portfolio_xray_results"] = None
+    assert _analyzed_portfolio_share_csv() is None
+
+print("PASS: Portfolio X-Ray share CSV percent/dollar round trip and analyzed-only export")
+
