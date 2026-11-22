@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from portfolio_xray import (
     Holdings, _tickerinside_json, issuer_holdings, tickerinside_identifiers,
-    portfolio_rows, pie_data, pie_legend_labels, ticker_of, security_type,
+    portfolio_rows, pie_data, pie_legend_labels, display_ticker, ticker_of, security_type,
 )
 
 IDENTIFIERS = {
@@ -200,6 +200,10 @@ collision_rows = [
 collision_names, collision_amounts = pie_data(collision_rows)
 assert collision_names == ["NVDA", "NVDA"]
 assert collision_amounts == [8.0, 3.0]
+assert display_ticker("Unresolved TLT") == "TLT"
+assert display_ticker("Unreported SPMO") == "SPMO"
+assert display_ticker("Unverified X123") == "X123"
+assert display_ticker("NVDA") == "NVDA"
 
 assert pie_legend_labels(["No data"], [0]) == ["No data"]
 try:
