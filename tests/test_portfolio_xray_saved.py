@@ -103,4 +103,65 @@ with patch("portfolio_xray_saved.st.session_state", state):
     _load_selected()
 assert state["portfolio_xray_unit_mode"] == "usd"
 
-print("PASS: saved portfolio validation, auto load and percent/dollar unit persistence")
+# The export filename is always a basename, even for punctuation/unicode.
+from portfolio_xray_saved import loaded_portfolio_chart_name, portfolio_png_filename
+assert portfolio_png_filename(None) == "portfolio_xray_pie_chart"
+assert portfolio_png_filename("Core ETFs") == "portfolio_xray_Core_ETFs"
+assert portfolio_png_filename("My/Investments: 2026") == "portfolio_xray_My_Investments_2026"
+assert "/" not in portfolio_png_filename("../../Portfolio")
+assert "\\\\" not in portfolio_png_filename("A\\\\B")
+
+# An existing name in the selector is not enough: it must be explicitly loaded
+# and the analyzed inputs must still equal the saved portfolio snapshot.
+state = {
+    NS + "loaded_name": "Core ETFs",
+    NS + "selected": "Other",
+    NS + "portfolios": {
+        "Core ETFs": [
+            {"ticker": "SPY", "amount": 100.0},
+            {"ticker": "NVDA", "amount": 50.0},
+        ],
+        "Other": [{"ticker": "AAPL", "amount": 25.0}],
+    },
+    NS + "units": {"Core ETFs": "usd", "Other": "pct"},
+    "portfolio_xray_row_count": 3,
+    "portfolio_xray_ticker_0": "SPY",
+    "portfolio_xray_amount_0": 100.0,
+    "portfolio_xray_ticker_1": "NVDA",
+    "portfolio_xray_amount_1": 50.0,
+    "portfolio_xray_ticker_2": "",
+    "portfolio_xray_amount_2": 0.0,
+    "portfolio_xray_unit_mode": "usd",
+    "portfolio_xray_results": ([], {"total": 150.0}),
+    "portfolio_xray_results_signature": (
+        "usd", (("SPY", 100.0), ("NVDA", 50.0))
+    ),
+}
+with patch("portfolio_xray_saved.st.session_state", state):
+    assert loaded_portfolio_chart_name() == "Core ETFs"
+    # A different selected name is not a loaded portfolio.
+    state[NS + "loaded_name"] = None
+    assert loaded_portfolio_chart_name() is None
+    state[NS + "loaded_name"] = "Core ETFs"
+    # Changing a holding without re-analysis removes the label.
+    state["portfolio_xray_amount_1"] = 55.0
+    assert loaded_portfolio_chart_name() is None
+    state["portfolio_xray_amount_1"] = 50.0
+    # A result from before another portfolio was loaded is not valid.
+    state["portfolio_xray_results_signature"] = ("usd", (("AAPL", 25.0),))
+    assert loaded_portfolio_chart_name() is None
+    state["portfolio_xray_results_signature"] = (
+        "usd", (("SPY", 100.0), ("NVDA", 50.0))
+    )
+    # The same weights in different units cannot inherit the saved name.
+    state["portfolio_xray_unit_mode"] = "pct"
+    assert loaded_portfolio_chart_name() is None
+    state["portfolio_xray_unit_mode"] = "usd"
+    # Deleted portfolios and charts with no analysis cannot be labeled.
+    state["portfolio_xray_results"] = None
+    assert loaded_portfolio_chart_name() is None
+    state["portfolio_xray_results"] = ([], {"total": 150.0})
+    state[NS + "portfolios"].pop("Core ETFs")
+    assert loaded_portfolio_chart_name() is None
+
+print("PASS: saved portfolios, chart title identity, PNG filenames, and unit persistence")
