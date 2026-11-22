@@ -18,7 +18,7 @@ from portfolio_xray_ui import render_portfolio_xray
 
 apply_dashboard_theme()
 render_page_header(
-    "Investment Philosophy",
+    "Portfolio Analysis",
     "Evidence-based long-term investing with selective individual-stock opportunities.",
     current="philosophy",
 )
