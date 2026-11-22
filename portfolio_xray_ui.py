@@ -408,9 +408,16 @@ def render_portfolio_xray():
                 ]
                 pie_colors = []
                 major_index = 0
+                # pie_data keeps resolved holdings first, then unresolved rows.
+                # Keep each unresolved ETF grey even though its label is now
+                # the actual ticker rather than a generic missing-data bucket.
+                resolved_count = sum(not row["Unresolved"] for row in rows)
+                missing_palette = ["#88939F", "#687987", "#A3AEB9"]
                 for index, (label, pct) in enumerate(zip(labels, percentages)):
-                    if label in {"Unresolved ETF exposure", "Unclassified positions"}:
-                        pie_colors.append("#8A929C")
+                    if index >= resolved_count:
+                        pie_colors.append(
+                            missing_palette[(index - resolved_count) % len(missing_palette)]
+                        )
                     elif pct >= 1.0:
                         pie_colors.append(major_palette[major_index % len(major_palette)])
                         major_index += 1
@@ -438,6 +445,9 @@ def render_portfolio_xray():
                 with chart_col:
                     fig = go.Figure(go.Pie(
                         labels=labels, values=amounts, hole=.58, sort=False,
+                        # Distinct IDs preserve separate exposure slices even
+                        # when a direct stock and an unresolved fund share a label.
+                        ids=[f"xray-holding-{i}" for i in range(len(labels))],
                         # Outside labels have automatic leader lines. No label
                         # for holdings under 1%, but every slice remains.
                         text=slice_text, textinfo="text",
