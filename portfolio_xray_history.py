@@ -188,3 +188,78 @@ def simulate_returns(
         ),
         "cash_pct": cash_weight * 100,
     }
+
+
+def simulate_multiple_returns(
+    portfolios: dict[str, list[dict]],
+    start: date,
+    through: date,
+    prices: pd.DataFrame,
+) -> dict:
+    """Compare 2–5 allocations on exactly the SAME observed trading sessions.
+
+    No portfolio is excluded, renormalized over missing securities, or moved
+    to an easier start date. Each remains a separate buy-and-hold simulation.
+    """
+    if not 2 <= len(portfolios) <= 5:
+        raise ValueError("Choose between 2 and 5 saved portfolios to compare.")
+    all_symbols = {"SPY"}
+    for name, positions in portfolios.items():
+        weights = portfolio_weights(positions)
+        unsupported = unsupported_assets(weights)
+        if unsupported:
+            exposure = sum(unsupported.values()) * 100
+            raise HistoricalCoverageError(
+                f"{name}: Direct Treasury/CUSIP holdings "
+                f"({', '.join(sorted(unsupported))}) account for "
+                f"{exposure:.2f}% of this portfolio. The full comparison "
+                "requires historical valuations and coupon cash flows."
+            )
+        all_symbols.update(t for t in weights if t != "Cash & Cash Inv")
+    required = sorted(all_symbols)
+    if prices is None or prices.empty:
+        raise HistoricalCoverageError("No adjusted historical prices were returned.")
+    missing = [
+        ticker for ticker in required
+        if ticker not in prices.columns or prices[ticker].dropna().empty
+    ]
+    if missing:
+        raise HistoricalCoverageError(
+            "Missing adjusted price history for: " + ", ".join(missing)
+            + ". No portfolios were excluded from the comparison."
+        )
+    common = prices.loc[
+        (prices.index >= pd.Timestamp(start))
+        & (prices.index <= pd.Timestamp(through)), required
+    ].dropna(how="any")
+    if len(common) < 2:
+        raise HistoricalCoverageError(
+            "Not enough common trading dates across all portfolios and SPY. "
+            "Choose a later starting date."
+        )
+
+    outcomes = {
+        name: simulate_returns(positions, start, through, common)
+        for name, positions in portfolios.items()
+    }
+    first = next(iter(outcomes.values()))
+    # simulate_returns verifies coverage and actual data recency for everyone.
+    # All have the exact same dates because common was intersected first.
+    chart = pd.DataFrame({"Date": common.index, "SPY": first["chart"]["SPY"].values})
+    rows = []
+    for name, result in outcomes.items():
+        chart[name] = result["chart"]["Portfolio"].values
+        rows.append({
+            "Portfolio": name,
+            "Portfolio return %": result["portfolio_pct"],
+            "SPY return %": result["spy_pct"],
+            "Excess return (pp)": result["excess_pp"],
+        })
+    return {
+        "start": first["start"],
+        "end": first["end"],
+        "spy_pct": first["spy_pct"],
+        "chart": chart,
+        "summary": pd.DataFrame(rows),
+        "outcomes": outcomes,
+    }
