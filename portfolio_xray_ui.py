@@ -6,7 +6,7 @@ import streamlit as st
 
 from dashboard_theme import style_blue_figure
 from portfolio_xray import (
-    ticker_of, issuer_holdings, portfolio_rows, pie_data,
+    ticker_of, issuer_holdings, portfolio_rows, pie_data, pie_legend_labels,
     security_type,
 )
 
@@ -66,6 +66,22 @@ def _analyze(positions):
     return portfolio_rows(classified, snapshots, errors)
 
 
+def _append_xray_row_when_complete():
+    """Append one new blank row only after the final row is fully populated.
+
+    Streamlit form inputs do not rerun on edit; ordinary controls with
+    on_change callbacks allow a fresh row to appear immediately instead.
+    """
+    count = st.session_state.get("portfolio_xray_row_count", 1)
+    if count >= 30:
+        return
+    last = count - 1
+    ticker = str(st.session_state.get(f"portfolio_xray_ticker_{last}", "")).strip()
+    amount = st.session_state.get(f"portfolio_xray_amount_{last}", 0.0)
+    if ticker and amount is not None and float(amount) > 0:
+        st.session_state["portfolio_xray_row_count"] = count + 1
+
+
 def render_portfolio_xray():
     st.markdown("#### PORTFOLIO X-RAY")
     st.caption("Look through ETFs and directly held stocks to see combined stock exposure.")
@@ -86,30 +102,45 @@ def render_portfolio_xray():
     left, right = st.columns([1, 1], gap="medium")
     with left:
         with st.container(key="portfolio_xray_left"):
-            with st.form("portfolio_xray_inputs", border=False):
-                editor = st.data_editor(
-                    pd.DataFrame([
-                        {"Ticker": "", "Amount ($)": 0.0},
-                        {"Ticker": "", "Amount ($)": 0.0},
-                    ]),
-                    column_config={
-                        "Ticker": st.column_config.TextColumn(
-                            "Ticker", help="An ETF or individual stock symbol", width="small"
-                        ),
-                        "Amount ($)": st.column_config.NumberColumn(
-                            "Amount ($)", min_value=0.0, step=100.0,
-                            format="$%.2f", width="medium"
-                        ),
-                    },
-                    num_rows="dynamic", hide_index=True,
-                    height=183, use_container_width=True,
-                    key="portfolio_xray_editor",
-                )
-                submitted = st.form_submit_button(
-                    "Analyze portfolio", type="primary", use_container_width=True
-                )
+            # Exactly one initial row. Filling both fields immediately creates
+            # the next blank row, without a separate Add Row button.
+            count = st.session_state.setdefault("portfolio_xray_row_count", 1)
+            header_ticker, header_amount = st.columns([1, 1], gap="small")
+            with header_ticker:
+                st.caption("Ticker")
+            with header_amount:
+                st.caption("Amount ($)")
+            for index in range(count):
+                ticker_col, amount_col = st.columns([1, 1], gap="small")
+                with ticker_col:
+                    st.text_input(
+                        f"Ticker {index + 1}",
+                        key=f"portfolio_xray_ticker_{index}",
+                        placeholder="e.g. SPY" if index == 0 else "Ticker",
+                        label_visibility="collapsed",
+                        on_change=_append_xray_row_when_complete,
+                    )
+                with amount_col:
+                    st.number_input(
+                        f"Amount ($) {index + 1}",
+                        key=f"portfolio_xray_amount_{index}",
+                        min_value=0.0, step=100.0, format="%.2f",
+                        label_visibility="collapsed",
+                        on_change=_append_xray_row_when_complete,
+                    )
+            submitted = st.button(
+                "Analyze portfolio", type="primary", use_container_width=True,
+                key="portfolio_xray_analyze",
+            )
             st.caption("ETFs and individual stocks are identified automatically.")
             if submitted:
+                editor = pd.DataFrame([
+                    {
+                        "Ticker": st.session_state.get(f"portfolio_xray_ticker_{i}", ""),
+                        "Amount ($)": st.session_state.get(f"portfolio_xray_amount_{i}", 0.0),
+                    }
+                    for i in range(st.session_state["portfolio_xray_row_count"])
+                ])
                 try:
                     positions = _clean_positions(editor)
                     with st.spinner("Loading ETF holdings…"):
@@ -146,20 +177,29 @@ def render_portfolio_xray():
                 )
             else:
                 labels, amounts = pie_data(rows)
+                legend_labels = pie_legend_labels(labels, amounts)
                 fig = go.Figure(go.Pie(
-                    labels=labels, values=amounts, hole=.58, sort=False,
+                    labels=legend_labels, values=amounts, hole=.58, sort=False,
+                    customdata=labels,
                     textinfo="percent", textposition="inside",
-                    hovertemplate="%{label}: $%{value:,.2f} (%{percent})<extra></extra>",
+                    textfont=dict(family="Inter, Segoe UI, Arial, sans-serif", size=13),
+                    hovertemplate="%{customdata}: $%{value:,.2f} (%{percent})<extra></extra>",
                     marker=dict(line=dict(color="#091624", width=1)),
                 ))
                 fig.update_layout(
                     height=280, margin=dict(l=4, r=4, t=4, b=4),
                     showlegend=True, legend=dict(
                         orientation="v", x=1.02, y=.5, xanchor="left",
-                        font=dict(size=10), bgcolor="rgba(0,0,0,0)",
+                        font=dict(
+                            family="Inter, Segoe UI, Arial, sans-serif",
+                            size=13, color="#DEEAF7",
+                        ), bgcolor="rgba(0,0,0,0)",
                     ),
                     annotations=[dict(text="Portfolio", x=.5, y=.5,
-                                      showarrow=False, font=dict(size=12, color="#B8D3E7"))],
+                                      showarrow=False, font=dict(
+                                          family="Inter, Segoe UI, Arial, sans-serif",
+                                          size=13, color="#B8D3E7",
+                                      ))],
                 )
                 st.plotly_chart(style_blue_figure(fig), use_container_width=True,
                                 config={"displayModeBar": False})
