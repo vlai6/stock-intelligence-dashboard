@@ -8,7 +8,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from custom_watchlists import (
     NS, _clean_lists, _create_group, _delete_group, _load_group,
     named_groups, active_named_group, activate_named_group,
-    save_named_group, remove_named_group, parse_working_tickers, valid_symbol,
+    save_named_group, remove_named_group, parse_working_tickers,
+    removable_stock_list, valid_symbol,
 )
 
 # Existing browser-saved groups remain compatible with the new UI.
@@ -21,6 +22,20 @@ assert _clean_lists({
 }
 assert valid_symbol("nvda") == "NVDA"
 assert parse_working_tickers("NVDA MU,TSM") == (["NVDA", "MU", "TSM"], [])
+
+# Clicking × creates an editable copy; stock groups/ETF presets stay unchanged.
+etf_source = ["AAPL", "NVDA", "MSFT", "BRK-B"]
+copied = removable_stock_list(etf_source, "nvda")
+assert copied == ["AAPL", "MSFT", "BRK-B"]
+assert etf_source == ["AAPL", "NVDA", "MSFT", "BRK-B"]
+assert removable_stock_list(copied, "MSFT") == ["AAPL", "BRK-B"]
+assert removable_stock_list(["NVDA"], "NVDA") == []
+try:
+    removable_stock_list(etf_source, "NVDA;DROP")
+except ValueError:
+    pass
+else:
+    raise AssertionError("Invalid removable ticker should be rejected")
 
 state = {
     NS + "lists": {"My Stocks": ["NVDA", "MU"], "Other": ["AAPL"]},
