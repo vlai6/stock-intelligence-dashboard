@@ -224,21 +224,9 @@ def render_custom_list() -> list[str]:
 
     current = list(lists[active])
     st.caption(f"{active} · {len(current)} stock(s) · saved in this browser.")
-    if current:
-        for start in range(0, len(current), 5):
-            segment = current[start:start + 5]
-            cols = st.columns(5, gap="small")
-            for col, symbol in zip(cols, segment):
-                with col:
-                    if st.button(
-                        f"{symbol} ×", key=f"ns_custom_remove_{active}_{symbol}",
-                        help=f"Remove {symbol} from {active}", use_container_width=True,
-                    ):
-                        lists[active] = [ticker for ticker in current if ticker != symbol]
-                        _queue_write()
-                        st.rerun()
-    else:
-        st.info("This group is empty. Add tickers above to start.")
+    # Tickers are removed from the unified pill row on the News Screener.
+    # Editing any displayed list creates an unsaved Custom List copy, so
+    # saved groups and built-in scan/ETF presets stay unchanged.
     return current
 
 def named_groups() -> list[str]:
@@ -315,6 +303,19 @@ def remove_named_group(name: str) -> tuple[bool, str]:
 DRAFT_KEY = "ns_working_stocks_v1"
 
 
+def removable_stock_list(symbols: list[str], ticker: str) -> list[str]:
+    """Build an editable copy excluding one clicked ticker, never mutate source."""
+    target = valid_symbol(ticker)
+    if not target:
+        raise ValueError("Invalid stock ticker.")
+    kept = []
+    for raw in symbols:
+        symbol = valid_symbol(raw)
+        if symbol and symbol != target and symbol not in kept:
+            kept.append(symbol)
+    return kept
+
+
 def parse_working_tickers(raw: str) -> tuple[list[str], list[str]]:
     parts = [v for v in re.split(r"[,;\s]+", str(raw or "").strip()) if v]
     normalized = [valid_symbol(p) for p in parts]
@@ -349,19 +350,10 @@ def render_working_list() -> list[str]:
         else:
             st.session_state[DRAFT_KEY] = current + extras
             st.rerun()
-    if current:
-        st.markdown(f"**Working list · {len(current)} stocks**")
-        for offset in range(0, len(current), 6):
-            columns = st.columns(6, gap="small")
-            for col, symbol in zip(columns, current[offset:offset + 6]):
-                with col:
-                    if st.button(f"{symbol} ×", key=f"ns_working_remove_{symbol}",
-                                 use_container_width=True,
-                                 help=f"Remove {symbol} from your working list"):
-                        st.session_state[DRAFT_KEY] = [v for v in current if v != symbol]
-                        st.rerun()
-    else:
-        st.caption("Nothing selected yet. Add tickers above.")
+    st.caption(
+        f"Custom List (Unsaved) · {len(st.session_state[DRAFT_KEY])} stock(s). "
+        "Use Save Group to keep these changes."
+    )
     return list(st.session_state[DRAFT_KEY])
 
 
