@@ -211,10 +211,13 @@ def render_portfolio_xray():
             )
             if mode == "Full Table":
                 visible = [
-                    {k: r[k] for k in (
-                        "Stock", "Amount ($)", "Portfolio %",
-                        "Direct Amount", "ETF Amount",
-                    )}
+                    {
+                        "Ticker": r["Stock"],
+                        "Amount ($)": r["Amount ($)"],
+                        "Portfolio %": r["Portfolio %"],
+                        "ETF Amount ($)": r["ETF Amount"],
+                        "Individual Amount ($)": r["Direct Amount"],
+                    }
                     for r in rows
                 ]
                 st.dataframe(
@@ -223,8 +226,8 @@ def render_portfolio_xray():
                     column_config={
                         "Amount ($)": st.column_config.NumberColumn(format="$%.2f"),
                         "Portfolio %": st.column_config.NumberColumn(format="%.2f%%"),
-                        "Direct Amount": st.column_config.NumberColumn(format="$%.2f"),
-                        "ETF Amount": st.column_config.NumberColumn(format="$%.2f"),
+                        "ETF Amount ($)": st.column_config.NumberColumn(format="$%.2f"),
+                        "Individual Amount ($)": st.column_config.NumberColumn(format="$%.2f"),
                     },
                 )
             else:
