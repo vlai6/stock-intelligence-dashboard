@@ -14,7 +14,7 @@ from portfolio_xray_saved import (
 from portfolio_xray_csv import parse_portfolio_csv, export_portfolio_csv
 from portfolio_xray import (
     ticker_of, issuer_holdings, portfolio_rows, pie_data, pie_legend_labels,
-    security_type, tickerinside_identifiers,
+    display_ticker, security_type, tickerinside_identifiers,
 )
 
 @st.cache_data(ttl=6 * 3600, show_spinner=False)
@@ -358,7 +358,7 @@ def render_portfolio_xray():
                 if result_is_pct:
                     visible = [
                         {
-                            "Ticker": r["Stock"],
+                            "Ticker": display_ticker(r["Stock"]),
                             "Portfolio %": r["Portfolio %"],
                             "ETF Allocation (%)": round(r["ETF Amount"], 3),
                             "Individual Allocation (%)": round(r["Direct Amount"], 3),
@@ -373,7 +373,7 @@ def render_portfolio_xray():
                 else:
                     visible = [
                         {
-                            "Ticker": r["Stock"],
+                            "Ticker": display_ticker(r["Stock"]),
                             "Amount ($)": r["Amount ($)"],
                             "Portfolio %": r["Portfolio %"],
                             "ETF Amount ($)": r["ETF Amount"],
