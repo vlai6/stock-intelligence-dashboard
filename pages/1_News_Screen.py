@@ -31,7 +31,7 @@ from dashboard_theme import apply_dashboard_theme, render_page_header
 from etf_holdings import ETFHoldings, fetch_etf_holdings
 from etf_scan_results import load_etf_scores, etf_score_map
 from custom_watchlists import (
-    DRAFT_KEY, render_custom_list, render_working_list,
+    DRAFT_KEY, BrowserGroupsPending, render_custom_list, render_working_list,
     named_groups, active_named_group, activate_named_group,
     save_named_group, remove_named_group, removable_stock_list,
 )
@@ -699,7 +699,13 @@ render_page_header(
 
 # Read existing saved groups before creating the dropdown. The localStorage
 # bridge uses the same mechanism already used by Portfolio X-Ray.
-group_names = named_groups()
+try:
+    group_names = named_groups()
+except BrowserGroupsPending:
+    # The continuous-dashboard compiler rewrites this page-local stop into
+    # _EndSection, preserving the scanner/metrics/sentiment below News.
+    # On the standalone News page, st.stop retains its normal behavior.
+    st.stop()
 group_options = BUILTIN_GROUP_OPTIONS + [_group_option(name) for name in group_names]
 last_selected = st.session_state.get('ns_group_select')
 if last_selected in ('Custom List', CUSTOM_STOCK_LABEL):
