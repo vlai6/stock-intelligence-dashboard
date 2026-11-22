@@ -198,7 +198,8 @@ def render_historical_returns(
     st.caption(
         "Hypothetical buy-and-hold of the entered allocation, without rebalancing. "
         "Adjusted ETF/stock prices include dividends and splits; returns are "
-        "before taxes and fees."
+        "before taxes and fees. The Date column above selects ETF holdings "
+        "snapshots only; the Start date below controls performance returns."
     )
     names = _sync_history_portfolio_selection()
 
