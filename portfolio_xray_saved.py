@@ -261,6 +261,7 @@ def _save_current(raw_name: str):
     # saved snapshot so an older chart is never exported under the new name.
     st.session_state["portfolio_xray_results"] = None
     st.session_state.pop("portfolio_xray_results_signature", None)
+    st.session_state.pop("portfolio_xray_historical_result", None)
     st.session_state["portfolio_xray_auto_analyze"] = True
     _queue_write()
     st.session_state[NS + "feedback"] = (
@@ -293,6 +294,7 @@ def _load_selected():
     # inputs, then runs the exact same analysis used by Analyze portfolio.
     st.session_state["portfolio_xray_results"] = None
     st.session_state.pop("portfolio_xray_results_signature", None)
+    st.session_state.pop("portfolio_xray_historical_result", None)
     st.session_state["portfolio_xray_auto_analyze"] = True
     st.session_state[NS + "loaded_name"] = name
     _queue_write()  # Remember which portfolio was last loaded in this browser.
