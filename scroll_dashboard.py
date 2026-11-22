@@ -111,7 +111,23 @@ div[class*="st-key-si_section_"] {
 
 render_scroll_navigation()
 
-for slug, _label in SECTIONS:
+# Reserve ALL section anchors and placeholders before executing any expensive
+# page body. News fetches several tickers sequentially; previously the main
+# script could pause on News before it even created the Scanner, Metrics and
+# Recent Sentiment sections farther down the page.
+section_slots = {}
+for slug, label in SECTIONS:
     with st.container(key=f"si_section_{slug}"):
         st.html(f'<div class="si-section-marker" id="si-anchor-{slug}"></div>')
+        slot = st.empty()
+        with slot:
+            st.markdown("#### " + label)
+            st.caption("Loading section…")
+        section_slots[slug] = slot
+
+# Populate reserved slots in the original visual order. Fragment identities,
+# scroll anchors and controls stay unchanged; only the layout skeleton exists
+# sooner, so a slow News request never makes later sections disappear.
+for slug, _label in SECTIONS:
+    with section_slots[slug].container():
         _make_fragment(slug)()
