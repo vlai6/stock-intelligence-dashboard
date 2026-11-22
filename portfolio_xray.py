@@ -165,7 +165,7 @@ def issuer_holdings(ticker: str) -> Holdings:
     )
 
 def portfolio_rows(positions, etfs, failures=None):
-    """Dollar-weight holdings and directly owned stocks, preserving missing NAV."""
+    """Combine weighted holdings and direct positions, preserving missing NAV."""
     failures = failures or {}
     dollars = defaultdict(float)
     contributors = defaultdict(lambda: defaultdict(float))
