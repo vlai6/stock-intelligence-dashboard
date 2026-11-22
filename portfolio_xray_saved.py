@@ -197,6 +197,8 @@ def _save_current(raw_name: str):
     replaced = name in saved
     saved[name] = positions
     st.session_state[NS + "selected"] = name
+    # These inputs are now exactly the selected saved portfolio.
+    st.session_state[NS + "loaded_name"] = name
     _queue_write()
     st.session_state[NS + "feedback"] = (
         "success", f"{'Updated' if replaced else 'Saved'} portfolio '{name}' "
@@ -221,11 +223,13 @@ def _load_selected():
         st.session_state[f"portfolio_xray_ticker_{index}"] = row["ticker"] if row else ""
         st.session_state[f"portfolio_xray_amount_{index}"] = float(row["amount"]) if row else 0.0
     st.session_state["portfolio_xray_row_count"] = min(MAX_POSITIONS, len(positions) + 1)
+    # The X-Ray renderer consumes this one-shot request after recreating its
+    # inputs, then runs the exact same analysis used by Analyze portfolio.
     st.session_state["portfolio_xray_results"] = None
+    st.session_state["portfolio_xray_auto_analyze"] = True
+    st.session_state[NS + "loaded_name"] = name
     _queue_write()  # Remember which portfolio was last loaded in this browser.
-    st.session_state[NS + "feedback"] = (
-        "success", f"Loaded '{name}'. Click Analyze portfolio to refresh the chart."
-    )
+    st.session_state[NS + "feedback"] = ("success", f"Loaded '{name}'.")
 
 
 def _delete_selected():
@@ -234,6 +238,8 @@ def _delete_selected():
     if name not in portfolios:
         return
     portfolios.pop(name)
+    if st.session_state.get(NS + "loaded_name") == name:
+        st.session_state[NS + "loaded_name"] = None
     st.session_state[NS + "selected"] = next(iter(portfolios), None)
     _queue_write()
     st.session_state[NS + "feedback"] = ("success", f"Deleted saved portfolio '{name}'.")
@@ -257,9 +263,14 @@ def render_saved_portfolio_controls():
             label_visibility="collapsed", key=NS + "selected",
         )
     with load_col:
+        # Dim the button until another saved portfolio is selected.
+        selected = st.session_state.get(NS + "selected")
+        already_loaded = bool(selected) and selected == st.session_state.get(NS + "loaded_name")
         st.button(
-            "Load", on_click=_load_selected, disabled=not names,
-            use_container_width=True, key=NS + "load",
+            "Load", on_click=_load_selected,
+            disabled=not names or already_loaded,
+            type="primary", use_container_width=True, key=NS + "load",
+            help="Already loaded" if already_loaded else "Load and analyze selected portfolio",
         )
     with save_col:
         with st.popover("Save portfolio", use_container_width=True):
