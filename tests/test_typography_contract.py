@@ -88,6 +88,8 @@ assert philosophy.index("render_portfolio_xray()") < philosophy.index("INDIVIDUA
 xray = source("portfolio_xray_ui.py")
 assert "st.columns([1, 1], gap=\"medium\")" in xray
 assert "portfolio_xray_left" in xray and "portfolio_xray_right" in xray
+assert "st.file_uploader(" not in xray
+assert "SelectboxColumn(" not in xray
 assert 'expanded=False' in philosophy
 
 # Background is shared rather than implemented separately in each page.
