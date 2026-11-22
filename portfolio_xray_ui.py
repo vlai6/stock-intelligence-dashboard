@@ -1,6 +1,7 @@
 """Compact two-column ETF + direct-stock X-ray on Investment Philosophy."""
 from __future__ import annotations
 from html import escape
+from datetime import date, timedelta
 import re
 import pandas as pd
 import plotly.graph_objects as go
@@ -13,6 +14,9 @@ from portfolio_xray_saved import (
 )
 from portfolio_xray_csv import parse_portfolio_csv, export_portfolio_csv
 from portfolio_xray_history_ui import render_historical_returns
+from portfolio_xray_history_holdings import (
+    historical_issuer_holdings, exposure_changes,
+)
 from portfolio_xray import (
     ticker_of, issuer_holdings, portfolio_rows, pie_data, pie_legend_labels,
     display_ticker, security_type, tickerinside_identifiers,
@@ -53,6 +57,84 @@ def _clean_positions(table: pd.DataFrame) -> list[dict]:
     return positions
 
 
+@st.cache_data(ttl=6 * 3600, show_spinner=False)
+def _cached_historical_issuer_holdings(ticker: str, requested: date):
+    """Date-specific SEC holdings; never substitute a current snapshot."""
+    return historical_issuer_holdings(ticker, requested)
+
+
+def _holdings_date_changed():
+    """Invalidate stale look-through when requested ETF dates change."""
+    st.session_state["portfolio_xray_results"] = None
+    st.session_state.pop("portfolio_xray_results_signature", None)
+    st.session_state.pop("portfolio_xray_historical_result", None)
+    st.session_state["portfolio_xray_auto_analyze"] = True
+
+
+def _historical_date_settings(etfs: list[str]) -> dict[str, date] | None:
+    """Compact opt-in historical date selector; overrides scoped to each ETF."""
+    with st.popover("ETF Holdings Date", use_container_width=True):
+        choice = st.selectbox(
+            "Holdings view", ["Latest available", "Historical as-of"],
+            key="portfolio_xray_holdings_mode",
+            on_change=_holdings_date_changed,
+        )
+        if choice != "Historical as-of":
+            st.caption("Showing latest TickerInside holdings for each ETF.")
+            return None
+        st.date_input(
+            "Default as-of date",
+            min_value=date(2019, 9, 30),
+            max_value=date.today(),
+            value=date.today() - timedelta(days=365),
+            key="portfolio_xray_holdings_date",
+            on_change=_holdings_date_changed,
+        )
+        st.caption(
+            "Selects the most recent available quarterly SEC holdings "
+            "at or before this date. Report dates differ by ETF."
+        )
+        if etfs:
+            with st.expander("Individual ETF dates"):
+                st.checkbox(
+                    "Use different dates per ETF",
+                    key="portfolio_xray_individual_etf_dates",
+                    on_change=_holdings_date_changed,
+                )
+                if st.session_state.get("portfolio_xray_individual_etf_dates"):
+                    for ticker in etfs:
+                        st.date_input(
+                            f"{ticker} as-of date",
+                            min_value=date(2019, 9, 30),
+                            max_value=date.today(),
+                            value=st.session_state.get(
+                                "portfolio_xray_holdings_date",
+                                date.today() - timedelta(days=365),
+                            ),
+                            key=f"portfolio_xray_etf_asof_{ticker}",
+                            on_change=_holdings_date_changed,
+                        )
+        st.caption(
+            "Historical coverage is not available for every ticker "
+            "(for example, SPY). Missing holdings remain unresolved."
+        )
+    if st.session_state.get("portfolio_xray_holdings_mode") != "Historical as-of":
+        return None
+    common = st.session_state.get(
+        "portfolio_xray_holdings_date", date.today() - timedelta(days=365),
+    )
+    use_individual = st.session_state.get(
+        "portfolio_xray_individual_etf_dates", False,
+    )
+    return {
+        ticker: (
+            st.session_state.get(f"portfolio_xray_etf_asof_{ticker}", common)
+            if use_individual else common
+        )
+        for ticker in etfs
+    }
+
+
 @st.cache_data(ttl=24 * 3600, show_spinner=False)
 def _cached_tickerinside_identifiers() -> dict[str, str]:
     """Download the single-provider stock/ETF identifier catalogue once daily."""
@@ -67,7 +149,7 @@ def _security_type(ticker: str) -> str:
     return security_type(symbol, _cached_tickerinside_identifiers())
 
 
-def _analyze(positions):
+def _analyze(positions, historical_dates: dict[str, date] | None = None):
     classified, errors = [], {}
     for position in positions:
         try:
@@ -81,12 +163,45 @@ def _analyze(positions):
         classified.append({**position, "type": kind})
     etfs = {pos["ticker"] for pos in classified if pos["type"] == "ETF"}
     snapshots = {}
+    historical = historical_dates is not None
     for ticker in sorted(etfs):
         try:
-            snapshots[ticker] = _cached_issuer_holdings(ticker)
+            if historical:
+                requested = historical_dates.get(ticker)
+                if requested is None:
+                    raise ValueError(f"{ticker}: no historical date was selected.")
+                snapshots[ticker] = _cached_historical_issuer_holdings(
+                    ticker, requested
+                )
+            else:
+                snapshots[ticker] = _cached_issuer_holdings(ticker)
         except Exception as exc:
             errors[ticker] = str(exc).splitlines()[0][:185]
-    return portfolio_rows(classified, snapshots, errors)
+    result_rows, result_info = portfolio_rows(classified, snapshots, errors)
+    if historical:
+        result_info["historical_dates"] = {
+            symbol: requested.isoformat()
+            for symbol, requested in historical_dates.items()
+            if symbol in etfs
+        }
+        result_info["historical_unavailable"] = sorted(etfs - set(snapshots))
+        if not result_info["historical_unavailable"]:
+            latest_snapshots, latest_errors = {}, {}
+            for ticker in sorted(etfs):
+                try:
+                    latest_snapshots[ticker] = _cached_issuer_holdings(ticker)
+                except Exception as exc:
+                    latest_errors[ticker] = str(exc).splitlines()[0][:185]
+            if not latest_errors:
+                recent_rows, _recent_info = portfolio_rows(
+                    classified, latest_snapshots,
+                )
+                result_info["historical_comparison"] = exposure_changes(
+                    result_rows, recent_rows,
+                )
+            else:
+                result_info["historical_latest_unavailable"] = latest_errors
+    return result_rows, result_info
 
 
 def _append_xray_row_when_started():
