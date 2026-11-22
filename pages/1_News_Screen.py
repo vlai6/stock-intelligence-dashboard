@@ -644,7 +644,7 @@ def make_card(symbol: str, quote: dict, items: list[dict], scan: dict | None, fi
 TODAYS_SCAN_LABEL = "Today's Regression Scan's Stocks"
 SP500_LABEL = "S&P 500 Top 10 Holdings"
 CUSTOM_ETF_LABEL = "Other ETF — Top 10 Holdings"
-CUSTOM_STOCK_LABEL = "Custom List"
+CUSTOM_STOCK_LABEL = "Saved Groups"
 WORKING_STOCK_LABEL = "Working List (Unsaved)"
 SCREEN_OPTIONS = [
     TODAYS_SCAN_LABEL, SP500_LABEL, CUSTOM_ETF_LABEL,
@@ -664,11 +664,14 @@ def cached_etf_holdings(ticker: str) -> ETFHoldings:
 
 
 # Keep the selected source when navigating to other Streamlit pages.
+# Migrate old session labels without losing saved groups.
+if st.session_state.get('ns_group_select') == 'Custom List':
+    st.session_state['ns_group_select'] = CUSTOM_STOCK_LABEL
 if st.session_state.get('ns_group_select') not in SCREEN_OPTIONS:
     st.session_state['ns_group_select'] = TODAYS_SCAN_LABEL
 
 render_page_header('News Screener',
-                   'AI news agent · scan signals, ETF holdings, or custom lists',
+                   'AI news agent · scan signals, ETF holdings, or saved groups',
                    current='general')
 
 # Save submissions persist across the browser-storage initialization rerun.
@@ -703,9 +706,9 @@ with clear_col:
               use_container_width=True, on_click=start_blank_working_list,
               help='Start an empty working list. Your saved lists and regression scan are not deleted.')
 with saved_col:
-    st.button('Saved lists', key='ns_go_to_saved_lists',
+    st.button('Saved groups', key='ns_go_to_saved_lists',
               use_container_width=True, on_click=choose_saved_lists,
-              help='View and edit your saved custom lists.')
+              help='View, create, load and delete saved stock groups.')
 feedback = st.session_state.pop('ns_save_feedback', None)
 if feedback:
     getattr(st, feedback[0])(feedback[1])
@@ -767,20 +770,26 @@ if watchlist:
     save_col, edit_col, unused = st.columns(
         [1.8, 1.4, 6.8], gap="small", vertical_alignment="bottom"
     )
+    def queue_displayed_group_save():
+        # Run before new widgets are instantiated. The pending snapshot
+        # survives browser-local storage initialization on the next rerun.
+        st.session_state['ns_pending_list_save'] = {
+            'name': st.session_state.get('ns_save_displayed_name', ''),
+            'stocks': watchlist.copy(),
+        }
+
     with save_col:
-        with st.popover("Save displayed as list", use_container_width=True):
-            st.caption("Create a named list from the current on-screen stocks.")
-            with st.form("ns_save_displayed_stocks", clear_on_submit=True):
-                list_name = st.text_input("New list name", max_chars=32,
-                                          placeholder="e.g. Research stocks")
-                submitted_save = st.form_submit_button(
-                    "Save list", type="primary", use_container_width=True
-                )
-            if submitted_save:
-                st.session_state['ns_pending_list_save'] = {
-                    'name': list_name, 'stocks': watchlist.copy()
-                }
-                st.rerun()
+        with st.popover("Save displayed as group", use_container_width=True):
+            st.caption("Save the currently displayed tickers as a new group.")
+            st.text_input(
+                "Group name", placeholder="e.g. Research stocks",
+                key="ns_save_displayed_name",
+            )
+            st.button(
+                "Save group", key="ns_save_displayed_button",
+                on_click=queue_displayed_group_save,
+                use_container_width=True,
+            )
     with edit_col:
         if st.button("Edit displayed", key="ns_edit_displayed_stocks",
                      use_container_width=True,
