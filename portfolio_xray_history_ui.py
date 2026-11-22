@@ -265,7 +265,6 @@ def render_historical_returns(
         if len(selected) < 2:
             st.caption("Select at least two saved portfolios to enable comparison.")
             return
-        saved = st.session_state.get(SAVED_NS + "portfolios", {})
         try:
             snapshot = _comparison_snapshot(selected)
             portfolios = {
