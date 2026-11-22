@@ -140,9 +140,11 @@ def _initialize() -> bool:
             selected = next(iter(saved), None)
         st.session_state[NS + "portfolios"] = saved
         st.session_state[NS + "selected"] = selected
-        st.session_state[NS + "revision"] = (
-            int(record.get("version", 0) or 0) if isinstance(record, dict) else 0
-        )
+        try:
+            revision = int(record.get("version", 0) or 0) if isinstance(record, dict) else 0
+        except (ValueError, TypeError, OverflowError):
+            revision = 0
+        st.session_state[NS + "revision"] = max(0, revision)
         st.session_state[NS + "storage_unavailable"] = unavailable
         st.session_state[NS + "loaded"] = True
     saved = st.session_state[NS + "portfolios"]
@@ -216,6 +218,7 @@ def _load_selected():
         st.session_state[f"portfolio_xray_amount_{index}"] = float(row["amount"]) if row else 0.0
     st.session_state["portfolio_xray_row_count"] = min(MAX_POSITIONS, len(positions) + 1)
     st.session_state["portfolio_xray_results"] = None
+    _queue_write()  # Remember which portfolio was last loaded in this browser.
     st.session_state[NS + "feedback"] = (
         "success", f"Loaded '{name}'. Click Analyze portfolio to refresh the chart."
     )
