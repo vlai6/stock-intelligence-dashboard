@@ -1,6 +1,6 @@
-"""Strict, dependency-free import of two-column Portfolio X-Ray CSV files.
+"""Strict import/export of dated three-column Portfolio X-Ray CSV files.
 
-Accepts a standard Excel export with headers Ticker,Amount and either all
+Accepts Date,Ticker,Amount (or legacy Ticker,Amount) and either all
 percentage weights (e.g. 12.29%) or all dollar amounts (e.g. 1250.50).
 Does not renormalize percentages or silently drop meaningful non-stock assets.
 """
@@ -12,6 +12,7 @@ import math
 import re
 
 from portfolio_xray import ticker_of
+from portfolio_xray_dates import normalized_position_date, position_with_date
 
 MAX_CSV_BYTES = 256_000
 MAX_CSV_ROWS = 500
@@ -33,7 +34,7 @@ def export_portfolio_csv(positions: list[dict], unit: str) -> bytes:
 
     output = io.StringIO(newline="")
     writer = csv.writer(output)
-    writer.writerow(["Ticker", "Amount"])
+    writer.writerow(["Date", "Ticker", "Amount"])
     for index, item in enumerate(positions, start=1):
         if not isinstance(item, dict):
             raise ValueError(f"Position {index}: expected ticker and amount.")
@@ -49,13 +50,15 @@ def export_portfolio_csv(positions: list[dict], unit: str) -> bytes:
         # Python's float string is a shortest round-trippable representation.
         # Do not round small allocations or convert percent points to fractions.
         value = str(amount) + ("%" if unit == "pct" else "")
-        writer.writerow([ticker, value])
+        writer.writerow([normalized_position_date(item.get("date")), ticker, value])
 
     data = output.getvalue().encode("utf-8-sig")  # Excel-friendly UTF-8 BOM.
     # The shared CSV must always be re-importable by this very same tool.
     decoded, decoded_unit, _ = parse_portfolio_csv(data)
     if decoded_unit != unit or decoded != [
-        {"ticker": ticker_of(item["ticker"]), "amount": float(item["amount"])}
+        position_with_date(
+            ticker_of(item["ticker"]), float(item["amount"]), item.get("date")
+        )
         for item in positions
     ]:
         raise ValueError("Unable to verify CSV export round-trip.")
@@ -77,12 +80,17 @@ def parse_portfolio_csv(payload: bytes) -> tuple[list[dict], str, list[str]]:
     try:
         header = next(reader)
     except (StopIteration, csv.Error) as exc:
-        raise ValueError("CSV must start with Ticker,Amount.") from exc
+        raise ValueError("CSV must start with Date,Ticker,Amount (or Ticker,Amount).") from exc
     headers = [str(cell).strip().lower().replace(" ", "") for cell in header]
-    if len(headers) != 2 or headers[0] != "ticker" or headers[1] not in {
+    has_date = len(headers) == 3 and headers[0] == "date"
+    ticker_col = 1 if has_date else 0
+    amount_col = 2 if has_date else 1
+    if len(headers) not in (2, 3) or headers[ticker_col] != "ticker" or headers[amount_col] not in {
         "amount", "amount($)", "amount(%)", "weight", "weight(%)",
-    }:
-        raise ValueError("CSV needs exactly two columns: Ticker, Amount.")
+    } or (len(headers) == 3 and not has_date):
+        raise ValueError(
+            "CSV needs Date,Ticker,Amount (or the older Ticker,Amount format)."
+        )
 
     positions = []
     warnings = []
@@ -93,9 +101,18 @@ def parse_portfolio_csv(payload: bytes) -> tuple[list[dict], str, list[str]]:
             raise ValueError("CSV exceeds the 500-row safety limit.")
         if not record or all(not x.strip() for x in record):
             continue
-        if len(record) != 2:
-            raise ValueError(f"CSV row {index}: expected exactly Ticker and Amount.")
-        symbol_raw, amount_raw = (value.strip() for value in record)
+        if len(record) != (3 if has_date else 2):
+            raise ValueError(
+                f"CSV row {index}: expected "
+                + ("Date, Ticker, Amount." if has_date else "Ticker, Amount.")
+            )
+        date_raw = record[0].strip() if has_date else ""
+        try:
+            row_date = normalized_position_date(date_raw)
+        except ValueError as exc:
+            raise ValueError(f"CSV row {index}: {exc}") from exc
+        symbol_raw = record[ticker_col].strip()
+        amount_raw = record[amount_col].strip()
         if not symbol_raw:
             raise ValueError(f"CSV row {index}: ticker is blank.")
         try:
@@ -121,7 +138,7 @@ def parse_portfolio_csv(payload: bytes) -> tuple[list[dict], str, list[str]]:
             continue
         if units == "pct" and amount > 100:
             raise ValueError(f"CSV row {index}: percentage exceeds 100%.")
-        positions.append({"ticker": symbol, "amount": amount})
+        positions.append(position_with_date(symbol, amount, row_date))
         if len(positions) > MAX_POSITIONS:
             raise ValueError(f"CSV supports up to {MAX_POSITIONS} nonzero positions.")
 
