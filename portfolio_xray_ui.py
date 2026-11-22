@@ -177,7 +177,10 @@ def render_portfolio_xray():
                 key="portfolio_xray_analyze",
             )
             st.caption("ETFs and individual stocks are identified automatically.")
-            if submitted:
+            # Loading a saved portfolio queues this after widget state is restored.
+            # Both Load and Analyze use the same validation and X-Ray pipeline.
+            auto_analyze = bool(st.session_state.pop("portfolio_xray_auto_analyze", False))
+            if submitted or auto_analyze:
                 editor = pd.DataFrame([
                     {
                         "Ticker": st.session_state.get(f"portfolio_xray_ticker_{i}", ""),
