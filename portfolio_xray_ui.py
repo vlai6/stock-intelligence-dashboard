@@ -196,8 +196,11 @@ def render_portfolio_xray():
             return  # Deliberately blank until the first Analyze action.
         rows, info = result
         with st.container(key="portfolio_xray_right"):
+            # Preserve a user's existing Table selection after the label rename.
+            if st.session_state.get("portfolio_xray_display") == "Table":
+                st.session_state["portfolio_xray_display"] = "Full Table"
             mode = st.segmented_control(
-                "Display", ["Pie chart", "Table"],
+                "Display", ["Pie chart", "Full Table"],
                 default="Pie chart", label_visibility="collapsed",
                 key="portfolio_xray_display",
             )
@@ -206,7 +209,7 @@ def render_portfolio_xray():
                 f"Mapped: {info['mapped']/info['total']:.1%}  ·  "
                 f"Positions: {sum(not row['Unresolved'] for row in rows)}"
             )
-            if mode == "Table":
+            if mode == "Full Table":
                 visible = [{k: r[k] for k in ("Stock", "Amount ($)", "Portfolio %", "From")}
                            for r in rows]
                 st.dataframe(
@@ -219,21 +222,39 @@ def render_portfolio_xray():
                 )
             else:
                 labels, amounts = pie_data(rows)
-                # Both the chart and its aligned legend use the same colors.
-                pie_colors = [
+                # Every holding remains in the pie, even below 2%. Emphasize
+                # larger holdings with distinct colors; mute the tiny slices.
+                total_pie = sum(amounts)
+                percentages = [
+                    100 * amount / total_pie if total_pie else 0.0
+                    for amount in amounts
+                ]
+                major_palette = [
                     "#286C9F", "#6271B2", "#168CB1", "#3180B4",
                     "#556C99", "#26799A", "#7C98B5", "#4A91A8",
-                    "#789CBA", "#416A85", "#8A929C",
-                ][:len(labels)]
+                    "#789CBA", "#416A85",
+                ]
+                pie_colors = []
+                major_index = 0
+                for index, (label, pct) in enumerate(zip(labels, percentages)):
+                    if label == "Unresolved ETF exposure":
+                        pie_colors.append("#8A929C")
+                    elif pct >= 2.0:
+                        pie_colors.append(major_palette[major_index % len(major_palette)])
+                        major_index += 1
+                    else:
+                        pie_colors.append("#284558" if index % 2 == 0 else "#315469")
                 legend_labels = pie_legend_labels(labels, amounts)
+                # Percentages under 2% remain visible on hover, not as labels.
+                slice_text = [f"{pct:.1f}%" if pct >= 2.0 else "" for pct in percentages]
                 chart_col, legend_col = st.columns([7, 3], gap="small")
                 with chart_col:
                     fig = go.Figure(go.Pie(
                         labels=labels, values=amounts, hole=.58, sort=False,
-                        textinfo="percent", textposition="inside",
+                        text=slice_text, textinfo="text", textposition="inside",
                         textfont=dict(family="Inter, Segoe UI, Arial, sans-serif", size=13),
                         hovertemplate="%{label}: $%{value:,.2f} (%{percent})<extra></extra>",
-                        marker=dict(colors=pie_colors, line=dict(color="#091624", width=1)),
+                        marker=dict(colors=pie_colors, line=dict(color="#091624", width=0.4)),
                     ))
                     fig.update_layout(
                         height=320, margin=dict(l=2, r=2, t=4, b=4),
@@ -253,7 +274,10 @@ def render_portfolio_xray():
                         f'<span class="si-xray-legend-ticker">{escape(str(label))}</span>'
                         f'<span class="si-xray-legend-percent">{escape(full.rsplit(" ", 1)[-1])}</span>'
                         '</div>'
-                        for label, full, color in zip(labels, legend_labels, pie_colors)
+                        for label, full, color, pct in zip(
+                            labels, legend_labels, pie_colors, percentages
+                        )
+                        if pct >= 2.0
                     ]
                     st.markdown(
                         '<div class="si-xray-legend">'
@@ -276,15 +300,14 @@ def render_portfolio_xray():
                     for symbol, problem in info["failed"].items():
                         st.caption(f"{symbol}: {problem}")
             if info["sources"]:
-                with st.expander("TickerInside holdings dates and coverage", expanded=False):
+                with st.expander("Source: TickerInside", expanded=False):
+                    visible_sources = [
+                        {name: entry.get(name, "") for name in ("ETF", "Coverage", "As of")}
+                        for entry in info["sources"]
+                    ]
                     st.dataframe(
-                        pd.DataFrame(info["sources"]), hide_index=True,
+                        pd.DataFrame(visible_sources), hide_index=True,
                         use_container_width=True,
-                        column_config={
-                            "TickerInside page": st.column_config.LinkColumn(
-                                "TickerInside page", display_text="View source"
-                            ),
-                        },
                     )
             st.caption("Ticker-level look-through; share classes remain separate. "
                        "ETF holdings dates may differ; non-stock and missing exposures stay unresolved.")
