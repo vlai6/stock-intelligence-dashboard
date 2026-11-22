@@ -8,7 +8,7 @@ import streamlit as st
 from dashboard_theme import style_blue_figure
 from portfolio_xray import (
     ticker_of, issuer_holdings, portfolio_rows, pie_data, pie_legend_labels,
-    security_type,
+    security_type, tickerinside_identifiers,
 )
 
 @st.cache_data(ttl=6 * 3600, show_spinner=False)
@@ -47,9 +47,14 @@ def _clean_positions(table: pd.DataFrame) -> list[dict]:
 
 
 @st.cache_data(ttl=24 * 3600, show_spinner=False)
+def _cached_tickerinside_identifiers() -> dict[str, str]:
+    """Download the single-provider stock/ETF identifier catalogue once daily."""
+    return tickerinside_identifiers()
+
+
 def _security_type(ticker: str) -> str:
-    """Use known ETF identities or live quote metadata; never guess an unknown."""
-    return security_type(ticker)
+    """Identify fund versus stock from TickerInside alone."""
+    return security_type(ticker, _cached_tickerinside_identifiers())
 
 
 def _analyze(positions):
@@ -262,16 +267,26 @@ def render_portfolio_xray():
             if info["unresolved"] > 0.01:
                 st.warning(
                     f"USD {info['unresolved']:,.2f} in ETF exposure could not be "
-                    "resolved to stocks because full issuer holdings were unavailable. "
+                    "mapped to stocks from TickerInside's reported fund holdings "
+                    "(such as cash, bonds, derivatives, or missing data). "
                     "Amounts are not redistributed."
                 )
             if info["failed"]:
-                with st.expander("Unavailable holdings sources", expanded=False):
+                with st.expander("Unresolved holdings details", expanded=False):
                     for symbol, problem in info["failed"].items():
                         st.caption(f"{symbol}: {problem}")
             if info["sources"]:
-                with st.expander("Holdings sources and coverage", expanded=False):
+                with st.expander("TickerInside holdings dates and coverage", expanded=False):
                     st.dataframe(pd.DataFrame(info["sources"]), hide_index=True,
                                  use_container_width=True)
             st.caption("Ticker-level look-through; share classes remain separate. "
-                       "ETF holdings dates may differ. Unavailable funds stay unresolved.")
+                       "ETF holdings dates may differ; non-stock and missing exposures stay unresolved.")
+            st.markdown(
+                '<span style="font-size:0.78rem;color:#8FA7BC">'
+                'Stock/ETF identities and ETF holdings: '
+                '<a href="https://tickerinside.com" target="_blank" '
+                'rel="noopener noreferrer">TickerInside</a> (CC BY 4.0). '
+                'Holdings may come from dated SEC filings rather than live fund disclosures.'
+                '</span>',
+                unsafe_allow_html=True,
+            )
