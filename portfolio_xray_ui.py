@@ -210,14 +210,21 @@ def render_portfolio_xray():
                 f"Positions: {sum(not row['Unresolved'] for row in rows)}"
             )
             if mode == "Full Table":
-                visible = [{k: r[k] for k in ("Stock", "Amount ($)", "Portfolio %", "From")}
-                           for r in rows]
+                visible = [
+                    {k: r[k] for k in (
+                        "Stock", "Amount ($)", "Portfolio %",
+                        "Direct Amount", "ETF Amount",
+                    )}
+                    for r in rows
+                ]
                 st.dataframe(
                     pd.DataFrame(visible), hide_index=True,
                     height=250, use_container_width=True,
                     column_config={
                         "Amount ($)": st.column_config.NumberColumn(format="$%.2f"),
                         "Portfolio %": st.column_config.NumberColumn(format="%.2f%%"),
+                        "Direct Amount": st.column_config.NumberColumn(format="$%.2f"),
+                        "ETF Amount": st.column_config.NumberColumn(format="$%.2f"),
                     },
                 )
             else:
@@ -309,14 +316,14 @@ def render_portfolio_xray():
                         pd.DataFrame(visible_sources), hide_index=True,
                         use_container_width=True,
                     )
+                    st.markdown(
+                        '<span style="font-size:0.78rem;color:#8FA7BC">'
+                        'Stock/ETF identities and ETF holdings: '
+                        '<a href="https://tickerinside.com" target="_blank" '
+                        'rel="noopener noreferrer">TickerInside</a> (CC BY 4.0). '
+                        'Holdings may come from dated SEC filings rather than live fund disclosures.'
+                        '</span>',
+                        unsafe_allow_html=True,
+                    )
             st.caption("Ticker-level look-through; share classes remain separate. "
                        "ETF holdings dates may differ; non-stock and missing exposures stay unresolved.")
-            st.markdown(
-                '<span style="font-size:0.78rem;color:#8FA7BC">'
-                'Stock/ETF identities and ETF holdings: '
-                '<a href="https://tickerinside.com" target="_blank" '
-                'rel="noopener noreferrer">TickerInside</a> (CC BY 4.0). '
-                'Holdings may come from dated SEC filings rather than live fund disclosures.'
-                '</span>',
-                unsafe_allow_html=True,
-            )
