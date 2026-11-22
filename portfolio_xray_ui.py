@@ -42,6 +42,10 @@ def _clean_positions(table: pd.DataFrame) -> list[dict]:
             amount = 0.0
         # A date alone is incomplete; don't silently discard it.
         row_date = raw.get("Date")
+        # Pandas may represent an unfilled date as NaT when another row has
+        # a date. Treat it as blank rather than an invalid saved position.
+        if row_date is not None and pd.isna(row_date):
+            row_date = None
         if not symbol and not amount and not row_date:
             continue
         if not symbol or not (amount > 0):
@@ -53,7 +57,7 @@ def _clean_positions(table: pd.DataFrame) -> list[dict]:
             errors.append(f"Row {index + 1}: {exc}")
             continue
         try:
-            entry = position_with_date(symbol, amount, raw.get("Date"))
+            entry = position_with_date(symbol, amount, row_date)
         except ValueError as exc:
             errors.append(f"Row {index + 1}: {exc}")
             continue
