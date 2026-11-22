@@ -249,17 +249,20 @@ if "primary" not in st.session_state:
 if "loaded" not in st.session_state:
     st.session_state.loaded = False
 
-with st.form("stock_search"):
-    ticker = st.text_input(
-        "Search for a stock ticker",
-        value=st.session_state.primary
-    )
-
-    submitted = st.form_submit_button(
-        "Load Stock",
-        type="primary",
-        use_container_width=True,
-    )
+# Keep the stock selector compact and left-aligned; the research panels
+# below retain their full page width. Roughly 25% of desktop content width.
+search_col, _search_spacer = st.columns([1, 3], gap="medium")
+with search_col:
+    with st.form("stock_search"):
+        ticker = st.text_input(
+            "Search for a stock ticker",
+            value=st.session_state.primary
+        )
+        submitted = st.form_submit_button(
+            "Load Stock",
+            type="primary",
+            use_container_width=True,
+        )
 
 if submitted:
     symbol = ticker.strip().upper()
