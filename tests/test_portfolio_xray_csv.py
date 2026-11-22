@@ -93,4 +93,29 @@ incomplete, unit, warning = parse_portfolio_csv(
 )
 assert unit == "pct" and warning and "45.00%" in warning[0]
 
-print("PASS: portfolio X-Ray CSV percentage/dollar mode, CUSIP/cash and invalid inputs")
+# The file-upload callback populates the existing input rows and requests
+# the same automatic look-through analysis as a loaded saved portfolio.
+from portfolio_xray_ui import _import_portfolio_csv
+class _Uploaded:
+    def __init__(self, data):
+        self.data = data
+    def getvalue(self):
+        return self.data
+
+state = {"portfolio_xray_csv_file": _Uploaded(sample.encode("utf-8"))}
+with patch("portfolio_xray_ui.st.session_state", state):
+    _import_portfolio_csv()
+assert state["portfolio_xray_unit_mode"] == "pct"
+assert state["portfolio_xray_row_count"] == 20  # 19 positions + 1 empty row
+assert state["portfolio_xray_ticker_0"] == "AVGO"
+assert state["portfolio_xray_ticker_18"] == "Cash & Cash Inv"
+assert state["portfolio_xray_amount_18"] == 5.71
+assert state["portfolio_xray_auto_analyze"] is True
+assert state["portfolio_xray_saved_loaded_name"] is None
+state["portfolio_xray_csv_file"] = _Uploaded(b"Ticker,Amount\\nNVDA,INVALID\\n")
+with patch("portfolio_xray_ui.st.session_state", state):
+    _import_portfolio_csv()
+assert state["portfolio_xray_csv_feedback"][0] == "error"
+assert state["portfolio_xray_ticker_0"] == "AVGO"  # Bad import never wipes editor.
+
+print("PASS: portfolio CSV percent/dollar, CUSIP/cash, import callback and invalid inputs")
