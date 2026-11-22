@@ -8,7 +8,7 @@ from __future__ import annotations
 import streamlit as st
 
 SECTIONS = (
-    ("philosophy", "Investment Philosophy"),
+    ("philosophy", "Portfolio Analysis"),
     ("news", "News Screener"),
     ("scanner", "Regression Scanner"),
     ("metrics", "Metrics & Competition"),
