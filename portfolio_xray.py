@@ -258,3 +258,16 @@ def pie_data(results, max_stocks=9):
         names.append("Unresolved ETF exposure")
         amounts.append(sum(r["_value"] for r in missing))
     return names, amounts
+
+
+def pie_legend_labels(labels, amounts):
+    """Show portfolio allocation in every slice's legend label, to 0.1%."""
+    if len(labels) != len(amounts):
+        raise ValueError("Legend labels and pie amounts must match")
+    total = sum(amounts)
+    if total <= 0:
+        return [str(label) for label in labels]
+    return [
+        f"{label} {100 * amount / total:.1f}%"
+        for label, amount in zip(labels, amounts)
+    ]
