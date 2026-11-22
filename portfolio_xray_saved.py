@@ -202,7 +202,11 @@ def _save_current(raw_name: str):
         "success", f"{'Updated' if replaced else 'Saved'} portfolio '{name}' "
                    f"({len(positions)} positions)."
     )
-    st.rerun()
+
+
+def _save_current_from_widget():
+    """Run before the dropdown is instantiated, in Streamlit's button callback."""
+    _save_current(st.session_state.get(NS + "name_input", ""))
 
 
 def _load_selected():
@@ -233,7 +237,6 @@ def _delete_selected():
     st.session_state[NS + "selected"] = next(iter(portfolios), None)
     _queue_write()
     st.session_state[NS + "feedback"] = ("success", f"Deleted saved portfolio '{name}'.")
-    st.rerun()
 
 
 def render_saved_portfolio_controls():
@@ -263,14 +266,16 @@ def render_saved_portfolio_controls():
             # Use a standard input rather than a form: Streamlit's form-only
             # "Press Enter to submit" overlay collides with the character
             # counter and typed portfolio name in this narrow popover.
-            name = st.text_input(
+            st.text_input(
                 "Portfolio name",
                 placeholder="e.g. Core ETFs",
                 key=NS + "name_input",
             )
             st.caption("Saving an existing name replaces its saved positions.")
-            if st.button("Save", key=NS + "save_button", use_container_width=True):
-                _save_current(name)
+            st.button(
+                "Save", key=NS + "save_button", use_container_width=True,
+                on_click=_save_current_from_widget,
+            )
     with delete_col:
         with st.popover("Delete", use_container_width=True, disabled=not names):
             st.caption(f"Delete '{st.session_state.get(NS + 'selected')}'?")
