@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from dashboard_theme import style_blue_figure
+from portfolio_xray_saved import render_saved_portfolio_controls
 from portfolio_xray import (
     ticker_of, issuer_holdings, portfolio_rows, pie_data, pie_legend_labels,
     security_type, tickerinside_identifiers,
@@ -143,6 +144,7 @@ def render_portfolio_xray():
 
     left, right = st.columns([2, 3], gap="medium")
     with left:
+        render_saved_portfolio_controls()
         with st.container(key="portfolio_xray_left"):
             # Exactly one initial row; entering a ticker OR dollar amount
             # adds the next blank row, without an Add Row button.
