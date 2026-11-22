@@ -295,6 +295,10 @@ def render_portfolio_xray():
             count = st.session_state["portfolio_xray_row_count"]
             input_unit = st.session_state.get("portfolio_xray_unit_mode", "usd")
             is_pct = input_unit == "pct"
+            submitted = st.button(
+                "Analyze portfolio", type="primary", use_container_width=True,
+                key="portfolio_xray_analyze",
+            )
             header_ticker, header_amount = st.columns([1, 1], gap="small")
             with header_ticker:
                 st.caption("Ticker")
@@ -318,10 +322,6 @@ def render_portfolio_xray():
                         label_visibility="collapsed",
                         on_change=_portfolio_input_changed,
                     )
-            submitted = st.button(
-                "Analyze portfolio", type="primary", use_container_width=True,
-                key="portfolio_xray_analyze",
-            )
             st.caption(
                 "Amounts are allocation percentages, not dollar values."
                 if is_pct else "ETFs and individual stocks are identified automatically."
