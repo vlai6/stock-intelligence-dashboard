@@ -1,0 +1,71 @@
+"""Offline portfolio X-ray coverage and arithmetic tests (no API requests)."""
+import sys
+from pathlib import Path
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from portfolio_xray import Holdings, parse_rows, portfolio_rows, pie_data, ticker_of
+
+rows = [
+    ["Fund holdings data", "", ""],
+    ["Ticker", "Company", "Weight (%)"],
+    ["NVDA", "NVIDIA", "10.00%"],
+    ["MSFT", "Microsoft", "20.00%"],
+    ["AAPL", "Apple", "65.00%"],
+]
+snap = parse_rows(rows, "TEST", "synthetic fixture")
+assert abs(snap.coverage - 0.95) < 1e-10
+assert abs(snap.weights["NVDA"] - 0.1) < 1e-10
+assert ticker_of("brk.b") == "BRK.B"
+
+# Fractional weights should work and must not be automatically magnified.
+fraction = parse_rows([
+    ["Holding Ticker", "Weight"], ["NVDA", "0.4"], ["MSFT", "0.6"]
+], "FUND", "synthetic fixture")
+assert abs(fraction.coverage - 1) < 1e-8
+assert abs(fraction.weights["MSFT"] - .6) < 1e-8
+
+# Stock exposure can come from two ETFs plus one direct-stock holding.
+other = Holdings("SECOND", {"NVDA": .25, "MSFT": .75}, "synthetic")
+positions = [
+    {"type": "ETF", "ticker": "TEST", "amount": 6000},
+    {"type": "ETF", "ticker": "SECOND", "amount": 4000},
+    {"type": "STOCK", "ticker": "NVDA", "amount": 1000},
+]
+out, info = portfolio_rows(positions, {"TEST": snap, "SECOND": other})
+exposure = {r["Stock"]: r for r in out}
+assert info["total"] == 11000
+assert abs(exposure["NVDA"]["_value"] - 2600) < 1e-8
+assert abs(exposure["MSFT"]["_value"] - 4200) < 1e-8
+assert abs(exposure["AAPL"]["_value"] - 3900) < 1e-8
+assert abs(exposure["Unreported TEST"]["_value"] - 300) < 1e-8
+assert abs(sum(r["_value"] for r in out) - 11000) < 1e-8
+assert "Direct" in exposure["NVDA"]["From"]
+assert "TEST" in exposure["NVDA"]["From"]
+
+# Unknown ETF feed must not become a fake 100%-equity look-through.
+bad, bad_info = portfolio_rows(
+    [{"type": "ETF", "ticker": "AVLV", "amount": 2500},
+     {"type": "STOCK", "ticker": "AAPL", "amount": 500}],
+    {}, {"AVLV": "No available holdings"}
+)
+assert bad_info["unresolved"] == 2500
+assert abs(sum(r["_value"] for r in bad) - 3000) < 1e-7
+labels, amounts = pie_data(bad)
+assert "Unresolved ETF exposure" in labels
+assert abs(sum(amounts) - 3000) < 1e-7
+assert abs(bad_info["mapped"] - 500) < 1e-7
+
+try:
+    parse_rows([["Ticker", "Weight"], ["AAPL", "111"]], "BAD", "synthetic")
+except ValueError:
+    pass
+else:
+    raise AssertionError("Invalid >100% weight must be rejected")
+
+try:
+    ticker_of("SPY; rm -rf")
+except ValueError:
+    pass
+else:
+    raise AssertionError("Unvalidated ticker was accepted")
+print("PASS: portfolio ETF look-through, partial coverage, stock overlap and validation")
