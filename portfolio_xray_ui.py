@@ -177,6 +177,35 @@ def _analyzed_portfolio_share_csv() -> tuple[bytes, str] | None:
     return data, filename
 
 
+def _pie_domain(size_pct: int, position: str, has_title: bool) -> dict:
+    """Reserve a true Plotly pie domain; don't let auto-margin override it.
+
+    Title is rendered as a top-layer annotation in a separate upper band.
+    Center positioning keeps the donut visibly below the named heading.
+    """
+    if size_pct not in range(60, 91, 5):
+        raise ValueError("Pie size must be 60–90%, in steps of 5.")
+    positions = {
+        "Higher": 0.47,
+        "Center": 0.42,
+        "Lower": 0.37,
+    } if has_title else {
+        "Higher": 0.55,
+        "Center": 0.50,
+        "Lower": 0.45,
+    }
+    if position not in positions:
+        raise ValueError("Unknown pie position.")
+    # Keep enough room for the outside ticker labels on both sides.
+    height = 0.45 + (size_pct - 60) * 0.008
+    width = min(0.86, height + 0.14)
+    center_y = positions[position]
+    return {
+        "x": [round((1 - width) / 2, 3), round((1 + width) / 2, 3)],
+        "y": [round(center_y - height / 2, 3), round(center_y + height / 2, 3)],
+    }
+
+
 def render_portfolio_xray():
     st.markdown("#### PORTFOLIO X-RAY")
     st.caption("Look through ETFs and directly held stocks to see combined stock exposure.")
@@ -393,6 +422,21 @@ def render_portfolio_xray():
                     column_config=column_config,
                 )
             else:
+                with st.popover("Adjust pie chart"):
+                    pie_size = st.slider(
+                        "Pie size", min_value=60, max_value=90,
+                        value=80, step=5, format="%d%%",
+                        key="portfolio_xray_pie_size",
+                    )
+                    pie_position = st.select_slider(
+                        "Vertical position",
+                        options=["Higher", "Center", "Lower"],
+                        value="Center", key="portfolio_xray_pie_position",
+                    )
+                    st.caption("Changes also apply to the downloaded PNG.")
+                pie_domain = _pie_domain(
+                    pie_size, pie_position, bool(chart_portfolio_name)
+                )
                 labels, amounts = pie_data(rows)
                 # Every holding remains in the pie, even below 1%. Emphasize
                 # larger holdings with distinct colors; mute the tiny slices.
@@ -445,13 +489,10 @@ def render_portfolio_xray():
                 with chart_col:
                     fig = go.Figure(go.Pie(
                         labels=labels, values=amounts, hole=.58, sort=False,
-                        # Shrink only the donut inside its existing plot.
-                        # The lower vertical domain leaves a separate band for
-                        # the saved portfolio title and outside ticker labels.
-                        domain=dict(
-                            x=[0.12, 0.88] if chart_portfolio_name else [0.08, 0.92],
-                            y=[0.08, 0.72] if chart_portfolio_name else [0.07, 0.91],
-                        ),
+                        # Use the user-adjustable domain rather than Plotly
+                        # auto-margin, which had allowed outside ticker labels
+                        # to push the pie into the saved title.
+                        domain=pie_domain,
                         # Distinct IDs preserve separate exposure slices even
                         # when a direct stock and an unresolved fund share a label.
                         ids=[f"xray-holding-{i}" for i in range(len(labels))],
@@ -463,7 +504,7 @@ def render_portfolio_xray():
                             family="Inter, Segoe UI, Arial, sans-serif",
                             size=12, color="#DDEAF7",
                         ),
-                        automargin=True,
+                        automargin=False,
                         hovertemplate=hover_description,
                         marker=dict(colors=pie_colors, line=dict(color="#091624", width=0.4)),
                     ))
@@ -481,28 +522,31 @@ def render_portfolio_xray():
                         showlegend=False,
                         annotations=[dict(
                             text="Portfolio", x=.5,
-                            # The center label must follow the shrunken donut.
-                            y=.40 if chart_portfolio_name else .49,
+                            y=sum(pie_domain["y"]) / 2,
+                            xref="paper", yref="paper",
                             showarrow=False, font=dict(
-                                              family="Inter, Segoe UI, Arial, sans-serif",
-                                              size=13, color="#B8D3E7",
-                                          ))],
+                                family="Inter, Segoe UI, Arial, sans-serif",
+                                size=13, color="#B8D3E7",
+                            ),
+                        )],
                     )
                     # The saved name becomes part of the exported image only
                     # when the currently analyzed positions match that portfolio.
                     # Unloaded or edited portfolios have no chart title.
                     if chart_portfolio_name:
-                        fig.update_layout(
-                            title=dict(
-                                text=escape(chart_portfolio_name),
-                                x=0.5, xanchor="center",
-                                y=0.98, yanchor="top",
-                                pad=dict(t=6, b=10),
-                                font=dict(
-                                    family="Inter, Segoe UI, Arial, sans-serif",
-                                    size=18, color="#DEEAF7",
-                                ),
-                            )
+                        # Annotations draw above pie traces and outside labels.
+                        # A top-margin title previously rendered under the
+                        # outside slice text, making its upper half disappear.
+                        fig.add_annotation(
+                            text=escape(chart_portfolio_name),
+                            x=0.5, y=1.085,
+                            xref="paper", yref="paper",
+                            xanchor="center", yanchor="middle",
+                            showarrow=False,
+                            font=dict(
+                                family="Inter, Segoe UI, Arial, sans-serif",
+                                size=18, color="#DEEAF7",
+                            ),
                         )
                     # Plotly exports the chart client-side, including outside
                     # ticker labels. No additional Python image dependency needed.
