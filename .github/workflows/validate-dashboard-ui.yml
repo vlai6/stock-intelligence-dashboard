@@ -142,7 +142,8 @@ jobs:
           assert 'Stock' in xray and 'ETF' in xray
           assert 'portfolio_rows(classified, snapshots, errors)' in xray
           assert 'security_type(ticker)' in xray
-          assert '"Ticker": "", "Amount ($)": 0.0' in xray
+          assert 'key=f"portfolio_xray_ticker_{index}"' in xray
+          assert 'key=f"portfolio_xray_amount_{index}"' in xray
           assert 'SelectboxColumn(' not in xray
           assert '"Type": "ETF"' not in xray
           assert 'st.file_uploader(' not in xray
