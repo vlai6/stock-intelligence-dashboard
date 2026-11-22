@@ -222,7 +222,7 @@ def render_portfolio_xray():
                 )
             else:
                 labels, amounts = pie_data(rows)
-                # Every holding remains in the pie, even below 2%. Emphasize
+                # Every holding remains in the pie, even below 1%. Emphasize
                 # larger holdings with distinct colors; mute the tiny slices.
                 total_pie = sum(amounts)
                 percentages = [
@@ -239,14 +239,14 @@ def render_portfolio_xray():
                 for index, (label, pct) in enumerate(zip(labels, percentages)):
                     if label == "Unresolved ETF exposure":
                         pie_colors.append("#8A929C")
-                    elif pct >= 2.0:
+                    elif pct >= 1.0:
                         pie_colors.append(major_palette[major_index % len(major_palette)])
                         major_index += 1
                     else:
                         pie_colors.append("#284558" if index % 2 == 0 else "#315469")
                 legend_labels = pie_legend_labels(labels, amounts)
-                # Percentages under 2% remain visible on hover, not as labels.
-                slice_text = [f"{pct:.1f}%" if pct >= 2.0 else "" for pct in percentages]
+                # Percentages under 1% remain visible on hover, not as labels.
+                slice_text = [f"{pct:.1f}%" if pct >= 1.0 else "" for pct in percentages]
                 chart_col, legend_col = st.columns([7, 3], gap="small")
                 with chart_col:
                     fig = go.Figure(go.Pie(
@@ -277,7 +277,7 @@ def render_portfolio_xray():
                         for label, full, color, pct in zip(
                             labels, legend_labels, pie_colors, percentages
                         )
-                        if pct >= 2.0
+                        if pct >= 1.0
                     ]
                     st.markdown(
                         '<div class="si-xray-legend">'
