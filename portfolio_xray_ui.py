@@ -778,10 +778,16 @@ def render_portfolio_xray():
                     f"{ticker}: {requested}"
                     for ticker, requested in sorted(requested_dates.items())
                 )
+                actual_dates = ", ".join(
+                    f"{entry['ETF']}: {entry['As of']}"
+                    for entry in info.get("sources", [])
+                )
                 st.caption(
                     "Historical ETF holdings requested (as-of dates): "
                     + (requested_text or "No recognized ETFs")
-                    + ". Actual SEC report dates are listed in Source: TickerInside."
+                    + ". Actual holdings report dates: "
+                    + (actual_dates or "None available")
+                    + "."
                 )
                 if info.get("historical_unavailable"):
                     st.warning(
