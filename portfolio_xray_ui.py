@@ -1,6 +1,7 @@
 """Compact two-column ETF + direct-stock X-ray on Investment Philosophy."""
 from __future__ import annotations
 from html import escape
+import re
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
@@ -55,17 +56,27 @@ def _cached_tickerinside_identifiers() -> dict[str, str]:
 
 
 def _security_type(ticker: str) -> str:
-    """Identify fund versus stock from TickerInside alone."""
-    return security_type(ticker, _cached_tickerinside_identifiers())
+    """Identify stocks/ETFs via TickerInside; recognize known cash/CUSIPs locally."""
+    symbol = ticker_of(ticker)
+    if symbol == "Cash & Cash Inv" or re.fullmatch(r"\d[A-Z0-9]{8}", symbol):
+        return "OTHER"
+    return security_type(symbol, _cached_tickerinside_identifiers())
 
 
 def _analyze(positions):
-    classified = [
-        {**position, "type": _security_type(position["ticker"])}
-        for position in positions
-    ]
+    classified, errors = [], {}
+    for position in positions:
+        try:
+            kind = _security_type(position["ticker"])
+        except Exception as exc:
+            kind = "UNKNOWN"
+            errors[position["ticker"]] = (
+                "Unable to classify position using TickerInside: "
+                + str(exc).splitlines()[0][:170]
+            )
+        classified.append({**position, "type": kind})
     etfs = {pos["ticker"] for pos in classified if pos["type"] == "ETF"}
-    snapshots, errors = {}, {}
+    snapshots = {}
     for ticker in sorted(etfs):
         try:
             snapshots[ticker] = _cached_issuer_holdings(ticker)
@@ -326,7 +337,7 @@ def render_portfolio_xray():
                 pie_colors = []
                 major_index = 0
                 for index, (label, pct) in enumerate(zip(labels, percentages)):
-                    if label == "Unresolved ETF exposure":
+                    if label in {"Unresolved ETF exposure", "Unclassified positions"}:
                         pie_colors.append("#8A929C")
                     elif pct >= 1.0:
                         pie_colors.append(major_palette[major_index % len(major_palette)])
@@ -389,9 +400,9 @@ def render_portfolio_xray():
                     if result_is_pct else f"USD {info['unresolved']:,.2f}"
                 )
                 st.warning(
-                    f"{unresolved_amount} of ETF exposure could not be "
-                    "mapped to underlying stocks from TickerInside. "
-                    "Missing weights are not redistributed."
+                    f"{unresolved_amount} of positions or ETF exposure could not "
+                    "be verified against TickerInside holdings. Unverified "
+                    "positions and missing ETF weights are not redistributed."
                 )
             if info.get("other_assets", 0) > 0:
                 known_nonstock = (
