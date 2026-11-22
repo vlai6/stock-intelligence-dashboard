@@ -273,7 +273,7 @@ def render_saved_portfolio_controls():
             help="Already loaded" if already_loaded else "Load and analyze selected portfolio",
         )
     with save_col:
-        with st.popover("Save portfolio", use_container_width=True):
+        with st.popover("Save Portfolio As", use_container_width=True):
             # Use a standard input rather than a form: Streamlit's form-only
             # "Press Enter to submit" overlay collides with the character
             # counter and typed portfolio name in this narrow popover.
