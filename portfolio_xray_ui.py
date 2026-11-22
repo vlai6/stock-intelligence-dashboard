@@ -410,10 +410,26 @@ def render_portfolio_xray():
             count = st.session_state["portfolio_xray_row_count"]
             input_unit = st.session_state.get("portfolio_xray_unit_mode", "usd")
             is_pct = input_unit == "pct"
-            submitted = st.button(
-                "Analyze portfolio", type="primary", use_container_width=True,
-                key="portfolio_xray_analyze",
-            )
+            # Per-ticker dates are for ETFs only, not directly held stocks.
+            try:
+                directory = _cached_tickerinside_identifiers()
+                etfs_entered = sorted({
+                    str(st.session_state.get(f"portfolio_xray_ticker_{index}") or "").strip().upper()
+                    for index in range(count)
+                    if directory.get(
+                        str(st.session_state.get(f"portfolio_xray_ticker_{index}") or "").strip().upper()
+                    ) == "ETF"
+                })
+            except Exception:
+                etfs_entered = []
+            action_col, date_col = st.columns([1.7, 1.1], gap="small")
+            with action_col:
+                submitted = st.button(
+                    "Analyze portfolio", type="primary", use_container_width=True,
+                    key="portfolio_xray_analyze",
+                )
+            with date_col:
+                historical_dates = _historical_date_settings(etfs_entered)
             header_ticker, header_amount = st.columns([1, 1], gap="small")
             with header_ticker:
                 st.caption("Ticker")
@@ -455,7 +471,7 @@ def render_portfolio_xray():
                 try:
                     positions = _clean_positions(editor)
                     with st.spinner("Loading ETF holdings…"):
-                        st.session_state["portfolio_xray_results"] = _analyze(positions)
+                        st.session_state["portfolio_xray_results"] = _analyze(positions, historical_dates)
                         st.session_state["portfolio_xray_results_unit"] = input_unit
                         st.session_state["portfolio_xray_results_signature"] = (
                             input_unit,
@@ -756,6 +772,51 @@ def render_portfolio_xray():
             st.caption("Ticker-level look-through; share classes remain separate. "
                        "ETF holdings dates may differ. Direct cash and Treasury holdings "
                        "remain separate; missing ETF exposure stays unresolved.")
+            if info.get("historical_dates") is not None:
+                requested_dates = info["historical_dates"]
+                requested_text = ", ".join(
+                    f"{ticker}: {requested}"
+                    for ticker, requested in sorted(requested_dates.items())
+                )
+                st.caption(
+                    "Historical ETF holdings requested (as-of dates): "
+                    + (requested_text or "No recognized ETFs")
+                    + ". Actual SEC report dates are listed in Source: TickerInside."
+                )
+                if info.get("historical_unavailable"):
+                    st.warning(
+                        "Historical holdings unavailable for: "
+                        + ", ".join(info["historical_unavailable"])
+                        + ". These exposures are shown as unresolved, not "
+                        "replaced by current holdings. The historical-to-latest "
+                        "comparison is withheld until every ETF is covered."
+                    )
+                elif info.get("historical_comparison") is not None:
+                    with st.expander("Compare Historical vs Latest ETF Exposure"):
+                        changes = info["historical_comparison"]
+                        st.dataframe(
+                            pd.DataFrame(changes),
+                            hide_index=True,
+                            use_container_width=True,
+                            column_config={
+                                "Historical %": st.column_config.NumberColumn(format="%.2f%%"),
+                                "Latest %": st.column_config.NumberColumn(format="%.2f%%"),
+                                "Change (pp)": st.column_config.NumberColumn(format="%+.2f"),
+                            },
+                        )
+                        st.caption(
+                            "Portfolio weights are held constant. Differences "
+                            "reflect reported ETF constituent changes only, not "
+                            "the historical performance of the positions. "
+                            "TickerInside historical reports are quarterly SEC "
+                            "snapshots and may have been published later than "
+                            "the report date."
+                        )
+                elif info.get("historical_latest_unavailable"):
+                    st.warning(
+                        "The latest holdings needed for the comparison are "
+                        "unavailable. Historical holdings remain visible."
+                    )
             # Historical return comparison runs from the original input positions,
             # never from ETF-expanded constituent rows. Only matching analyzed
             # inputs can be used, preventing stale results after an edit.
