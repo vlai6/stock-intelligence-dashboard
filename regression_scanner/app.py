@@ -80,7 +80,7 @@ def choose_scope(value: str) -> None:
     st.session_state["scan_scope"] = value
 
 
-# Page configuration comes from the parent Stock Intelligence router.
+# Page configuration comes from the parent Stock Intelligence Toolkit router.
 
 if "scan_scope" not in st.session_state:
     st.session_state["scan_scope"] = TOP_N_SCOPE
