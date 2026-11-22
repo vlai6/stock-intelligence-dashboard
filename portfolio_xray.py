@@ -1,66 +1,82 @@
-"""ETF / individual-stock portfolio X-ray, using full issuer holdings only."""
+"""ETF / individual-stock portfolio X-ray powered solely by TickerInside."""
 from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
-import csv
-import io
 import math
 import re
 
 VALID = re.compile(r"^[A-Z][A-Z0-9.\-]{0,12}$")
-SPDR = {"SPY", "SPYG", "SPYV", "SPYD", "XLK", "XLF", "XLV", "XLE", "XLY", "XLP", "XLI", "XLU", "XLC", "XLRE", "SDY"}
-INVESCO = {"SPMO", "XMMO", "XSMO", "QQQ", "QQQM", "RSP", "SPLV"}
-
-# Curated commonly used ETF identifiers. Identity does not imply that complete
-# issuer holdings can be downloaded; unsupported funds remain unresolved.
-OTHER_ETFS = {
-    "VOO", "VTI", "VTV", "VGT", "VUG", "VXUS", "VEA", "VWO", "VT",
-    "AVLV", "AVUV", "AVDV", "AVEM", "AVDE", "AVUS", "AVMC",
-    "SPYI", "SPLG", "IVV", "IWM", "IJH", "IJR", "QUAL", "MTUM",
-    "AIQ", "SMH", "SOXX", "TLT", "GLD", "SLV", "SGOV", "BND", "SCHD",
-    "DRAM", "XSD", "XLK", "XMMO", "SPMO", "XSMO",
-}
-
-# A small offline fallback for frequently used blue-chip equities; other
-# symbols are identified using fresh Yahoo Finance quote metadata.
-KNOWN_STOCKS = {
-    "NVDA", "AAPL", "MSFT", "AMD", "AVGO", "QCOM", "MU", "INTC",
-    "TSM", "ASML", "ARM", "GOOG", "GOOGL", "AMZN", "META", "TSLA",
-    "BABA", "DOX", "NFLX", "UNH", "MCD", "ORCL", "HD", "PEP",
-    "CRWD", "NOW", "ALNY", "ROL", "SCI", "DFS", "POST",
-}
+TICKERINSIDE_API = "https://tickerinside.com/api/v1"
 
 
-def security_type(ticker: str, quote_lookup=None) -> str:
-    """Classify ETF or equity without relying on an editable Type field.
-
-    Known ETF identifiers get priority; for other symbols Yahoo Finance
-    quoteType must explicitly indicate ETF or EQUITY. Missing/ambiguous
-    metadata raises rather than silently interpreting a fund as one stock.
-    """
-    ticker = ticker_of(ticker)
-    if ticker in SPDR or ticker in INVESCO or ticker in OTHER_ETFS:
-        return "ETF"
-    if ticker in KNOWN_STOCKS:
-        return "STOCK"
-    if quote_lookup is None:
-        import yfinance as yf
-        quote_lookup = lambda symbol: yf.Ticker(symbol).info
+def _tickerinside_json(path: str) -> dict:
+    """Read an allowlisted TickerInside API path; never fetch arbitrary URLs."""
+    import requests
+    if path != "identifiers.json" and not re.fullmatch(
+        r"fund/[a-z0-9.\-]+\.json", path
+    ):
+        raise ValueError("Unexpected TickerInside API path")
+    url = f"{TICKERINSIDE_API}/{path}"
     try:
-        meta = quote_lookup(ticker) or {}
-        qtype = str(meta.get("quoteType") or meta.get("typeDisp") or "").upper()
-        if qtype in {"ETF", "EXCHANGE TRADED FUND"}:
-            return "ETF"
-        if qtype in {"EQUITY", "COMMON STOCK", "STOCK"}:
-            return "STOCK"
-    except Exception as exc:
-        raise ValueError(
-            f"Couldn't identify {ticker} as ETF or stock; market quote data unavailable."
-        ) from exc
-    raise ValueError(
-        f"Couldn't identify {ticker} as an ETF or individual stock; check the ticker."
-    )
+        response = requests.get(url, timeout=25, headers={
+            "User-Agent": "StockIntelligence-XRay/1.0",
+            "Accept": "application/json",
+        })
+        if response.status_code == 404:
+            raise ValueError(f"No TickerInside data for {path}")
+        response.raise_for_status()
+        if len(response.content) > 3_000_000:
+            raise ValueError("TickerInside response exceeds the allowed size")
+        payload = response.json()
+    except requests.RequestException as exc:
+        raise ValueError(f"TickerInside request failed: {exc}") from exc
+    except ValueError as exc:
+        if "TickerInside" in str(exc):
+            raise
+        raise ValueError("TickerInside returned invalid JSON") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("TickerInside returned unexpected JSON structure")
+    return payload
 
+
+def tickerinside_identifiers() -> dict[str, str]:
+    """One provider for stock, ETF and ETN identities; caller caches the index."""
+    payload = _tickerinside_json("identifiers.json")
+    fields = payload.get("fields")
+    securities = payload.get("securities")
+    if not isinstance(fields, list) or not isinstance(securities, list):
+        raise ValueError("TickerInside's security identifier index is unavailable")
+    try:
+        t_idx, type_idx = fields.index("ticker"), fields.index("asset_type")
+    except ValueError as exc:
+        raise ValueError("TickerInside identifiers lack security type fields") from exc
+    kinds = {}
+    for item in securities:
+        if not isinstance(item, list) or len(item) <= max(t_idx, type_idx):
+            continue
+        symbol = str(item[t_idx] or "").strip().upper()
+        asset_type = str(item[type_idx] or "").strip().lower()
+        if VALID.fullmatch(symbol):
+            if asset_type in {"etf", "etn"}:
+                kinds[symbol] = "ETF"
+            elif asset_type == "stock":
+                kinds[symbol] = "STOCK"
+    if not kinds:
+        raise ValueError("TickerInside returned an empty security identifier list")
+    return kinds
+
+
+def security_type(ticker: str, identifiers: dict[str, str] | None = None) -> str:
+    """Classify from TickerInside only, without a Yahoo or guessed fallback."""
+    ticker = ticker_of(ticker)
+    kinds = identifiers if identifiers is not None else tickerinside_identifiers()
+    kind = kinds.get(ticker)
+    if kind not in {"ETF", "STOCK"}:
+        raise ValueError(
+            f"{ticker} is not in TickerInside's security directory; "
+            "this X-Ray cannot verify it as a stock or ETF."
+        )
+    return kind
 
 @dataclass(frozen=True)
 class Holdings:
@@ -81,117 +97,54 @@ def ticker_of(value):
     return ticker
 
 
-def _norm(value):
-    return re.sub(r"[^a-z0-9]", "", str(value).lower())
+def issuer_holdings(ticker: str) -> Holdings:
+    """TickerInside percentages become NAV fractions, keeping unmapped NAV intact.
 
-
-def _number(value):
-    raw = str(value or "").strip().replace(",", "").replace("$", "").replace("%", "")
-    if raw.lower() in ("", "--", "-", "na", "n/a", "nan", "none"):
-        return None
-    try:
-        v = float(raw)
-    except ValueError:
-        return None
-    return v if math.isfinite(v) else None
-
-
-def parse_rows(rows, ticker, source):
-    """Parse an issuer CSV/XLSX by matching column meaning, not row position."""
-    rows = [list(r) for r in rows]
-    symbols = {"ticker", "holdingticker", "symbol", "securityticker", "stockticker"}
-    names = {"name", "company", "companyname", "securityname", "holdingname", "description"}
-    weights = {"weight", "weightpercent", "weightpercentage", "weighting",
-               "weightofnetassets", "percentageofnetassets", "percentofnetassets",
-               "percentofassets", "portfolioweight"}
-    header_index, key, name_key, weight_key = None, None, None, None
-    for i, row in enumerate(rows[:45]):
-        h = [_norm(x) for x in row]
-        symbol_index = next((j for j, x in enumerate(h) if x in symbols), None)
-        name_index = next((j for j, x in enumerate(h) if x in names), None)
-        weight_index = next((j for j, x in enumerate(h) if x in weights), None)
-        if (symbol_index is not None or name_index is not None) and weight_index is not None:
-            header_index, key, name_key, weight_key = i, symbol_index, name_index, weight_index
-            break
-    if header_index is None:
-        raise ValueError("No complete holdings table: expected Ticker/Company and Weight columns")
-    found = defaultdict(float)
-    raw_total = 0.0
-    for row in rows[header_index + 1:]:
-        def cell(i):
-            return str(row[i]).strip() if i is not None and i < len(row) else ""
-        v = _number(cell(weight_key))
-        if v is None or v <= 0:
-            continue
-        label = cell(key)
-        if label.upper() in {"", "N/A", "-", "--"}:
-            company = cell(name_key)
-            if not company:
-                continue
-            label = "NAME: " + company[:75].upper()
-        else:
-            label = label.upper().replace("/", ".").replace(" ", "")
-        if label.startswith(("TOTAL", "SUBTOTAL")):
-            continue
-        found[label] += v
-        raw_total += v
-    if not found or raw_total <= 0:
-        raise ValueError("No positive, usable holdings found")
-    # Issuers typically use 7.5 for 7.5%; some files use 0.075.
-    factor = 1.0 if raw_total <= 1.05 else 0.01
-    proportions = {k: v * factor for k, v in found.items()}
-    total = sum(proportions.values())
-    if total > 1.02:
-        raise ValueError(f"Fund weight total {total:.1%} is invalid")
-    if 1 < total <= 1.02:  # rounding in published fund weights
-        proportions = {k: v / total for k, v in proportions.items()}
-    return Holdings(ticker_of(ticker), proportions, source)
-
-
-def parse_file(filename: str, data: bytes, ticker: str) -> Holdings:
-    if len(data) > 12_000_000:
-        raise ValueError("Holdings file over 12MB")
-    if filename.lower().endswith(".csv"):
-        rows = list(csv.reader(io.StringIO(data.decode("utf-8-sig", errors="replace"))))
-    elif filename.lower().endswith(".xlsx"):
-        import pandas as pd
-        frame = pd.read_excel(io.BytesIO(data), sheet_name=0, header=None, dtype=str)
-        rows = frame.fillna("").values.tolist()
-    else:
-        raise ValueError("Upload a CSV or XLSX holdings file")
-    return parse_rows(rows, ticker, "Uploaded: " + filename)
-
-
-def _download(url, params=None):
-    import requests
-    response = requests.get(url, params=params, timeout=20, headers={
-        "User-Agent": "Mozilla/5.0 (compatible; StockIntelligence/1.0)",
-        "Accept": "text/csv,application/octet-stream,*/*",
-    })
-    response.raise_for_status()
-    data = response.content
-    if not data or len(data) > 12_000_000:
-        raise ValueError("Empty or oversized holdings response")
-    if data.lstrip()[:80].lower().startswith((b"<!doctype", b"<html", b"<head")):
-        raise ValueError("Issuer returned an HTML page instead of holdings")
-    return data
-
-
-def issuer_holdings(ticker):
-    """Official feeds when available; otherwise preserve unresolved exposure."""
+    Bonds, derivatives, commodities and mixed funds are not classified as
+    individual stock exposure. They remain unresolved in the existing chart.
+    """
     ticker = ticker_of(ticker)
-    if ticker in SPDR:
-        url = ("https://www.ssga.com/library-content/products/fund-data/"
-               f"etfs/us/holdings-daily-us-en-{ticker.lower()}.xlsx")
-        return parse_file(ticker + ".xlsx", _download(url), ticker)
-    if ticker in INVESCO:
-        url = "https://www.invesco.com/us/financial-products/etfs/holdings/main/holdings/0"
-        data = _download(url, {
-            "audienceType": "Investor", "action": "download", "ticker": ticker
-        })
-        return parse_file(ticker + ".csv", data, ticker)
-    raise ValueError(f"{ticker}: full holdings are not available from an automatic issuer feed")
-
+    data = _tickerinside_json(f"fund/{ticker.lower()}.json")
+    kind = str(data.get("holdings_kind") or "").strip().lower()
+    if kind not in {"", "stock"}:
+        raise ValueError(
+            f"TickerInside classifies {ticker} holdings as {kind}, not stocks; "
+            "keeping this position unresolved."
+        )
+    weights_raw = data.get("holdings")
+    if not isinstance(weights_raw, dict) or not weights_raw:
+        raise ValueError(
+            f"TickerInside has no reported stock holdings for {ticker}; "
+            "keeping this position unresolved."
+        )
+    proportions = {}
+    for symbol, pct_raw in weights_raw.items():
+        if not isinstance(symbol, str) or not symbol.strip():
+            continue
+        try:
+            pct = float(pct_raw)
+        except (ValueError, TypeError):
+            continue
+        if not math.isfinite(pct) or pct < 0:
+            raise ValueError(f"TickerInside reported an invalid weight for {ticker}")
+        if pct > 0:
+            label = symbol.strip().upper()
+            proportions[label] = proportions.get(label, 0.0) + pct / 100.0
+    total = sum(proportions.values())
+    if not proportions or total <= 0:
+        raise ValueError(f"TickerInside reported no usable holdings for {ticker}")
+    if total > 1.02:
+        raise ValueError(f"TickerInside holdings for {ticker} total {total:.1%}")
+    if total > 1.0:
+        proportions = {symbol: weight / total for symbol, weight in proportions.items()}
+    source_layer = str(data.get("source_layer") or "unspecified").replace("_", " ")
+    as_of = str(data.get("holdings_as_of") or data.get("report_date") or "")
+    return Holdings(
+        ticker=ticker,
+        weights=proportions,
+        source=f"TickerInside ({source_layer})",
+        as_of=as_of,
+    )
 
 def portfolio_rows(positions, etfs, failures=None):
     """Dollar-weight holdings and directly owned stocks, preserving missing NAV."""
