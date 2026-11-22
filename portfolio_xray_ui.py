@@ -461,9 +461,16 @@ def render_portfolio_xray():
                         marker=dict(colors=pie_colors, line=dict(color="#091624", width=0.4)),
                     ))
                     fig.update_layout(
-                        # Extra vertical room lets Plotly place outside tickers
-                        # without squeezing the donut or clipping connectors.
-                        height=440, margin=dict(l=18, r=18, t=16, b=16),
+                        # Reserve a dedicated band above the donut for saved
+                        # portfolio titles. Outside ticker labels can extend
+                        # upward; a small top margin makes them overlap the title.
+                        # Unnamed portfolios keep the compact original layout.
+                        height=510 if chart_portfolio_name else 440,
+                        margin=dict(
+                            l=18, r=18,
+                            t=90 if chart_portfolio_name else 16,
+                            b=16,
+                        ),
                         showlegend=False,
                         annotations=[dict(text="Portfolio", x=.5, y=.5,
                                           showarrow=False, font=dict(
@@ -479,6 +486,8 @@ def render_portfolio_xray():
                             title=dict(
                                 text=escape(chart_portfolio_name),
                                 x=0.5, xanchor="center",
+                                y=0.98, yanchor="top",
+                                pad=dict(t=6, b=10),
                                 font=dict(
                                     family="Inter, Segoe UI, Arial, sans-serif",
                                     size=18, color="#DEEAF7",
