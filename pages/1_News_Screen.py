@@ -788,7 +788,7 @@ with load_col:
         help='Already loaded' if already_loaded else 'Load stocks and show this group’s news',
     )
 with save_col:
-    with st.popover('Save Group', use_container_width=True):
+    with st.popover('Save Group As', use_container_width=True):
         st.text_input(
             'Group name', placeholder='e.g. Research stocks',
             key='ns_new_group_name',
