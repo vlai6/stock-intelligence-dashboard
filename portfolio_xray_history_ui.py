@@ -8,10 +8,53 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from dashboard_theme import style_blue_figure
+from portfolio_xray_saved import (
+    NS as SAVED_NS, _load_selected, loaded_portfolio_chart_name,
+)
 from portfolio_xray_history import (
     adjusted_history, portfolio_weights, simulate_returns,
     unsupported_assets, HistoricalCoverageError,
 )
+
+
+HISTORY_PORTFOLIO_KEY = "portfolio_xray_history_selected_portfolio"
+HISTORY_RESULT_KEY = "portfolio_xray_historical_result"
+
+
+def _change_history_portfolio() -> None:
+    """Change the *main* X-Ray portfolio before Streamlit creates its widgets.
+
+    This callback is shared with the main X-Ray session state, not a separate
+    historical-only allocation. The existing saved-portfolio loader restores
+    the editor, percent/dollar units, active name and auto-analysis request.
+    """
+    state = st.session_state
+    name = state.get(HISTORY_PORTFOLIO_KEY)
+    saved = state.get(SAVED_NS + "portfolios", {})
+    if not isinstance(name, str) or name not in saved:
+        return
+    state[SAVED_NS + "selected"] = name
+    _load_selected()
+    # The previous time series belongs to another portfolio and must not be
+    # visible while the newly loaded X-Ray allocation is being analyzed.
+    state.pop(HISTORY_RESULT_KEY, None)
+
+
+def _sync_history_portfolio_selection() -> list[str]:
+    """Reflect whichever portfolio is actually loaded in the main X-Ray.
+
+    Called before this selector is instantiated, after the main X-Ray controls
+    have loaded/analyzed the current portfolio. Merely highlighting a different
+    name in the top dropdown does not count as loading it.
+    """
+    state = st.session_state
+    saved = state.get(SAVED_NS + "portfolios", {})
+    names = list(saved) if isinstance(saved, dict) else []
+    actual = loaded_portfolio_chart_name()
+    selected = actual if actual in names else None
+    if state.get(HISTORY_PORTFOLIO_KEY) != selected:
+        state[HISTORY_PORTFOLIO_KEY] = selected
+    return names
 
 
 @st.cache_data(ttl=4 * 3600, show_spinner=False)
@@ -33,6 +76,23 @@ def render_historical_returns(
         "Adjusted ETF/stock prices include dividends and splits; returns are "
         "before taxes and fees."
     )
+    # The selector and the main X-Ray share the SAME saved-portfolio loader.
+    # Selection changes rerun the editor and its ETF look-through automatically.
+    names = _sync_history_portfolio_selection()
+    selector_col, date_col, run_col = st.columns(
+        [2.1, 1.65, 1.9], gap="small", vertical_alignment="bottom"
+    )
+    with selector_col:
+        st.selectbox(
+            "Portfolio",
+            options=names,
+            index=None,
+            placeholder=("Current / unsaved" if names else "No saved portfolios"),
+            disabled=not names,
+            key=HISTORY_PORTFOLIO_KEY,
+            on_change=_change_history_portfolio,
+            help="Choosing a saved portfolio also loads it into the main Portfolio X-Ray.",
+        )
     if not analyzed_inputs_valid or not analyzed_signature:
         st.info("Analyze your current Portfolio X-Ray holdings to enable historical returns.")
         return
@@ -47,8 +107,7 @@ def render_historical_returns(
     today = date.today()
     latest = today - timedelta(days=1)
     default_start = max(date(2000, 1, 1), today - timedelta(days=365))
-    control_col, run_col, _space = st.columns([2, 1.6, 3.4], vertical_alignment="bottom")
-    with control_col:
+    with date_col:
         start = st.date_input(
             "Start date", value=default_start, min_value=date(2000, 1, 1),
             max_value=latest, key="portfolio_xray_history_start",
@@ -71,7 +130,7 @@ def render_historical_returns(
         )
 
     signature = (analyzed_signature, start)
-    cache_key = "portfolio_xray_historical_result"
+    cache_key = HISTORY_RESULT_KEY
     if clicked:
         st.session_state.pop(cache_key, None)
         if not unavailable:
