@@ -16,6 +16,9 @@ from zoneinfo import ZoneInfo
 ET = ZoneInfo("America/New_York")
 EDT_CRON = "30 12 * * 1-5"
 EST_CRON = "30 13 * * 1-5"
+# A second chance if GitHub drops/delays the normal 8:30 cron.
+EDT_BACKUP_CRON = "55 12 * * 1-5"
+EST_BACKUP_CRON = "55 13 * * 1-5"
 
 
 def should_send(event: str, cron: str, now_utc: datetime | None = None) -> bool:
@@ -35,9 +38,26 @@ def should_send(event: str, cron: str, now_utc: datetime | None = None) -> bool:
     eastern = utc_now.astimezone(ET)
     if eastern.weekday() >= 5:
         return False
-    expected = EDT_CRON if eastern.dst() != timedelta(0) else EST_CRON
+    expected = (
+        (EDT_CRON, EDT_BACKUP_CRON)
+        if eastern.dst() != timedelta(0)
+        else (EST_CRON, EST_BACKUP_CRON)
+    )
     minutes = eastern.hour * 60 + eastern.minute
-    return cron == expected and (8 * 60 + 20) <= minutes < (10 * 60 + 30)
+    return cron in expected and (8 * 60 + 20) <= minutes < (10 * 60 + 30)
+
+
+def scheduled_delivery_exists(state: dict, local_time: datetime, event: str) -> bool:
+    """Prevent an 8:55 backup from re-emailing a successful 8:30 delivery.
+
+    Manual live runs remain independent and can be used for troubleshooting.
+    The marker is saved only *after* SMTP reports a successful send.
+    """
+    if event != "schedule":
+        return False
+    return state.get("last_scheduled_delivery_date") == (
+        local_time.astimezone(ET).date().isoformat()
+    )
 
 
 def main() -> None:
