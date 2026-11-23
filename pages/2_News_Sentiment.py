@@ -18,6 +18,7 @@ import plotly.graph_objects as go
 import streamlit as st
 import yfinance as yf
 from dashboard_theme import apply_dashboard_theme, render_page_header, style_blue_figure
+from stock_selection import set_active_stock, sync_ticker_input, selected_stock
 from news_shared import (
     fetch_company_news, yahoo_ticker_feed, clear_company_news_caches,
     gnews_key,
@@ -134,12 +135,25 @@ from regression_watchlists import (
     PRESETS, parse_scan_csv, read_local_scan, filtered, display_row, stale_report,
 )
 
+def _sentiment_mode_changed() -> None:
+    # A preset's first ticker should apply only when the user deliberately
+    # switches lists, not on every rerender after another section changes stock.
+    st.session_state["si_sentiment_preset_just_changed"] = True
+
+
+def _sentiment_preset_ticker_changed(widget_key: str) -> None:
+    candidate = st.session_state.get(widget_key)
+    if candidate:
+        set_active_stock(candidate, source="sentiment")
+
+
 # si_compact_sentiment_controls_v1
 si_stocklist_col, _si_stocklist_blank = st.columns([1, 1], gap='medium')
 with si_stocklist_col:
     with st.container(border=True):
         news_list_mode = st.selectbox('News Sentiment stock list',
-            ['Single stock'] + list(PRESETS), key='si_news_stock_list')
+            ['Single stock'] + list(PRESETS), key='si_news_stock_list',
+            on_change=_sentiment_mode_changed)
         scan_report = None
         if news_list_mode != 'Single stock':
             scan_report = read_local_scan()
@@ -170,21 +184,32 @@ with si_stocklist_col:
                     st.info('No stocks in the imported scanner report meet these thresholds.')
                     st.stop()
                 else:
-                    candidate = st.selectbox('Qualifying ticker', qualifying['ticker'].tolist(),
-                        key=f'si_screened_ticker_{list(PRESETS).index(news_list_mode)}')
-                    if candidate != str(st.session_state.get('primary') or 'NVDA').strip().upper():
-                        st.session_state['primary'] = candidate
-                        st.session_state['loaded'] = True
-                        st.rerun()
+                    preset_key = f'si_screened_ticker_{list(PRESETS).index(news_list_mode)}'
+                    candidate = st.selectbox(
+                        'Qualifying ticker', qualifying['ticker'].tolist(),
+                        key=preset_key,
+                        on_change=_sentiment_preset_ticker_changed,
+                        args=(preset_key,),
+                    )
+                    # Switching into a preset initially selects its first ticker.
+                    # Afterward, other sections can change the active stock
+                    # without being overwritten by this preset on every rerun.
+                    if st.session_state.pop('si_sentiment_preset_just_changed', False):
+                        if candidate != selected_stock():
+                            set_active_stock(candidate, source="sentiment")
+                            st.rerun(scope="app")
 
-selected_symbol=str(st.session_state.get('primary') or 'NVDA').strip().upper()
+selected_symbol = selected_stock()
 if news_list_mode == 'Single stock':
+    sync_ticker_input("si_sentiment_ticker_draft", "si_sentiment_ticker_followed")
     si_ticker_col, _si_ticker_blank = st.columns([1, 1], gap='medium')
     with si_ticker_col:
         with st.form('sentiment_lookup'):
             left,right=st.columns([4,1], vertical_alignment='bottom')
             with left:
-                wanted=st.text_input('Stock ticker', value=selected_symbol, max_chars=15)
+                wanted=st.text_input(
+                    'Stock ticker', key="si_sentiment_ticker_draft", max_chars=15
+                )
             with right:
                 go_now=st.form_submit_button('Analyze stock', type='primary', use_container_width=True)
     if go_now:
@@ -192,10 +217,9 @@ if news_list_mode == 'Single stock':
         if not candidate or not all(c.isalnum() or c in '.-^=' for c in candidate):
             st.error('Enter a valid ticker symbol.')
             st.stop()
-        st.session_state['primary']=candidate
-        st.session_state['loaded']=True
-        st.rerun()
-symbol=str(st.session_state.get('primary') or 'NVDA').strip().upper()
+        set_active_stock(candidate, source="sentiment")
+        st.rerun(scope="app")
+symbol = selected_stock()
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def ticker_name(t):
