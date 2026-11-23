@@ -4,7 +4,9 @@ Based on the existing General News Screen source. No keys logged or stored.
 from __future__ import annotations
 import html, json, math, os, re
 from datetime import datetime, timezone, timedelta
+from email.utils import parsedate_to_datetime
 from urllib.parse import urlsplit
+from xml.etree import ElementTree
 from zoneinfo import ZoneInfo
 import pandas as pd
 import streamlit as st
@@ -27,6 +29,7 @@ HEADLINE_ALIASES={
     "INTC":("Intel",),"AMD":("AMD","Advanced Micro Devices"),
     "TSLA":("Tesla",),"PLTR":("Palantir",),"AVGO":("Broadcom",),
     "ARM":("Arm Holdings","Arm"),"ASML":("ASML",),"BABA":("Alibaba",),
+    "NOW":("ServiceNow",),
 }
 
 def safe_link(raw: object) -> str:
@@ -266,21 +269,87 @@ def gnews_company_search(query: str, api_key: str) -> list[dict]:
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
+def google_news_rss_search(query: str) -> list[dict]:
+    """Free, independent news discovery. Published dates and titles remain strict.
+
+    Feed URLs may redirect via Google News; keep the sourced article URL
+    rather than guessing an upstream publisher link.
+    """
+    clean_query = str(query or "").strip()[:110]
+    if not clean_query:
+        return []
+    try:
+        response = requests.get(
+            "https://news.google.com/rss/search",
+            params={
+                "q": f'"{clean_query}" when:7d',
+                "hl": "en-US", "gl": "US", "ceid": "US:en",
+            },
+            headers={"User-Agent": "StockIntelligenceToolkit/1.0 (news RSS)"},
+            timeout=(5, 14),
+        )
+        response.raise_for_status()
+        if len(response.content) > 2_000_000:
+            return []
+        root = ElementTree.fromstring(response.content)
+    except (requests.RequestException, ElementTree.ParseError, ValueError):
+        return []
+    results = []
+    for item in root.findall("./channel/item")[:100]:
+        title = (item.findtext("title") or "").strip()
+        published = (item.findtext("pubDate") or "").strip()
+        link = (item.findtext("link") or "").strip()
+        source = (item.findtext("source") or "").strip()
+        if not title or not published or not link:
+            continue
+        try:
+            parsed = parsedate_to_datetime(published)
+            if parsed.tzinfo is None:
+                continue
+        except (ValueError, TypeError, IndexError):
+            continue
+        # Remove only Google's known publisher suffix, not headline text.
+        if source and title.casefold().endswith((" - " + source).casefold()):
+            title = title[:-(len(source) + 3)].strip()
+        results.append({
+            "title": title, "date": parsed.isoformat(),
+            "link": link, "source": source or "Google News",
+        })
+    return normalize_articles(results)
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
 def fetch_company_news(symbol: str, limit: int = 60) -> list[dict]:
-    aliases=company_aliases(symbol)
-    records=[]
+    """Combine feeds before enforcing the strict seven-day headline filter.
+
+    GNews runs when configured even if Yahoo has enough results.
+    Google News RSS requires no API key.
+    """
+    aliases = company_aliases(symbol)
+    query = aliases[0] if aliases else symbol
+    records = []
     if existing_fetch_stock_news is not None:
         try:
             records.extend(from_existing_dataframe(existing_fetch_stock_news(symbol)))
         except Exception:
             pass
     records.extend(yahoo_ticker_feed(symbol))
-    query=aliases[0] if aliases else symbol
     records.extend(yahoo_company_search(query))
-    filtered=filter_company_week(records,symbol,aliases)
-    if len(filtered)<min(limit,8):
-        key=gnews_key()
-        if key:
-            records.extend(gnews_company_search(query,key))
-            filtered=filter_company_week(records,symbol,aliases)
-    return filtered[:max(1,min(int(limit),100))]
+    key = gnews_key()
+    if key:
+        records.extend(gnews_company_search(query, key))
+    records.extend(google_news_rss_search(query))
+    return filter_company_week(records, symbol, aliases)[:max(1, min(int(limit), 100))]
+
+
+def clear_company_news_caches() -> None:
+    """Clear all headline provider caches, without touching saved groups."""
+    for fetcher in (
+        fetch_company_news, yahoo_ticker_feed, yahoo_company_search,
+        gnews_company_search, google_news_rss_search,
+    ):
+        fetcher.clear()
+    if existing_fetch_stock_news is not None:
+        clear = getattr(existing_fetch_stock_news, "clear", None)
+        if callable(clear):
+            clear()
