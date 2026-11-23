@@ -52,7 +52,10 @@ def set_active_stock(raw: object, *, source: str) -> bool:
     state[SELECTED_KEY] = ticker
     state["loaded"] = True
     state["regression_chart_active_ticker"] = ticker
-    state[CHART_INPUT_PENDING_KEY] = ticker
+    # Preserve an unsent graph draft if another section simply reloads the
+    # already active ticker. Run Graph still normalizes its own input.
+    if changed or source == "scanner":
+        state[CHART_INPUT_PENDING_KEY] = ticker
     state["selected_chart_ticker"] = ticker
     # When another section selects a stock, switch Recent Sentiment out of
     # any previously chosen scan preset. Otherwise its old Qualifying ticker
