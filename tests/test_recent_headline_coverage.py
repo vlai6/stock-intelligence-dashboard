@@ -138,3 +138,40 @@ def test_recent_sentiment_refresh_and_grouping_ui_contract():
     assert "explain_gemini_error(group_error)" in page
     assert "Headline sources: Yahoo Finance" in page
     assert "group_company_news(symbol,event_frame)" in page
+
+
+def test_gemini_retries_transient_503_but_not_quota_429(monkeypatch):
+    import ai_events
+    calls, sleeps = [], []
+
+    class StubResponse:
+        def __init__(self, status):
+            self.status_code = status
+            self.ok = status == 200
+        def json(self):
+            return {"candidates": [{"content": {"parts": [{"text": "{}"}]}}]}
+
+    responses = iter([StubResponse(503), StubResponse(200)])
+    def post(url, *, headers, json, timeout):
+        calls.append(url)
+        assert headers["x-goog-api-key"] == "fake-test-key"
+        return next(responses)
+    monkeypatch.setattr(ai_events.requests, "post", post)
+    monkeypatch.setattr(ai_events.time, "sleep", lambda seconds: sleeps.append(seconds))
+    result = ai_events._request_gemini({}, "fake-test-key", "gemini-3.5-flash-lite")
+    assert "candidates" in result
+    assert len(calls) == 2
+    assert sleeps == [1.5]
+
+    calls.clear()
+    monkeypatch.setattr(ai_events.requests, "post",
+                        lambda *args, **kwargs: (
+                            calls.append(1) or StubResponse(429)
+                        ))
+    try:
+        ai_events._request_gemini({}, "fake-test-key", "gemini-3.5-flash-lite")
+    except RuntimeError as exc:
+        assert "HTTP 429" in str(exc)
+    else:
+        raise AssertionError("Quota failures must remain visible")
+    assert len(calls) == 1
