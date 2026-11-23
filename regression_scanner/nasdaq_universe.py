@@ -9,6 +9,8 @@ from __future__ import annotations
 import math
 import re
 import time
+import logging
+from collections import Counter
 
 import requests
 
@@ -43,11 +45,15 @@ US_COUNTRIES = {
 
 
 def _market_cap(value) -> int | None:
-    """Nasdaq typically returns raw USD numeric strings, sometimes formatted."""
+    """Parse Nasdaq's raw-USD and human-formatted market caps.
+
+    The public endpoint can return a numeric string, currency-formatted
+    value, or a suffix such as 3.1T; reject unverifiable values.
+    """
     if value is None or isinstance(value, bool):
         return None
     s = str(value).strip().upper().replace("$", "").replace(",", "")
-    if not s or s in {"N/A", "NA", "--"}:
+    if not s or s in {"N/A", "NA", "--", "NULL"}:
         return None
     match = re.fullmatch(r"(\d+(?:\.\d+)?|\.\d+)\s*([KMBT]?)", s)
     if not match:
@@ -95,6 +101,8 @@ def fetch_nasdaq_universe(
     """
     http = session or requests
     stocks: dict[str, dict] = {}
+    rejected = Counter()
+    seen = 0
     for exchange, yf_exchange in EXCHANGES.items():
         seen_symbols = set()
         total = None
@@ -108,6 +116,9 @@ def fetch_nasdaq_universe(
                         "exchange": exchange,
                         "limit": PAGE_SIZE,
                         "offset": offset,
+                        # Nasdaq's download route provides the full screener
+                        # fields, including company country and market cap.
+                        "download": "true",
                     },
                     headers=HEADERS,
                     timeout=(5, 22),
@@ -144,18 +155,28 @@ def fetch_nasdaq_universe(
                 )
             seen_symbols.update(page_symbols)
             for row in rows:
+                seen += 1
                 country = str(row.get("country") or "").strip().upper()
                 if country not in US_COUNTRIES:
+                    rejected["non_us_or_missing_country"] += 1
                     continue
                 symbol = str(row.get("symbol") or "").strip().upper().replace("/", "-")
                 name = str(row.get("name") or "").strip()
-                cap = _market_cap(row.get("marketCap"))
-                if (
-                    not SYMBOL.fullmatch(symbol)
-                    or not name or ADR.search(name) or NOT_EQUITY.search(name)
-                    or cap is None or cap < min_cap
-                    or max_cap is not None and cap > max_cap
-                ):
+                # Nasdaq sometimes varies the case of its capitalization key.
+                cap = _market_cap(
+                    row.get("marketCap", row.get("marketcap", row.get("market_cap")))
+                )
+                if not SYMBOL.fullmatch(symbol) or not name:
+                    rejected["missing_symbol_or_name"] += 1
+                    continue
+                if ADR.search(name) or NOT_EQUITY.search(name):
+                    rejected["non_common_equity"] += 1
+                    continue
+                if cap is None:
+                    rejected["missing_or_invalid_market_cap"] += 1
+                    continue
+                if cap < min_cap or max_cap is not None and cap > max_cap:
+                    rejected["outside_market_cap_range"] += 1
                     continue
                 item = {
                     "symbol": symbol, "name": name,
@@ -187,9 +208,18 @@ def fetch_nasdaq_universe(
                 f"Nasdaq {exchange} provided only {offset}/{total} records; "
                 "no partial universe was used."
             )
+    logging.getLogger(__name__).info(
+        "Nasdaq fallback examined %d rows; retained %d eligible; rejected %s",
+        seen, len(stocks), dict(rejected),
+    )
     if not stocks:
+        logging.getLogger(__name__).error(
+            "Nasdaq screener yielded no eligible stocks. Rejection breakdown: %s",
+            dict(rejected),
+        )
         raise RuntimeError(
             "Nasdaq returned no eligible U.S. stocks in the selected "
-            "market-cap range. No partial or empty scan was published."
+            "market-cap range. Check server logs for which metadata field "
+            "prevented discovery. No partial scan was published."
         )
     return sorted(stocks.values(), key=lambda item: (-item["cap"], item["symbol"]))
