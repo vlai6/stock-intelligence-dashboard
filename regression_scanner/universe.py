@@ -21,6 +21,46 @@ class Stock:
     name: str
     exchange: str
     cap: int | None
+    source: str = "Yahoo Finance screener"
+
+
+def _nasdaq_fallback(minimum: int, maximum: int | None, limit: int | None,
+                     yahoo_error: Exception) -> list[Stock]:
+    """Fail over stock discovery only; unchanged regression/price calculations.
+
+    Do not publish the top N unless Nasdaq successfully paged every exchange.
+    Stock identity differs slightly between providers; provenance is surfaced.
+    """
+    from nasdaq_universe import fetch_nasdaq_universe
+    try:
+        quotes = fetch_nasdaq_universe(minimum, maximum)
+    except Exception as exc:
+        raise RuntimeError(
+            "Stock discovery unavailable: Yahoo Finance screener failed "
+            f"({type(yahoo_error).__name__}, likely unauthorized or rate-limited); "
+            f"Nasdaq fallback also failed: {exc} "
+            "Previous successful scan results have not been replaced."
+        ) from exc
+    stocks = [
+        Stock(row["symbol"], row["name"], row["exchange"], row["cap"],
+              source="Nasdaq public screener (Yahoo discovery fallback)")
+        for row in quotes
+    ]
+    return stocks[:limit] if limit is not None else stocks
+
+
+def _yahoo_access_denied(exc: Exception) -> bool:
+    """401/403/429: fail over immediately, rather than repeat blocked requests."""
+    message = str(exc)
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    return status in (401, 403, 429) or any(
+        token in message.lower() for token in (
+            "http error 401", "http error 403", "http error 429",
+            "401 client error", "403 client error", "429 client error",
+            "unauthorized", "forbidden", "invalid crumb", "invalid cookie",
+            "too many requests",
+        )
+    )
 
 
 def validate_market_caps(min_cap_b: float, max_cap_b: float | None) -> None:
@@ -66,14 +106,17 @@ def large_cap_stocks(min_cap_b: float = 50.0, max_cap_b: float | None = None, li
                 response = yf.screen(query, offset=offset, size=250,
                                      sortField="intradaymarketcap", sortAsc=False)
                 break
-            except Exception:
-                if attempt == 2:
-                    raise
+            except Exception as exc:
+                if attempt == 2 or _yahoo_access_denied(exc):
+                    return _nasdaq_fallback(floor, ceiling, limit, exc)
                 time.sleep(3 * (attempt + 1))
 
         quotes = response.get("quotes", []) if isinstance(response, dict) else []
         if not quotes and offset == 0:
-            raise RuntimeError("Yahoo returned no screener results; cannot claim a complete scan")
+            return _nasdaq_fallback(
+                floor, ceiling, limit,
+                RuntimeError("Yahoo returned no screener results"),
+            )
         for quote in quotes:
             symbol = str(quote.get("symbol") or "").strip().upper()
             name = str(quote.get("longName") or quote.get("shortName") or symbol)
