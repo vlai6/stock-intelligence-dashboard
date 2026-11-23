@@ -457,6 +457,10 @@ def scan_market(settings: ScanSettings) -> Iterator[ScanProgress]:
         stocks = large_cap_stocks(settings.min_cap_b, settings.max_cap_b, limit=settings.limit)
     if not stocks:
         raise RuntimeError("No matching stocks to scan")
+    discovery_source = (
+        settings.universe_source if settings.symbols else
+        stocks[0].source
+    )
 
     start = price_history_start(target, settings.years)
     rows: list[dict] = []
@@ -464,7 +468,7 @@ def scan_market(settings: ScanSettings) -> Iterator[ScanProgress]:
     skipped_rows: list[dict] = []
     analyzed = data_errors = cache_hits = completed = 0
     total = len(stocks)
-    yield ScanProgress("scanning", f"Found {total:,} stocks. Starting price downloads…",
+    yield ScanProgress("scanning", f"Found {total:,} stocks via {discovery_source}. Starting price downloads…",
                        0, total, [], 0, 0, 0, 0)
 
     for index in range(0, total, BATCH):
@@ -564,6 +568,7 @@ def scan_market(settings: ScanSettings) -> Iterator[ScanProgress]:
             "custom_symbols": bool(settings.symbols), "top_n_limit": settings.limit,
             "etf_source": settings.universe_source if settings.record_all_zscores else None,
         },
+        "universe_source": discovery_source,
         "download_or_data_errors": data_errors, "skipped": len(skipped_rows),
         "cache_hits": cache_hits, "new_crossing_rows": sum(bool(row["new_crossings"]) for row in rows),
         "complete": data_errors == 0 and analyzed > 0,
