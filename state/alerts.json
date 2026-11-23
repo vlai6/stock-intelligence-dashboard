@@ -1,81 +1,89 @@
 {
   "schema_version": 2,
   "last_email": {
-    "sent_at": "2026-11-20T05:48:00.947018-05:00",
-    "scan_started_at": "2026-11-20T05:43:17.222151-05:00",
+    "sent_at": "2026-11-23T04:29:22.755415-05:00",
+    "scan_started_at": "2026-11-23T04:25:11.151617-05:00",
     "stocks": [
       {
-        "ticker": "NOW",
-        "session": "2026-11-19",
-        "z_score": -3.1414,
+        "ticker": "INTU",
+        "session": "2026-11-20",
+        "z_score": -3.3255,
         "bucket": "50B+",
         "alert_level": "-3σ",
         "new_or_worsened": true
       },
       {
-        "ticker": "INTU",
-        "session": "2026-11-19",
-        "z_score": -2.9787,
+        "ticker": "NOW",
+        "session": "2026-11-20",
+        "z_score": -3.1781,
+        "bucket": "50B+",
+        "alert_level": "-3σ",
+        "new_or_worsened": false
+      },
+      {
+        "ticker": "SNPS",
+        "session": "2026-11-20",
+        "z_score": -2.7763,
         "bucket": "50B+",
         "alert_level": "-2.75σ",
         "new_or_worsened": true
       },
       {
         "ticker": "ALNY",
-        "session": "2026-11-19",
-        "z_score": -3.1902,
+        "session": "2026-11-20",
+        "z_score": -3.2594,
+        "bucket": "10-25B",
+        "alert_level": "-3σ",
+        "new_or_worsened": false
+      },
+      {
+        "ticker": "GGG",
+        "session": "2026-11-20",
+        "z_score": -3.1242,
         "bucket": "10-25B",
         "alert_level": "-3σ",
         "new_or_worsened": true
       },
       {
         "ticker": "ROL",
-        "session": "2026-11-19",
-        "z_score": -3.0831,
+        "session": "2026-11-20",
+        "z_score": -3.1031,
         "bucket": "10-25B",
         "alert_level": "-3σ",
-        "new_or_worsened": true
+        "new_or_worsened": false
       },
       {
         "ticker": "SCI",
-        "session": "2026-11-19",
-        "z_score": -3.2975,
+        "session": "2026-11-20",
+        "z_score": -3.3191,
         "bucket": "5-10B",
         "alert_level": "-3σ",
-        "new_or_worsened": true
+        "new_or_worsened": false
       },
       {
         "ticker": "DOX",
-        "session": "2026-11-19",
-        "z_score": -4.2653,
+        "session": "2026-11-20",
+        "z_score": -4.179,
         "bucket": "2-5B",
         "alert_level": "-4σ",
-        "new_or_worsened": true
+        "new_or_worsened": false
       },
       {
         "ticker": "PFSI",
-        "session": "2026-11-19",
-        "z_score": -3.5727,
+        "session": "2026-11-20",
+        "z_score": -3.5892,
         "bucket": "2-5B",
         "alert_level": "-3σ",
-        "new_or_worsened": true
-      },
-      {
-        "ticker": "POST",
-        "session": "2026-11-19",
-        "z_score": -3.0058,
-        "bucket": "2-5B",
-        "alert_level": "-3σ",
-        "new_or_worsened": true
+        "new_or_worsened": false
       }
     ],
-    "displayed_count": 8,
-    "total_active_signals": 8,
-    "new_or_worsened_count": 8,
+    "displayed_count": 9,
+    "total_active_signals": 9,
+    "new_or_worsened_count": 3,
     "scan_complete": false,
     "failed_buckets": [
       "2-5B",
-      "5-10B"
+      "50B+"
     ]
   }
 }
