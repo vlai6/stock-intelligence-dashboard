@@ -534,10 +534,14 @@ def render_selected_channel(ticker: str, session: str, saved_years: float) -> No
             f"Market session: {session}. This chart uses live-requested price history, "
             "not the saved scanner's selection filters."
         )
-    except Exception as exc:
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception(
+            "Could not load independent regression chart for %s", ticker
+        )
         st.warning(
-            f"Could not load chart for {ticker}: {type(exc).__name__}: {exc}. "
-            "The saved results table is still available below."
+            f"Could not load regression history for {ticker}. Check the ticker, "
+            "try a shorter chart lookback, or retry when price data is available."
         )
 
 
@@ -930,12 +934,13 @@ def render_saved_results(scope: str, top_n: int, min_cap: float,
 # Independent ticker chart: it works before any scan and for stocks that
 # do not appear in the most recent results table.
 st.subheader("REGRESSION ANALYSIS")
+st.session_state.setdefault("regression_chart_input", "SPY")
 chart_ticker_col, chart_period_col, _chart_deadspace = st.columns(
     [2.1, 1.5, 6.4], vertical_alignment="bottom", gap="small"
 )
 with chart_ticker_col:
     chart_query = st.text_input(
-        "Ticker", value="SPY", max_chars=18,
+        "Ticker", max_chars=18,
         key="regression_chart_input", placeholder="e.g. NVDA",
         help="Enter any Yahoo Finance stock ticker; press Enter to update the chart. "
              "This does not run a full market scan.",
