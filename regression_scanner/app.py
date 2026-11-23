@@ -911,7 +911,7 @@ def render_saved_results(scope: str, top_n: int, min_cap: float,
         column_config={
             "Graph": st.column_config.CheckboxColumn(
                 "Graph", width=70, pinned=True,
-                help="Check to show this stock above. Only one is selected at a time."
+                help="Select this ticker for the regression chart, Metrics & Competition and Recent Sentiment."
             ),
             **COLUMN_CONFIG,
         },
@@ -984,8 +984,9 @@ with chart_ticker_col:
     chart_query = st.text_input(
         "Ticker", max_chars=18,
         key="regression_chart_input", placeholder="e.g. NVDA",
-        help="Enter any available stock ticker. Click Run Graph to display it. "
-             "The table's Graph checkbox also switches the displayed ticker.",
+        help="Enter an available ticker, then click Run Graph to show it in "
+             "Regression, Metrics & Competition, and Recent Sentiment. "
+             "The table's Graph checkbox does the same.",
     )
 with chart_period_col:
     chart_years = st.selectbox(
@@ -998,6 +999,7 @@ with chart_run_col:
     st.button(
         "Run Graph", type="primary", use_container_width=True,
         key="regression_chart_run", on_click=run_regression_graph,
+        help="Apply the selected stock across all three research sections.",
     )
 if st.session_state.get("regression_chart_request_error"):
     st.warning(st.session_state["regression_chart_request_error"])
