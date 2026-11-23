@@ -15,6 +15,7 @@ DEFAULT_STOCK = "NVDA"
 SELECTED_KEY = "primary"
 RERUN_SOURCE_KEY = "si_stock_selection_needs_app_rerun"
 CHART_INPUT_PENDING_KEY = "si_chart_input_pending_ticker"
+SENTIMENT_MODE_PENDING_KEY = "si_sentiment_single_stock_pending"
 SYMBOL_PATTERN = re.compile(r"^[A-Z0-9.^=-]{1,18}$")
 ALLOWED_SOURCES = frozenset({"scanner", "metrics", "sentiment"})
 
@@ -53,6 +54,11 @@ def set_active_stock(raw: object, *, source: str) -> bool:
     state["regression_chart_active_ticker"] = ticker
     state[CHART_INPUT_PENDING_KEY] = ticker
     state["selected_chart_ticker"] = ticker
+    # When another section selects a stock, switch Recent Sentiment out of
+    # any previously chosen scan preset. Otherwise its old Qualifying ticker
+    # selector would misleadingly display a different stock.
+    if changed and source != "sentiment":
+        state[SENTIMENT_MODE_PENDING_KEY] = True
     if changed and state.get("si_continuous_mode"):
         state[RERUN_SOURCE_KEY] = source
     return changed
