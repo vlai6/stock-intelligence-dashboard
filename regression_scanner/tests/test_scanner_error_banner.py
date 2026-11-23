@@ -10,6 +10,7 @@ def test_failed_scan_shows_short_message_not_backend_traceback():
     assert '"Error: ETF scan failed. Please try again later."' in text
     assert 'logging.getLogger(__name__).exception("Regression scan failed")' in text
     assert "SCAN FAILED — {type(exc).__name__}" not in text
+    assert 'previous_error.startswith("SCAN FAILED")' in text
     assert 'st.session_state["last_run_complete"] = False' in text
 
 
