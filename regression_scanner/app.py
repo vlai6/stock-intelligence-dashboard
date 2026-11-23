@@ -336,6 +336,15 @@ st.caption("Daily close data · hover over settings and table headings for defin
 with st.container(border=True):
     # Make failures visible above the scan controls instead of below a large table.
     scan_error_slot = st.empty()
+    # Older sessions may still contain a verbose SCAN FAILED traceback
+    # from before the UI was simplified. Never redisplay that stored text.
+    previous_error = st.session_state.get("last_scan_error")
+    if isinstance(previous_error, str) and previous_error.startswith("SCAN FAILED"):
+        st.session_state["last_scan_error"] = (
+            "Error: ETF scan failed. Please try again later."
+            if st.session_state.get("scan_scope") == ETF_SCOPE
+            else "Error: Try a smaller market cap range."
+        )
     if st.session_state.get("last_scan_error"):
         scan_error_slot.error(st.session_state["last_scan_error"], icon="🚨")
 
