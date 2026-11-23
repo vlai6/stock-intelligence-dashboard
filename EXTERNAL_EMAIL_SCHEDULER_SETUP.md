@@ -66,7 +66,7 @@ this file does **not** activate an external scheduler.
   or GitHub cron.
 - Check the cron-job.org history: **401** usually indicates an invalid token;
   **403** can be missing Actions permission or policy; **404** can be a wrong
-  URL, branch/workflow or inaccessible repository; **204** is accepted.
+  URL, branch/workflow or inaccessible repository; **200/204** is accepted.
 - Then check GitHub Actions logs separately: queueing, market-day gating,
   price source failures and SMTP can all prevent an email after a dispatch.
 
