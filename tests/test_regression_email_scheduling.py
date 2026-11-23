@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from regression_scanner.schedule_guard import (
     EDT_CRON, EST_CRON, EDT_BACKUP_CRON, EST_BACKUP_CRON,
-    should_send, scheduled_delivery_exists,
+    should_send, scheduled_delivery_exists, is_scheduled_trigger,
 )
 
 def at(year, month, day, hour, minute, second=0):
@@ -38,12 +38,31 @@ assert should_send("schedule", EST_CRON, at(2026, 11, 23, 15, 29))  # 10:29 AM E
 # Summer/winter DST switchover is handled by the expected UTC cron.
 assert not should_send("push", EST_CRON, at(2026, 11, 23, 13, 35))
 assert should_send("workflow_dispatch", "", at(2026, 11, 21, 1, 0))
+assert should_send(
+    "workflow_dispatch", "", at(2026, 11, 23, 13, 30),
+    externally_scheduled=True,
+)
+assert not should_send(
+    "workflow_dispatch", "", at(2026, 11, 23, 16, 30),
+    externally_scheduled=True,
+)
+assert not should_send(
+    "workflow_dispatch", "", at(2026, 11, 22, 13, 30),
+    externally_scheduled=True,
+)
+assert is_scheduled_trigger("workflow_dispatch", True)
+assert not is_scheduled_trigger("workflow_dispatch")
+assert is_scheduled_trigger("schedule")
 # Backup dedup recognizes only successfully delivered scheduled emails.
 delivery = {"last_delivery": "2026-11-23T04:29:22-05:00",
             "last_scheduled_delivery_date": "2026-11-23"}
 assert scheduled_delivery_exists(delivery, at(2026, 11, 23, 13, 55), "schedule")
 assert not scheduled_delivery_exists(delivery, at(2026, 11, 24, 13, 55), "schedule")
 assert not scheduled_delivery_exists(delivery, at(2026, 11, 23, 13, 55), "workflow_dispatch")
+assert scheduled_delivery_exists(
+    delivery, at(2026, 11, 23, 13, 55),
+    "workflow_dispatch", externally_scheduled=True,
+)
 assert not scheduled_delivery_exists(
     {"last_delivery": "2026-11-23T04:29:22-05:00"},
     at(2026, 11, 23, 13, 55), "schedule",
@@ -54,6 +73,9 @@ assert "cron: '30 12 * * 1-5'" in workflow
 assert "cron: '30 13 * * 1-5'" in workflow
 assert "cron: '55 12 * * 1-5'" in workflow
 assert "cron: '55 13 * * 1-5'" in workflow
+assert "automated:" in workflow
+assert "EXTERNAL_SCHEDULED: ${{ inputs.automated || 'false' }}" in workflow
+assert "default: false" in workflow
 assert "timezone:" not in workflow
 assert "ENABLE_CLOUD_SCHEDULE" not in workflow
 assert "SEND_EVERY_SCAN: '1'" in workflow
@@ -100,6 +122,8 @@ assert 'send_every_scan = os.getenv("SEND_EVERY_SCAN", "1")' in scanner_src
 assert 'if alerts or send_failures or send_every_scan:' in scanner_src
 assert 'send_email(subject, body, html_body=html_body)' in scanner_src
 assert "scheduled_delivery_exists(" in scanner_src
+assert "externally_scheduled=external_schedule" in scanner_src
+assert "is_scheduled_trigger(run_event, external_schedule)" in scanner_src
 assert 'previous["last_scheduled_delivery_date"]' in scanner_src
 assert '[schedule] Today\'s scheduled scan email already delivered.' in scanner_src
 mailer = (ROOT / "regression_scanner/emailer.py").read_text()
