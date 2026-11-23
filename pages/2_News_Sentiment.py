@@ -18,7 +18,10 @@ import plotly.graph_objects as go
 import streamlit as st
 import yfinance as yf
 from dashboard_theme import apply_dashboard_theme, render_page_header, style_blue_figure
-from stock_selection import set_active_stock, sync_ticker_input, selected_stock
+from stock_selection import (
+    set_active_stock, sync_ticker_input, selected_stock,
+    SENTIMENT_MODE_PENDING_KEY,
+)
 from news_shared import (
     fetch_company_news, yahoo_ticker_feed, clear_company_news_caches,
     gnews_key,
@@ -146,6 +149,12 @@ def _sentiment_preset_ticker_changed(widget_key: str) -> None:
     if candidate:
         set_active_stock(candidate, source="sentiment")
 
+
+# If another research section selected a ticker, show Single stock rather
+# than an unrelated old preset ticker. Do this before the selectbox is rendered.
+if st.session_state.pop(SENTIMENT_MODE_PENDING_KEY, False):
+    st.session_state["si_news_stock_list"] = "Single stock"
+    st.session_state.pop("si_sentiment_preset_just_changed", None)
 
 # si_compact_sentiment_controls_v1
 si_stocklist_col, _si_stocklist_blank = st.columns([1, 1], gap='medium')
