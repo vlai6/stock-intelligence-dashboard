@@ -340,15 +340,32 @@ def cached_chart_prices(ticker: str, session: str, years: float) -> pd.DataFrame
 
 
 def selected_chart_ticker(view: pd.DataFrame) -> str | None:
-    """Return a valid selection within the current filtered/sorted results."""
+    """Tick only the row matching the chart actually being displayed.
+
+    A free-form ticker outside the saved scan must not highlight the wrong
+    first row in the results table.
+    """
     if view.empty:
         return None
-    tickers = view["ticker"].astype(str).tolist()
-    active = st.session_state.get("selected_chart_ticker")
-    if active not in tickers:
-        active = tickers[0]
-        st.session_state["selected_chart_ticker"] = active
-    return active
+    active = st.session_state.get("regression_chart_active_ticker", "SPY")
+    tickers = set(view["ticker"].astype(str))
+    return active if active in tickers else None
+
+
+def run_regression_graph() -> None:
+    """Commit the entered ticker/lookback only when Run Graph is clicked."""
+    ticker = str(st.session_state.get("regression_chart_input") or "").strip().upper()
+    if not re.fullmatch(r"[A-Z0-9.^-]{1,18}", ticker):
+        st.session_state["regression_chart_request_error"] = (
+            "Enter a valid ticker before running the graph."
+        )
+        return
+    st.session_state["regression_chart_request_error"] = ""
+    st.session_state["regression_chart_input"] = ticker
+    st.session_state["regression_chart_active_ticker"] = ticker
+    st.session_state["regression_chart_active_years"] = float(
+        st.session_state.get("regression_chart_lookback", 10)
+    )
 
 
 def graph_checkbox_changed(editor_key: str, tickers: tuple[str, ...]) -> None:
@@ -368,12 +385,16 @@ def graph_checkbox_changed(editor_key: str, tickers: tuple[str, ...]) -> None:
         if 0 <= index < len(tickers) and edit.get("Graph") is True:
             checked.append(tickers[index])
     if checked:
-        st.session_state["selected_chart_ticker"] = checked[-1]
-        # Use the same ticker input as the standalone chart; the table remains
-        # a convenient selection shortcut without restricting chart coverage.
-        st.session_state["regression_chart_input"] = checked[-1]
-    elif tickers:
-        st.session_state["selected_chart_ticker"] = tickers[0]
+        ticker = checked[-1]
+        st.session_state["selected_chart_ticker"] = ticker
+        # Widget callbacks execute before rerender, so this also updates
+        # the already-rendered ticker field without WidgetAlreadyInstantiated.
+        st.session_state["regression_chart_input"] = ticker
+        st.session_state["regression_chart_active_ticker"] = ticker
+        st.session_state["regression_chart_active_years"] = float(
+            st.session_state.get("regression_chart_lookback", 10)
+        )
+        st.session_state["regression_chart_request_error"] = ""
     # Use a fresh editor widget after every click so old checkbox edits cannot
     # override the single active Graph checkbox on a later rerun.
     st.session_state["graph_choice_epoch"] = st.session_state.get("graph_choice_epoch", 0) + 1
@@ -382,7 +403,7 @@ def graph_checkbox_changed(editor_key: str, tickers: tuple[str, ...]) -> None:
 def render_selected_channel(ticker: str, session: str, saved_years: float) -> None:
     """Chart any valid stock ticker without requiring a saved scan result."""
     snapshot_title = f"{saved_years:g} Year Snapshot"
-    st.markdown(f"**{html.escape(ticker)}**  ·  **{snapshot_title}**")
+    st.markdown(f"### {html.escape(ticker)} · {snapshot_title}")
     st.caption("**Standard deviation lines**")
     # Compact, left-aligned line controls. The final column is flexible empty space.
     band_columns = st.columns([0.55] * len(BAND_OPTIONS) + [5.6], gap="small")
@@ -506,8 +527,24 @@ def render_selected_channel(ticker: str, session: str, saved_years: float) -> No
                     '</div>',
                     unsafe_allow_html=True,
                 )
+                figure = style_blue_figure(
+                    channel_figure(chart, ticker, visible_bands)
+                )
+                # A prominent title INSIDE the PNG-exportable Plotly figure,
+                # with enough upper margin to keep it clear of the legend.
+                figure.update_layout(
+                    height=535,
+                    margin=dict(l=10, r=110, t=100, b=20),
+                )
+                figure.add_annotation(
+                    xref="paper", yref="paper", x=0.0, y=1.15,
+                    xanchor="left", yanchor="bottom",
+                    text=f"<b>{html.escape(ticker)} · {saved_years:g}-Year Regression</b>",
+                    showarrow=False,
+                    font=dict(size=24, color="#f5fbff"),
+                )
                 st.plotly_chart(
-                    style_blue_figure(channel_figure(chart, ticker, visible_bands)),
+                    figure,
                     use_container_width=True,
                     key=f"channel_chart_{ticker}",
                     config={
@@ -935,35 +972,48 @@ def render_saved_results(scope: str, top_n: int, min_cap: float,
 # do not appear in the most recent results table.
 st.subheader("REGRESSION ANALYSIS")
 st.session_state.setdefault("regression_chart_input", "SPY")
-chart_ticker_col, chart_period_col, _chart_deadspace = st.columns(
-    [2.1, 1.5, 6.4], vertical_alignment="bottom", gap="small"
+st.session_state.setdefault("regression_chart_active_ticker", "SPY")
+st.session_state.setdefault("regression_chart_active_years", 10.0)
+chart_ticker_col, chart_period_col, chart_run_col, _chart_deadspace = st.columns(
+    [2.1, 1.5, 1.4, 5.0], vertical_alignment="bottom", gap="small"
 )
 with chart_ticker_col:
     chart_query = st.text_input(
         "Ticker", max_chars=18,
         key="regression_chart_input", placeholder="e.g. NVDA",
-        help="Enter any Yahoo Finance stock ticker; press Enter to update the chart. "
-             "This does not run a full market scan.",
+        help="Enter any available stock ticker. Click Run Graph to display it. "
+             "The table's Graph checkbox also switches the displayed ticker.",
     )
 with chart_period_col:
     chart_years = st.selectbox(
         "Chart lookback (years)", options=[1, 3, 5, 10, 15], index=3,
         key="regression_chart_lookback",
-        help="Select the number of years used for the daily-close regression chart. "
-             "The scanner below has its own independent lookback setting.",
+        help="This controls the standalone chart; the scanner below has "
+             "its own independent lookback setting.",
     )
-chart_ticker = str(chart_query).strip().upper()
-if not chart_ticker:
-    st.info("Enter a ticker above to display its regression analysis.")
-elif not re.fullmatch(r"[A-Z0-9.^-]{1,18}", chart_ticker):
-    st.warning("Enter a valid ticker using letters, numbers, dots or hyphens.")
+with chart_run_col:
+    st.button(
+        "Run Graph", type="primary", use_container_width=True,
+        key="regression_chart_run", on_click=run_regression_graph,
+    )
+if st.session_state.get("regression_chart_request_error"):
+    st.warning(st.session_state["regression_chart_request_error"])
+chart_ticker = st.session_state["regression_chart_active_ticker"]
+active_years = float(st.session_state["regression_chart_active_years"])
+pending_ticker = str(chart_query).strip().upper()
+if pending_ticker != chart_ticker or float(chart_years) != active_years:
+    st.caption(
+        f"**Currently displaying: {chart_ticker}** ({active_years:g} years). "
+        "Click Run Graph to apply the entered ticker or lookback."
+    )
 else:
-    try:
-        render_selected_channel(chart_ticker, last_completed_session(), float(chart_years))
-    except Exception:
-        import logging
-        logging.getLogger(__name__).exception("Standalone regression chart failed")
-        st.warning("Unable to load this stock's regression chart right now.")
+    st.caption(f"**Currently displaying: {chart_ticker}** · {active_years:g}-year regression")
+try:
+    render_selected_channel(chart_ticker, last_completed_session(), active_years)
+except Exception:
+    import logging
+    logging.getLogger(__name__).exception("Standalone regression chart failed")
+    st.warning("Unable to load this stock's regression chart right now.")
 
 st.subheader("FULL ANALYSIS OPTIONS")
 st.caption("Scan a market-cap universe or ETF constituents using the controls below.")
