@@ -17,6 +17,7 @@ import streamlit.components.v1 as components
 import yfinance as yf
 import plotly.graph_objects as go
 from dashboard_theme import apply_dashboard_theme, style_blue_figure, render_page_header
+from stock_selection import set_active_stock, sync_ticker_input
 
 from ai_peers import recommend_peers
 from advanced_metrics import historical_cagr, calculate_roic
@@ -137,8 +138,8 @@ def show_peer_sentiment(ticker):
 
 
 def switch_stock(symbol):
-    st.session_state.primary = symbol
-    st.session_state.loaded = True
+    """Synchronize this explicit primary-stock selection across the toolkit."""
+    return set_active_stock(symbol, source="metrics")
 
 
 def add_custom_comparison_ticker(primary_symbol):
@@ -249,6 +250,10 @@ if "primary" not in st.session_state:
 if "loaded" not in st.session_state:
     st.session_state.loaded = False
 
+# Follow selections from the chart and Recent Sentiment, but do not erase
+# text a user is currently typing into an unsubmitted form.
+sync_ticker_input("si_metrics_ticker_draft", "si_metrics_ticker_followed")
+
 # Keep the stock selector compact and left-aligned; the research panels
 # below retain their full page width. Roughly 25% of desktop content width.
 search_col, _search_spacer = st.columns([1, 3], gap="medium")
@@ -256,7 +261,7 @@ with search_col:
     with st.form("stock_search"):
         ticker = st.text_input(
             "Search for a stock ticker",
-            value=st.session_state.primary
+            key="si_metrics_ticker_draft",
         )
         submitted = st.form_submit_button(
             "Load Stock",
@@ -266,11 +271,14 @@ with search_col:
 
 if submitted:
     symbol = ticker.strip().upper()
-
-    if symbol:
-        switch_stock(symbol)
-    else:
-        st.warning("Please enter a stock ticker.")
+    try:
+        changed_stock = switch_stock(symbol)
+        # Form submission occurs *during* the fragment render. Skip a stale
+        # metrics fetch and restart the loaded sections once with the new stock.
+        if changed_stock and st.session_state.get("si_continuous_mode"):
+            st.rerun(scope="app")
+    except ValueError:
+        st.warning("Enter a valid stock ticker.")
 
 if st.session_state.loaded:
     symbol = st.session_state.primary
