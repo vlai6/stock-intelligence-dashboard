@@ -18,7 +18,10 @@ import plotly.graph_objects as go
 import streamlit as st
 import yfinance as yf
 from dashboard_theme import apply_dashboard_theme, render_page_header, style_blue_figure
-from news_shared import fetch_company_news, yahoo_ticker_feed
+from news_shared import (
+    fetch_company_news, yahoo_ticker_feed, clear_company_news_caches,
+    gnews_key,
+)
 from news_ai_shared import scored_frame, group_company_news
 try:
     from news_sentiment import fetch_stock_news as fetch_original_yahoo_news
@@ -208,12 +211,20 @@ with control:
     st.caption(f'{company} ({symbol}) · only headlines explicitly naming the company · past 7 days')
 with refresh:
     if st.button('Refresh headlines', type='primary', use_container_width=True):
-        fetch_company_news.clear()
-        # Refresh data, but do not destroy the user's other-page watchlists.
+        clear_company_news_caches()
+        # Updated articles can change event assignments: clear Gemini's
+        # corresponding cache too, but do not remove saved groups/watchlists.
+        from news_ai_shared import _events_cached
+        _events_cached.clear()
         st.rerun()
 
 with st.spinner('Retrieving relevant headlines...'):
     records=fetch_company_news(symbol, 60)
+st.caption(
+    'Headline sources: Yahoo Finance · Google News RSS · '
+    + ('GNews' if gnews_key() else 'GNews not configured')
+    + '. Coverage varies by provider; results are deduplicated and filtered.'
+)
 if not records:
     st.info('No dated headlines naming this company were found in the past week across the configured feeds.')
     st.stop()
@@ -264,7 +275,7 @@ with left:
 with right:
     with st.container(border=True):
         st.subheader('AI News Event Grouping')
-        st.caption('Gemini groups Yahoo Finance headlines about underlying news events. The minimum-article filter applies to events.')
+        st.caption('Gemini groups sourced headlines into underlying news events. The minimum-article filter applies to events.')
         event_source=st.selectbox(
             'Headlines for event grouping',
             ['Strict company-name headlines (last 7 days)', 'All Mentioned Articles'],
@@ -316,7 +327,8 @@ with right:
         with st.spinner('Identifying distinct events...'):
             events_df, group_articles, group_error=group_company_news(symbol,event_frame)
         if group_error:
-            st.warning('Gemini event grouping is unavailable. Headlines and sentiment remain available.')
+            from news_ai_shared import explain_gemini_error
+            st.warning(explain_gemini_error(group_error))
             with st.expander('Technical detail'):
                 st.code(group_error)
             # si_retry_gemini_grouping_20261120
