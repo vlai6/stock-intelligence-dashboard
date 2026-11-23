@@ -333,234 +333,6 @@ apply_dashboard_theme()
 render_page_header("Regression Scanner", "U.S.-listed equities · daily-close regression · −3σ / −4σ screening", current="scanner")
 st.caption("Daily close data · hover over settings and table headings for definitions")
 
-with st.container(border=True):
-    # Make failures visible above the scan controls instead of below a large table.
-    scan_error_slot = st.empty()
-    # Older sessions may still contain a verbose SCAN FAILED traceback
-    # from before the UI was simplified. Never redisplay that stored text.
-    previous_error = st.session_state.get("last_scan_error")
-    if isinstance(previous_error, str) and previous_error.startswith("SCAN FAILED"):
-        st.session_state["last_scan_error"] = (
-            "Error: ETF scan failed. Please try again later."
-            if st.session_state.get("scan_scope") == ETF_SCOPE
-            else "Error: Try a smaller market cap range."
-        )
-    if st.session_state.get("last_scan_error"):
-        scan_error_slot.error(st.session_state["last_scan_error"], icon="🚨")
-
-    # Keep scan inputs in one row; zero maximum means no upper cap.
-    # Custom ticker scans remain supported by the engine but not the page UI.
-    if st.session_state.get("scan_scope") not in (TOP_N_SCOPE, MAX_SCOPE, ETF_SCOPE):
-        st.session_state["scan_scope"] = TOP_N_SCOPE
-    scope_col, n_col, min_col, max_col, years_col, action_col = st.columns(
-        [2.3, 1.05, 1.2, 1.2, 0.95, 1.15], vertical_alignment="bottom", gap="small"
-    )
-    with scope_col:
-        scope = st.selectbox(
-            "Universe", (TOP_N_SCOPE, MAX_SCOPE, ETF_SCOPE),
-            format_func=lambda option: {
-                TOP_N_SCOPE: "Top N Stocks by Market Cap",
-                MAX_SCOPE: "All available",
-                ETF_SCOPE: "ETF holdings",
-            }[option],
-            key="scan_scope",
-            help="Scan the largest N stocks within the market-cap range, or attempt all available stocks.",
-        )
-    with n_col:
-        top_n = st.number_input(
-            "Stocks (N)", min_value=1, value=100, step=1,
-            disabled=(scope != TOP_N_SCOPE),
-            help="Number of the largest eligible companies to attempt, not a guaranteed result count.",
-        )
-    with min_col:
-        min_cap = st.number_input(
-            "Min cap ($B)", min_value=0.0, value=50.0, step=1.0, format="%.1f",
-            disabled=(scope == ETF_SCOPE),
-            help="Minimum market cap in billions of USD; not used in ETF mode.",
-        )
-    with max_col:
-        max_input = st.number_input(
-            "Max cap ($B)", min_value=0.0, value=0.0, step=1.0, format="%.1f",
-            disabled=(scope == ETF_SCOPE),
-            help="Not used in ETF mode. Set 0 for no maximum in normal scans.",
-        )
-    with years_col:
-        years = st.number_input(
-            "Years", min_value=0.5, max_value=30.0, value=10.0, step=0.1, format="%.2f",
-            help="Regression lookback in years; approximately 250 trading sessions per year.",
-        )
-    with action_col:
-        launch = st.button(
-            "Run Scan", type="primary", use_container_width=True, key="run_scan_main",
-            help="Scan the selected universe using completed daily closes.",
-        )
-    custom = ""  # Custom symbols are provided by the ETF holdings source in ETF mode.
-    etf_ticker = ""
-    if scope == ETF_SCOPE:
-        etf_col, caption_col = st.columns([1, 3], vertical_alignment="bottom")
-        with etf_col:
-            etf_ticker = st.text_input("ETF ticker", value="SPY", max_chars=12,
-                                       key="regression_etf_ticker",
-                                       help="Enter SPY, SMH, QQQ, VGT, etc.").strip().upper()
-        with caption_col:
-            st.caption("Automatically retrieve all published stock holdings when available. "
-                       "Source data is dated; some ETFs have older SEC filing holdings. "
-                       "No CSV upload is necessary.")
-        st.caption("ETF mode scans every ticker supplied by the holdings source, with no top-10 cap. "
-                   "Large ETFs may take substantial time and some stocks may lack 10 years of valid prices. "
-                   "Z-scores are saved separately for News Screen use.")
-    max_cap = float(max_input) if max_input > 0 else None
-    length = regression_sessions(years)
-    if scope == TOP_N_SCOPE and top_n > SCREENER_RECORD_SAFETY_CAP:
-        st.warning(
-            f"Top N exceeds the {SCREENER_RECORD_SAFETY_CAP:,}-record stock-discovery safeguard.",
-            icon="⚠️",
-        )
-    elif scope == TOP_N_SCOPE and top_n >= 1000:
-        st.caption("Large scans may encounter Yahoo throttling or missing histories.")
-    elif scope == MAX_SCOPE:
-        st.caption("All available: large universes may hit Yahoo's discovery safeguard or download limits.")
-
-    st.caption(f"Daily closes only · {length:,} trading sessions · not a live intraday feed")
-    st.markdown(
-        '<hr style="border:0;border-top:1px solid rgba(155,167,184,0.16);'
-        'margin:0.55rem 0 0.1rem;">',
-        unsafe_allow_html=True,
-    )
-
-if launch:
-    st.session_state.pop("last_scan_error", None)
-    scan_error_slot.empty()
-
-# ETF results live in their own directory; normal market-cap reports are never overwritten.
-if scope == ETF_SCOPE:
-    current_etf_symbol = normalize_symbol(etf_ticker)
-    scan_output_dir = etf_report_dir(current_etf_symbol, PROJECT_ROOT) if current_etf_symbol else ROOT / "results" / "etf_scans" / "invalid"
-    REPORT_FILE = scan_output_dir / "latest_scan.csv"
-    SUMMARY_FILE = scan_output_dir / "summary.json"
-    SKIP_FILE = scan_output_dir / "skipped.csv"
-else:
-    REPORT_FILE = ROOT / "results" / "latest_scan.csv"
-    SUMMARY_FILE = ROOT / "results" / "summary.json"
-    SKIP_FILE = ROOT / "results" / "skipped.csv"
-
-# One results container is reused for the live preview and the saved/final table.
-# No duplicate chart is rendered underneath the live table after a scan.
-progress_slot = st.empty()
-results_slot = st.empty()
-
-if launch:
-    try:
-        if scope == ETF_SCOPE:
-            etf_clean = normalize_symbol(etf_ticker)
-            if not etf_clean:
-                raise ValueError("Enter a valid ETF ticker such as SPY, SMH, QQQ or VGT.")
-            holdings = get_etf_constituents(etf_clean)
-            if not holdings.symbols:
-                raise ValueError(holdings.error or "ETF equity holdings are unavailable.")
-            tickers = list(holdings.symbols)
-            source_name = holdings.source
-            st.session_state['etf_regression_as_of'] = holdings.holdings_as_of
-            st.session_state['etf_regression_count'] = len(tickers)
-            if not holdings.complete_holdings_source:
-                st.warning("The full-holdings provider was unavailable. "
-                           "Yahoo supplied top holdings only; this run does NOT cover the entire ETF.")
-            elif holdings.holdings_as_of:
-                st.info(f"Scanning {len(tickers):,} published holdings from {holdings.holdings_as_of}. "
-                        "Full published holdings may omit positions without a usable ticker.")
-            if holdings.attribution:
-                st.caption(holdings.attribution)
-            if len(tickers) > 300:
-                st.warning(f"Full ETF scan includes {len(tickers):,} stocks. "
-                           "Downloads may take a long time and be incomplete if Yahoo throttles requests.")
-            st.session_state['etf_regression_source'] = source_name
-            st.session_state['etf_regression_count'] = len(tickers)
-            settings = ScanSettings(years=years, limit=None, symbols=tuple(tickers),
-                                    output_dir=etf_report_dir(etf_clean, PROJECT_ROOT),
-                                    record_all_zscores=True,
-                                    universe_source=source_name)
-        else:
-            settings = as_settings(scope, top_n, custom, min_cap, max_cap, years)
-    except ValueError as exc:
-        st.session_state["last_scan_error"] = str(exc)
-        scan_error_slot.error(st.session_state["last_scan_error"], icon="🚨")
-    else:
-        with progress_slot.container():
-            # Deliberately small section label; the changing status line is prominent.
-            st.markdown("**Live scanning progress**")
-            status_text = st.empty()
-            bar = st.progress(0.0, text="Preparing stock universe…")
-            metrics_box = st.empty()
-        last_complete = False
-        scan_started_at = time.monotonic()
-        try:
-            for progress in scan_market(settings):
-                eta_note = ""
-                if progress.completed and progress.total > progress.completed:
-                    elapsed = time.monotonic() - scan_started_at
-                    estimate_seconds = elapsed * (progress.total - progress.completed) / progress.completed
-                    eta_note = f" · roughly {max(1, round(estimate_seconds / 60))} min remaining (estimate)"
-                is_finished = progress.phase == "finished"
-                live_message = (
-                    "SCAN FINISHED" if is_finished and bool(progress.summary and progress.summary.get("complete"))
-                    else "SCAN FINISHED — DATA-QUALITY WARNINGS" if is_finished
-                    else progress.message + eta_note
-                )
-                status_text.markdown(
-                    '<div style="font-size:1.17rem;font-weight:700;line-height:1.45;'
-                    'margin:0.25rem 0 0.45rem;">'
-                    + html.escape(live_message) + '</div>',
-                    unsafe_allow_html=True,
-                )
-                portion = progress.completed / progress.total if progress.total else 0.0
-                bar.progress(min(1.0, portion), text=(f"{progress.completed:,} / "
-                           f"{progress.total:,} stocks scanned ({portion:.0%})" if progress.total else
-                           "Looking up market-cap ranked stocks…"))
-                # Single compact metrics strip, rather than five tall Streamlit metric cards.
-                compact_values = (
-                    ("Processed", progress.completed),
-                    ("Analyzed", progress.analyzed),
-                    ("Passing filters", len(progress.rows)),
-                    ("Data errors", progress.data_errors),
-                    ("Cache hits", progress.cache_hits),
-                )
-                compact_items = "".join(
-                    '<span style="white-space:nowrap;font-size:var(--si-type-data);">'
-                    f'<span style="color:#9da7b2;">{label}</span> '
-                    f'<strong style="font-size:var(--si-type-data);">{value:,}</strong></span>'
-                    for label, value in compact_values
-                )
-                metrics_box.markdown(
-                    '<div style="border:1px solid rgba(140,150,160,0.25);'
-                    'border-radius:0.5rem;padding:0.38rem 0.7rem;display:flex;'
-                    'gap:0.65rem 1.5rem;flex-wrap:wrap;align-items:center;">'
-                    '<span style="color:#9da7b2;font-size:var(--si-type-caption);font-weight:600;">'
-                    'LIVE METRICS</span>' + compact_items + '</div>',
-                    unsafe_allow_html=True,
-                )
-                with results_slot.container():
-                    render_stock_results_heading()
-                    st.caption("Updating after each processed batch — results are partial until the scan finishes.")
-                    show_live_table(progress.rows)
-                if progress.phase == "finished":
-                    last_complete = True
-                    st.session_state["last_run_complete"] = bool(progress.summary and progress.summary.get("complete"))
-            if last_complete and not st.session_state["last_run_complete"]:
-                st.warning("Some downloaded prices failed validation. Check scan diagnostics for missing symbols.")
-        except Exception:
-            # Keep diagnostic details in server logs, not in the user-facing
-            # error banner. Old saved scan results are never overwritten here.
-            import logging
-            logging.getLogger(__name__).exception("Regression scan failed")
-            st.session_state["last_run_complete"] = False
-            st.session_state["last_scan_error"] = (
-                "Error: ETF scan failed. Please try again later."
-                if scope == ETF_SCOPE else
-                "Error: Try a smaller market cap range."
-            )
-            scan_error_slot.error(st.session_state["last_scan_error"], icon="🚨")
-
-
 @st.cache_data(ttl=3600, max_entries=32, show_spinner=False)
 def cached_chart_prices(ticker: str, session: str, years: float) -> pd.DataFrame:
     """Only download chart OHLC for the selected stock; cache across reruns."""
@@ -597,6 +369,9 @@ def graph_checkbox_changed(editor_key: str, tickers: tuple[str, ...]) -> None:
             checked.append(tickers[index])
     if checked:
         st.session_state["selected_chart_ticker"] = checked[-1]
+        # Use the same ticker input as the standalone chart; the table remains
+        # a convenient selection shortcut without restricting chart coverage.
+        st.session_state["regression_chart_input"] = checked[-1]
     elif tickers:
         st.session_state["selected_chart_ticker"] = tickers[0]
     # Use a fresh editor widget after every click so old checkbox edits cannot
@@ -604,20 +379,10 @@ def graph_checkbox_changed(editor_key: str, tickers: tuple[str, ...]) -> None:
     st.session_state["graph_choice_epoch"] = st.session_state.get("graph_choice_epoch", 0) + 1
 
 
-def render_selected_channel(view: pd.DataFrame, summary: dict, session: str) -> None:
-    """Show a compact daily-regression chart above the Graph-selection table."""
-    st.subheader("REGRESSION ANALYSIS")
-    st.caption("Graph: Check one stock in the results table below to display its regression analysis here.")
-    ticker = selected_chart_ticker(view)
-    if ticker is None:
-        st.caption("No qualifying stocks in this selection. Change the table filter below.")
-        return
-
-    chosen = view.loc[view["ticker"].astype(str) == ticker].iloc[0]
-    name = str(chosen.get("name") or ticker)
-    saved_years = float((summary.get("filters") or {}).get("regression_years", 10.0))
+def render_selected_channel(ticker: str, session: str, saved_years: float) -> None:
+    """Chart any valid stock ticker without requiring a saved scan result."""
     snapshot_title = f"{saved_years:g} Year Snapshot"
-    st.markdown(f"**{ticker} — {name}**  ·  **{snapshot_title}**")
+    st.markdown(f"**{html.escape(ticker)}**  ·  **{snapshot_title}**")
     st.caption("**Standard deviation lines**")
     # Compact, left-aligned line controls. The final column is flexible empty space.
     band_columns = st.columns([0.55] * len(BAND_OPTIONS) + [5.6], gap="small")
@@ -763,17 +528,12 @@ def render_selected_channel(view: pd.DataFrame, summary: dict, session: str) -> 
                         "showAxisRangeEntryBoxes": False,
                     },
                 )
-        scanner_z = pd.to_numeric(chosen.get("z_score"), errors="coerce")
         st.caption(
             f"**{snapshot_title}:** Daily-close regression ({chart.lookback_bars:,} sessions, "
             f"{saved_years:g}-year lookback); weekly candlesticks for readability. "
-            f"Saved scan Z-score: {scanner_z:.2f}σ."
+            f"Market session: {session}. This chart uses live-requested price history, "
+            "not the saved scanner's selection filters."
         )
-        if pd.notna(scanner_z) and abs(chart.point.z - float(scanner_z)) > 0.05:
-            st.warning(
-                "This chart's deviation differs from the saved scanner result. "
-                "Check the price feed, market session and split adjustments."
-            )
     except Exception as exc:
         st.warning(
             f"Could not load chart for {ticker}: {type(exc).__name__}: {exc}. "
@@ -883,10 +643,8 @@ def render_saved_results(scope: str, top_n: int, min_cap: float,
         unsafe_allow_html=True,
     )
 
-    # Keep the stock filter controls above the chart. The ticker search input
-    # itself is displayed directly above the stock table, below the chart.
-    # Read its widget state here so it can filter the data and selected chart
-    # before the input is rendered later in this same Streamlit rerun.
+    # These filters affect only saved scan results; the standalone ticker
+    # chart above is independent and can display stocks outside the scan.
     # Keep these relatively short selectors to the left; leave open space
     # on the right rather than stretching options across the whole page.
     c_filter, c_sort, _filter_deadspace = st.columns([2.5, 2.1, 5.4], gap="small")
@@ -918,10 +676,8 @@ def render_saved_results(scope: str, top_n: int, min_cap: float,
 
     with saved_parameters_slot.container():
         render_saved_scan_parameters(summary, report_session, len(view), len(df), selected, search, sorting)
-    render_selected_channel(view, summary, report_session)
 
-    # Keep the ticker search above the results table; the compact Graph
-    # instruction now appears directly beneath REGRESSION ANALYSIS.
+    # Search saved scan results independently from the chart ticker above.
     _, graph_search_col = st.columns([6.6, 3.4], vertical_alignment="center")
     with graph_search_col:
         st.text_input(
@@ -929,7 +685,7 @@ def render_saved_results(scope: str, top_n: int, min_cap: float,
             placeholder="Search ticker or company",
             label_visibility="collapsed",
             key="regression_graph_stock_search",
-            help="Filter saved scan results by ticker or company; the chart follows the selected matching stock.",
+            help="Filter saved scan results by ticker or company; use Graph checkboxes to change the chart above.",
         )
 
     # Small secondary action aligned to the UPPER-RIGHT corner of the table,
@@ -1169,6 +925,270 @@ def render_saved_results(scope: str, top_n: int, min_cap: float,
     st.caption("A Z-score below −3 or −4 is a screening signal, not an automatic buy recommendation. "
                "Compare price feeds and channel math with your original TradingView indicator. "
                "No email alerts or trading are executed by this dashboard.")
+
+
+# Independent ticker chart: it works before any scan and for stocks that
+# do not appear in the most recent results table.
+st.subheader("REGRESSION ANALYSIS")
+chart_ticker_col, chart_period_col, _chart_deadspace = st.columns(
+    [2.1, 1.5, 6.4], vertical_alignment="bottom", gap="small"
+)
+with chart_ticker_col:
+    chart_query = st.text_input(
+        "Ticker", value="SPY", max_chars=18,
+        key="regression_chart_input", placeholder="e.g. NVDA",
+        help="Enter any Yahoo Finance stock ticker; press Enter to update the chart. "
+             "This does not run a full market scan.",
+    )
+with chart_period_col:
+    chart_years = st.selectbox(
+        "Chart lookback (years)", options=[1, 3, 5, 10, 15], index=3,
+        key="regression_chart_lookback",
+        help="Select the number of years used for the daily-close regression chart. "
+             "The scanner below has its own independent lookback setting.",
+    )
+chart_ticker = str(chart_query).strip().upper()
+if not chart_ticker:
+    st.info("Enter a ticker above to display its regression analysis.")
+elif not re.fullmatch(r"[A-Z0-9.^-]{1,18}", chart_ticker):
+    st.warning("Enter a valid ticker using letters, numbers, dots or hyphens.")
+else:
+    try:
+        render_selected_channel(chart_ticker, last_completed_session(), float(chart_years))
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception("Standalone regression chart failed")
+        st.warning("Unable to load this stock's regression chart right now.")
+
+st.subheader("FULL ANALYSIS OPTIONS")
+st.caption("Scan a market-cap universe or ETF constituents using the controls below.")
+
+with st.container(border=True):
+    # Make failures visible above the scan controls instead of below a large table.
+    scan_error_slot = st.empty()
+    # Older sessions may still contain a verbose SCAN FAILED traceback
+    # from before the UI was simplified. Never redisplay that stored text.
+    previous_error = st.session_state.get("last_scan_error")
+    if isinstance(previous_error, str) and previous_error.startswith("SCAN FAILED"):
+        st.session_state["last_scan_error"] = (
+            "Error: ETF scan failed. Please try again later."
+            if st.session_state.get("scan_scope") == ETF_SCOPE
+            else "Error: Try a smaller market cap range."
+        )
+    if st.session_state.get("last_scan_error"):
+        scan_error_slot.error(st.session_state["last_scan_error"], icon="🚨")
+
+    # Keep scan inputs in one row; zero maximum means no upper cap.
+    # Custom ticker scans remain supported by the engine but not the page UI.
+    if st.session_state.get("scan_scope") not in (TOP_N_SCOPE, MAX_SCOPE, ETF_SCOPE):
+        st.session_state["scan_scope"] = TOP_N_SCOPE
+    scope_col, n_col, min_col, max_col, years_col, action_col = st.columns(
+        [2.3, 1.05, 1.2, 1.2, 0.95, 1.15], vertical_alignment="bottom", gap="small"
+    )
+    with scope_col:
+        scope = st.selectbox(
+            "Universe", (TOP_N_SCOPE, MAX_SCOPE, ETF_SCOPE),
+            format_func=lambda option: {
+                TOP_N_SCOPE: "Top N Stocks by Market Cap",
+                MAX_SCOPE: "All available",
+                ETF_SCOPE: "ETF holdings",
+            }[option],
+            key="scan_scope",
+            help="Scan the largest N stocks within the market-cap range, or attempt all available stocks.",
+        )
+    with n_col:
+        top_n = st.number_input(
+            "Stocks (N)", min_value=1, value=100, step=1,
+            disabled=(scope != TOP_N_SCOPE),
+            help="Number of the largest eligible companies to attempt, not a guaranteed result count.",
+        )
+    with min_col:
+        min_cap = st.number_input(
+            "Min cap ($B)", min_value=0.0, value=50.0, step=1.0, format="%.1f",
+            disabled=(scope == ETF_SCOPE),
+            help="Minimum market cap in billions of USD; not used in ETF mode.",
+        )
+    with max_col:
+        max_input = st.number_input(
+            "Max cap ($B)", min_value=0.0, value=0.0, step=1.0, format="%.1f",
+            disabled=(scope == ETF_SCOPE),
+            help="Not used in ETF mode. Set 0 for no maximum in normal scans.",
+        )
+    with years_col:
+        years = st.number_input(
+            "Years", min_value=0.5, max_value=30.0, value=10.0, step=0.1, format="%.2f",
+            help="Regression lookback in years; approximately 250 trading sessions per year.",
+        )
+    with action_col:
+        launch = st.button(
+            "Run Scan", type="primary", use_container_width=True, key="run_scan_main",
+            help="Scan the selected universe using completed daily closes.",
+        )
+    custom = ""  # Custom symbols are provided by the ETF holdings source in ETF mode.
+    etf_ticker = ""
+    if scope == ETF_SCOPE:
+        etf_col, caption_col = st.columns([1, 3], vertical_alignment="bottom")
+        with etf_col:
+            etf_ticker = st.text_input("ETF ticker", value="SPY", max_chars=12,
+                                       key="regression_etf_ticker",
+                                       help="Enter SPY, SMH, QQQ, VGT, etc.").strip().upper()
+        with caption_col:
+            st.caption("Automatically retrieve all published stock holdings when available. "
+                       "Source data is dated; some ETFs have older SEC filing holdings. "
+                       "No CSV upload is necessary.")
+        st.caption("ETF mode scans every ticker supplied by the holdings source, with no top-10 cap. "
+                   "Large ETFs may take substantial time and some stocks may lack 10 years of valid prices. "
+                   "Z-scores are saved separately for News Screen use.")
+    max_cap = float(max_input) if max_input > 0 else None
+    length = regression_sessions(years)
+    if scope == TOP_N_SCOPE and top_n > SCREENER_RECORD_SAFETY_CAP:
+        st.warning(
+            f"Top N exceeds the {SCREENER_RECORD_SAFETY_CAP:,}-record stock-discovery safeguard.",
+            icon="⚠️",
+        )
+    elif scope == TOP_N_SCOPE and top_n >= 1000:
+        st.caption("Large scans may encounter Yahoo throttling or missing histories.")
+    elif scope == MAX_SCOPE:
+        st.caption("All available: large universes may hit Yahoo's discovery safeguard or download limits.")
+
+    st.caption(f"Daily closes only · {length:,} trading sessions · not a live intraday feed")
+    st.markdown(
+        '<hr style="border:0;border-top:1px solid rgba(155,167,184,0.16);'
+        'margin:0.55rem 0 0.1rem;">',
+        unsafe_allow_html=True,
+    )
+
+if launch:
+    st.session_state.pop("last_scan_error", None)
+    scan_error_slot.empty()
+
+# ETF results live in their own directory; normal market-cap reports are never overwritten.
+if scope == ETF_SCOPE:
+    current_etf_symbol = normalize_symbol(etf_ticker)
+    scan_output_dir = etf_report_dir(current_etf_symbol, PROJECT_ROOT) if current_etf_symbol else ROOT / "results" / "etf_scans" / "invalid"
+    REPORT_FILE = scan_output_dir / "latest_scan.csv"
+    SUMMARY_FILE = scan_output_dir / "summary.json"
+    SKIP_FILE = scan_output_dir / "skipped.csv"
+else:
+    REPORT_FILE = ROOT / "results" / "latest_scan.csv"
+    SUMMARY_FILE = ROOT / "results" / "summary.json"
+    SKIP_FILE = ROOT / "results" / "skipped.csv"
+
+# One results container is reused for the live preview and the saved/final table.
+# No duplicate chart is rendered underneath the live table after a scan.
+progress_slot = st.empty()
+results_slot = st.empty()
+
+if launch:
+    try:
+        if scope == ETF_SCOPE:
+            etf_clean = normalize_symbol(etf_ticker)
+            if not etf_clean:
+                raise ValueError("Enter a valid ETF ticker such as SPY, SMH, QQQ or VGT.")
+            holdings = get_etf_constituents(etf_clean)
+            if not holdings.symbols:
+                raise ValueError(holdings.error or "ETF equity holdings are unavailable.")
+            tickers = list(holdings.symbols)
+            source_name = holdings.source
+            st.session_state['etf_regression_as_of'] = holdings.holdings_as_of
+            st.session_state['etf_regression_count'] = len(tickers)
+            if not holdings.complete_holdings_source:
+                st.warning("The full-holdings provider was unavailable. "
+                           "Yahoo supplied top holdings only; this run does NOT cover the entire ETF.")
+            elif holdings.holdings_as_of:
+                st.info(f"Scanning {len(tickers):,} published holdings from {holdings.holdings_as_of}. "
+                        "Full published holdings may omit positions without a usable ticker.")
+            if holdings.attribution:
+                st.caption(holdings.attribution)
+            if len(tickers) > 300:
+                st.warning(f"Full ETF scan includes {len(tickers):,} stocks. "
+                           "Downloads may take a long time and be incomplete if Yahoo throttles requests.")
+            st.session_state['etf_regression_source'] = source_name
+            st.session_state['etf_regression_count'] = len(tickers)
+            settings = ScanSettings(years=years, limit=None, symbols=tuple(tickers),
+                                    output_dir=etf_report_dir(etf_clean, PROJECT_ROOT),
+                                    record_all_zscores=True,
+                                    universe_source=source_name)
+        else:
+            settings = as_settings(scope, top_n, custom, min_cap, max_cap, years)
+    except ValueError as exc:
+        st.session_state["last_scan_error"] = str(exc)
+        scan_error_slot.error(st.session_state["last_scan_error"], icon="🚨")
+    else:
+        with progress_slot.container():
+            # Deliberately small section label; the changing status line is prominent.
+            st.markdown("**Live scanning progress**")
+            status_text = st.empty()
+            bar = st.progress(0.0, text="Preparing stock universe…")
+            metrics_box = st.empty()
+        last_complete = False
+        scan_started_at = time.monotonic()
+        try:
+            for progress in scan_market(settings):
+                eta_note = ""
+                if progress.completed and progress.total > progress.completed:
+                    elapsed = time.monotonic() - scan_started_at
+                    estimate_seconds = elapsed * (progress.total - progress.completed) / progress.completed
+                    eta_note = f" · roughly {max(1, round(estimate_seconds / 60))} min remaining (estimate)"
+                is_finished = progress.phase == "finished"
+                live_message = (
+                    "SCAN FINISHED" if is_finished and bool(progress.summary and progress.summary.get("complete"))
+                    else "SCAN FINISHED — DATA-QUALITY WARNINGS" if is_finished
+                    else progress.message + eta_note
+                )
+                status_text.markdown(
+                    '<div style="font-size:1.17rem;font-weight:700;line-height:1.45;'
+                    'margin:0.25rem 0 0.45rem;">'
+                    + html.escape(live_message) + '</div>',
+                    unsafe_allow_html=True,
+                )
+                portion = progress.completed / progress.total if progress.total else 0.0
+                bar.progress(min(1.0, portion), text=(f"{progress.completed:,} / "
+                           f"{progress.total:,} stocks scanned ({portion:.0%})" if progress.total else
+                           "Looking up market-cap ranked stocks…"))
+                # Single compact metrics strip, rather than five tall Streamlit metric cards.
+                compact_values = (
+                    ("Processed", progress.completed),
+                    ("Analyzed", progress.analyzed),
+                    ("Passing filters", len(progress.rows)),
+                    ("Data errors", progress.data_errors),
+                    ("Cache hits", progress.cache_hits),
+                )
+                compact_items = "".join(
+                    '<span style="white-space:nowrap;font-size:var(--si-type-data);">'
+                    f'<span style="color:#9da7b2;">{label}</span> '
+                    f'<strong style="font-size:var(--si-type-data);">{value:,}</strong></span>'
+                    for label, value in compact_values
+                )
+                metrics_box.markdown(
+                    '<div style="border:1px solid rgba(140,150,160,0.25);'
+                    'border-radius:0.5rem;padding:0.38rem 0.7rem;display:flex;'
+                    'gap:0.65rem 1.5rem;flex-wrap:wrap;align-items:center;">'
+                    '<span style="color:#9da7b2;font-size:var(--si-type-caption);font-weight:600;">'
+                    'LIVE METRICS</span>' + compact_items + '</div>',
+                    unsafe_allow_html=True,
+                )
+                with results_slot.container():
+                    render_stock_results_heading()
+                    st.caption("Updating after each processed batch — results are partial until the scan finishes.")
+                    show_live_table(progress.rows)
+                if progress.phase == "finished":
+                    last_complete = True
+                    st.session_state["last_run_complete"] = bool(progress.summary and progress.summary.get("complete"))
+            if last_complete and not st.session_state["last_run_complete"]:
+                st.warning("Some downloaded prices failed validation. Check scan diagnostics for missing symbols.")
+        except Exception:
+            # Keep diagnostic details in server logs, not in the user-facing
+            # error banner. Old saved scan results are never overwritten here.
+            import logging
+            logging.getLogger(__name__).exception("Regression scan failed")
+            st.session_state["last_run_complete"] = False
+            st.session_state["last_scan_error"] = (
+                "Error: ETF scan failed. Please try again later."
+                if scope == ETF_SCOPE else
+                "Error: Try a smaller market cap range."
+            )
+            scan_error_slot.error(st.session_state["last_scan_error"], icon="🚨")
 
 
 if scope == ETF_SCOPE and current_etf_symbol:
