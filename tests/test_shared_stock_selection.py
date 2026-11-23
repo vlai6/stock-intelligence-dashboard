@@ -47,6 +47,7 @@ def test_select_stock_only_on_explicit_actions_preserves_all_scan_filters():
         assert state["regression_chart_lookback"] == 5
         assert state["scan_scope"] == "Top N by market cap"
         assert state["regression_graph_stock_search"] == "NV"
+        assert state[shared.SENTIMENT_MODE_PENDING_KEY] is True
 
         # Re-selecting the same ticker should not request an expensive rerun.
         state.pop(shared.RERUN_SOURCE_KEY)
@@ -120,6 +121,10 @@ def test_sentiment_preset_does_not_override_external_ticker():
     assert 'set_active_stock(candidate, source="sentiment")' in sentiment
     assert 'key="si_sentiment_ticker_draft"' in sentiment
     assert "symbol = selected_stock()" in sentiment
+    assert "st.session_state.pop(SENTIMENT_MODE_PENDING_KEY, False)" in sentiment
+    assert sentiment.index("st.session_state.pop(SENTIMENT_MODE_PENDING_KEY, False)") < (
+        sentiment.index("news_list_mode = st.selectbox")
+    )
     assert "st.session_state['primary'] = candidate" not in sentiment
     assert "st.session_state['primary']=candidate" not in sentiment
 
