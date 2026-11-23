@@ -24,6 +24,7 @@ if _SCANNER_DIR not in sys.path:
 import pandas as pd
 import streamlit as st
 from dashboard_theme import apply_dashboard_theme, render_page_header, style_blue_figure
+from stock_selection import selected_stock, set_active_stock, sync_chart_input
 
 from storage import data_root
 from channel_chart import (
@@ -361,8 +362,9 @@ def run_regression_graph() -> None:
         )
         return
     st.session_state["regression_chart_request_error"] = ""
-    st.session_state["regression_chart_input"] = ticker
-    st.session_state["regression_chart_active_ticker"] = ticker
+    # One explicit action synchronizes the ticker across Regression,
+    # Metrics & Competition and Recent Sentiment. It does not run a scan.
+    set_active_stock(ticker, source="scanner")
     st.session_state["regression_chart_active_years"] = float(
         st.session_state.get("regression_chart_lookback", 10)
     )
@@ -386,11 +388,9 @@ def graph_checkbox_changed(editor_key: str, tickers: tuple[str, ...]) -> None:
             checked.append(tickers[index])
     if checked:
         ticker = checked[-1]
-        st.session_state["selected_chart_ticker"] = ticker
-        # Widget callbacks execute before rerender, so this also updates
-        # the already-rendered ticker field without WidgetAlreadyInstantiated.
-        st.session_state["regression_chart_input"] = ticker
-        st.session_state["regression_chart_active_ticker"] = ticker
+        # The table's checked ticker drives all three stock-research sections.
+        # This callback fires only on an explicit Graph checkbox change.
+        set_active_stock(ticker, source="scanner")
         st.session_state["regression_chart_active_years"] = float(
             st.session_state.get("regression_chart_lookback", 10)
         )
@@ -971,9 +971,12 @@ def render_saved_results(scope: str, top_n: int, min_cap: float,
 # Independent ticker chart: it works before any scan and for stocks that
 # do not appear in the most recent results table.
 st.subheader("REGRESSION ANALYSIS")
-st.session_state.setdefault("regression_chart_input", "SPY")
-st.session_state.setdefault("regression_chart_active_ticker", "SPY")
+# Match Metrics and Recent Sentiment by default; honor explicit selections
+# from those sections before creating this chart's ticker widget.
+st.session_state.setdefault("regression_chart_active_ticker", selected_stock())
 st.session_state.setdefault("regression_chart_active_years", 10.0)
+sync_chart_input()
+st.session_state.setdefault("regression_chart_input", selected_stock())
 chart_ticker_col, chart_period_col, chart_run_col, _chart_deadspace = st.columns(
     [2.1, 1.5, 1.4, 5.0], vertical_alignment="bottom", gap="small"
 )
