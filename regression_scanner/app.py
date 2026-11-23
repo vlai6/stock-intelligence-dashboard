@@ -790,6 +790,14 @@ def render_saved_results(scope: str, top_n: int, min_cap: float,
     saved = summary.get("filters", {})
     if not saved:
         st.caption("This report predates recorded filters. Run a fresh scan for provenance.")
+    provider = str(summary.get("universe_source") or "").strip()
+    if "Nasdaq public screener" in provider:
+        st.info(
+            "Stock-discovery fallback used: Nasdaq's public screener, because "
+            "Yahoo discovery was unavailable. Market-cap bounds and Top N ranking "
+            "were applied to the available U.S.-company listings. Universe "
+            "membership may differ from Yahoo; daily-close prices still use Yahoo."
+        )
 
     try:
         if report_session != last_completed_session():
@@ -846,6 +854,7 @@ def render_saved_results(scope: str, top_n: int, min_cap: float,
         f"Scanned: {summary.get('candidates', 'unknown')}",
         f"Scope: {saved_scope}",
         f"Cap: {saved_cap}",
+        *( [f"Universe: {provider}"] if provider else [] ),
         f"Lookback: {saved.get('regression_years', 'unknown')} yr",
         f"Passing: {len(df):,}",
         f"≤−3σ: {int((z <= -3).sum()):,}",
