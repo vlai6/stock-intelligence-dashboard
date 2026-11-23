@@ -627,8 +627,17 @@ if st.session_state.loaded:
                         options=options,
                         key=selection_key,
                     )
+                    # The chips are the single source of truth for charts,
+                    # metrics AND the explanatory information boxes. Previously
+                    # every AI recommendation got an expander even after the
+                    # user removed its chip.
+                    selected_symbols = set(selected)
+                    if not selected_symbols:
+                        st.caption("Select a comparison stock to display its details.")
 
                     for peer in peers:
+                        if str(peer.get("ticker", "")).strip().upper() not in selected_symbols:
+                            continue
                         with st.expander(f"{peer['ticker']} — {peer['name']}"):
                             st.write(one_sentence_summary(peer.get("reason", "")))
                             st.caption(peer.get("relationship", ""))
@@ -645,7 +654,9 @@ if st.session_state.loaded:
                     # recommendation or competitor relationship for custom tickers.
                     ai_symbols = set(recommended_tickers)
                     for custom_symbol in st.session_state[custom_key]:
-                        if custom_symbol == symbol or custom_symbol in ai_symbols:
+                        if (custom_symbol == symbol
+                                or custom_symbol in ai_symbols
+                                or custom_symbol not in selected_symbols):
                             continue
                         _, custom_info = get_stock(custom_symbol)
                         custom_name = (custom_info.get("longName")
