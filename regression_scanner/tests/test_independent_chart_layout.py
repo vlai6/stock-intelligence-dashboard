@@ -42,9 +42,9 @@ def test_any_ticker_not_just_saved_scan_results():
 
 
 def test_chart_entry_and_table_selection_share_ticker_state():
-    assert 'st.session_state.setdefault("regression_chart_input", "SPY")' in code
+    assert 'st.session_state.setdefault("regression_chart_input", selected_stock())' in code
     assert 'key="regression_chart_input"' in code
-    assert 'st.session_state.setdefault("regression_chart_active_ticker", "SPY")' in code
+    assert 'st.session_state.setdefault("regression_chart_active_ticker", selected_stock())' in code
     assert 'st.session_state.setdefault("regression_chart_active_years", 10.0)' in code
     assert 'key="regression_chart_run", on_click=run_regression_graph' in code
     assert 'chart_ticker = st.session_state["regression_chart_active_ticker"]' in code
@@ -55,7 +55,7 @@ def test_chart_entry_and_table_selection_share_ticker_state():
                    if isinstance(x, ast.FunctionDef)
                    and x.name == "graph_checkbox_changed")
     )
-    assert 'st.session_state["regression_chart_input"] = checked[-1]' in callback
+    assert 'set_active_stock(ticker, source="scanner")' in callback
     assert "on_change=graph_checkbox_changed" in code
     assert 'key="regression_graph_stock_search"' in code
 
@@ -78,17 +78,17 @@ def test_explicit_run_commits_input_and_table_selection_updates_chart():
         and x.name == "run_regression_graph"
     )
     run_code = ast.get_source_segment(code, run)
-    assert 'st.session_state["regression_chart_active_ticker"] = ticker' in run_code
+    assert 'set_active_stock(ticker, source="scanner")' in run_code
     assert 'st.session_state["regression_chart_active_years"] = float(' in run_code
-    assert 'st.session_state["regression_chart_input"] = ticker' in run_code
+    assert 'st.session_state["regression_chart_active_ticker"] = ticker' not in run_code
     # Text edits alone must not affect the committed chart; they only affect
     # the pending ticker displayed in the input.
     assert 'chart_ticker = str(chart_query).strip().upper()' not in code
     checkbox = next(x for x in tree.body if isinstance(x, ast.FunctionDef)
                     and x.name == "graph_checkbox_changed")
     checkbox_code = ast.get_source_segment(code, checkbox)
-    assert 'st.session_state["regression_chart_active_ticker"] = ticker' in checkbox_code
-    assert 'st.session_state["regression_chart_input"] = ticker' in checkbox_code
+    assert 'set_active_stock(ticker, source="scanner")' in checkbox_code
+    assert 'st.session_state["regression_chart_input"] = ticker' not in checkbox_code
     assert "on_change=graph_checkbox_changed" in code
 
 
