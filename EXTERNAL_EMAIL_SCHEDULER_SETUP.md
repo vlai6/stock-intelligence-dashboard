@@ -27,14 +27,16 @@ this file does **not** activate an external scheduler.
    - **HTTP method:** `POST`
    - **Content-Type:** `application/json`
    - **Header:** `Authorization: Bearer YOUR_FINE_GRAINED_GITHUB_TOKEN`
+   - **Header:** `Accept: application/vnd.github+json`
    - **Request body:**
      ```json
      {"ref":"main","inputs":{"mode":"live","automated":"true"}}
      ```
 4. Save the job, check the next scheduled times, and use the scheduler's
-   test-run feature **only when you intend a live scan/email**. A normal
-   successful dispatch returns HTTP **204 No Content**, which only means
-   GitHub accepted the request, not that the scan or email succeeded.
+   test-run feature **only when you intend a live scan/email**. A successful
+   GitHub dispatch returns HTTP **200** (with run details, on current API
+   versions) or **204** (legacy response). This confirms only that GitHub
+   accepted the request, not that the scan or email succeeded.
 5. Verify the resulting workflow at
    https://github.com/vlai6/stock-intelligence-dashboard/actions and check
    for the scanner log line `[mail] Email sent successfully`. If the
