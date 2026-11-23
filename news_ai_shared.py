@@ -75,6 +75,49 @@ def group_company_news(symbol: str, scored: pd.DataFrame):
         return pd.DataFrame(), pd.DataFrame(), str(exc)[:240]
 
 
+def explain_gemini_error(reason: str) -> str:
+    """Give a safe and actionable reason while leaving FinBERT intact."""
+    detail = str(reason or "").lower()
+    if "api_key not found" in detail or "key is missing" in detail:
+        return (
+            "Gemini grouping is unavailable: GEMINI_API_KEY is not configured "
+            "in the deployed app. Headlines and FinBERT still work."
+        )
+    if "http 429" in detail or "quota" in detail or "rate limit" in detail:
+        return (
+            "Gemini grouping has reached an API quota or rate limit. "
+            "Retry later or check the project's Google AI Studio quota. "
+            "Headlines and FinBERT still work."
+        )
+    if "http 401" in detail or "http 403" in detail:
+        return (
+            "Gemini grouping cannot authenticate with its API key. "
+            "Check the key and its restrictions in Streamlit secrets. "
+            "Headlines and FinBERT still work."
+        )
+    if "http 404" in detail or "model unavailable" in detail:
+        return (
+            "Gemini grouping cannot access the configured model. "
+            "Check GEMINI_MODEL and whether the API key can use it. "
+            "Headlines and FinBERT still work."
+        )
+    if "http 503" in detail or "overloaded" in detail or "connection unavailable" in detail:
+        return (
+            "Gemini grouping is temporarily unavailable or overloaded. "
+            "Try Retry Gemini event grouping shortly. "
+            "Headlines and FinBERT still work."
+        )
+    if "event json" in detail or "no text" in detail or "unexpected" in detail:
+        return (
+            "Gemini returned an incomplete grouping response. "
+            "Retry Gemini event grouping. Headlines and FinBERT still work."
+        )
+    return (
+        "Gemini event grouping is unavailable. Expand Technical detail for "
+        "the cause, then retry. Headlines and FinBERT still work."
+    )
+
+
 def article_event_assignments(events: pd.DataFrame, grouped: pd.DataFrame):
     """Map model-assigned article titles to event IDs; never invent missing mappings."""
     labels={}
