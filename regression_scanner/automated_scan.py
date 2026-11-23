@@ -28,7 +28,7 @@ from email_report import formatted_signal, plain_report, html_report, grouped_si
 from scanner import ScanSettings, scan_market
 from intrinsic_value import enrich_signals, unavailable, get_assumptions
 from storage import data_root
-from schedule_guard import scheduled_delivery_exists
+from schedule_guard import scheduled_delivery_exists, is_scheduled_trigger
 
 ET = ZoneInfo("America/New_York")
 ROOT = data_root()
@@ -247,8 +247,11 @@ def execute(*, dry_run: bool = False, limit: int | None = None, force_market_day
     _lock()
     try:
         started = datetime.now(ET)
+        run_event = os.getenv("GITHUB_EVENT_NAME", "")
+        external_schedule = os.getenv("EXTERNAL_SCHEDULED", "").lower() == "true"
         if not dry_run and scheduled_delivery_exists(
-            read_state(), started, os.getenv("GITHUB_EVENT_NAME", ""),
+            read_state(), started, run_event,
+            externally_scheduled=external_schedule,
         ):
             print(
                 "[schedule] Today's scheduled scan email already delivered. "
@@ -378,7 +381,7 @@ def execute(*, dry_run: bool = False, limit: int | None = None, force_market_day
                 {sym: zone_for(float(row["z_score"]), row.get("bucket", "")) for sym, row in active.items()})
         if email_sent_at is not None:
             previous["last_delivery"] = email_sent_at.isoformat()
-            if os.getenv("GITHUB_EVENT_NAME") == "schedule":
+            if is_scheduled_trigger(run_event, external_schedule):
                 previous["last_scheduled_delivery_date"] = (
                     email_sent_at.astimezone(ET).date().isoformat()
                 )
