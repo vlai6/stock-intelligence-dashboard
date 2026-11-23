@@ -538,11 +538,16 @@ if launch:
                     st.session_state["last_run_complete"] = bool(progress.summary and progress.summary.get("complete"))
             if last_complete and not st.session_state["last_run_complete"]:
                 st.warning("Some downloaded prices failed validation. Check scan diagnostics for missing symbols.")
-        except Exception as exc:
+        except Exception:
+            # Keep diagnostic details in server logs, not in the user-facing
+            # error banner. Old saved scan results are never overwritten here.
+            import logging
+            logging.getLogger(__name__).exception("Regression scan failed")
             st.session_state["last_run_complete"] = False
             st.session_state["last_scan_error"] = (
-                f"SCAN FAILED — {type(exc).__name__}: {exc}. "
-                "The previous saved results may still appear below; they are NOT from this failed scan."
+                "Error: ETF scan failed. Please try again later."
+                if scope == ETF_SCOPE else
+                "Error: Try a smaller market cap range."
             )
             scan_error_slot.error(st.session_state["last_scan_error"], icon="🚨")
 
