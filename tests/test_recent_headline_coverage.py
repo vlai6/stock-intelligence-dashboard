@@ -25,7 +25,7 @@ def test_motley_fool_article_meets_strict_service_now_filter():
          "source": "The Motley Fool", "link": "https://www.fool.com/test"},
         {"title": "ServiceNow historical coverage", "date": now - timedelta(days=9),
          "source": "Publisher", "link": "https://example.org/old"},
-        {"title": "UiPath without ServiceNow in title", "date": now - timedelta(days=2),
+        {"title": "UiPath quarterly results with no competitor mentioned", "date": now - timedelta(days=2),
          "source": "Publisher", "link": "https://example.org/other"},
     ]
     results = n.filter_company_week(records, "NOW", n.company_aliases("NOW"))
