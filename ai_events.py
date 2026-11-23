@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 from pathlib import Path
 
 import pandas as pd
@@ -53,14 +54,28 @@ def _unpack_content(data: dict) -> dict:
 def _request_gemini(payload: dict, key: str, model: str) -> dict:
     if not re.fullmatch(r"[a-zA-Z0-9_.-]{3,64}", model):
         raise RuntimeError("Invalid GEMINI_MODEL configuration")
-    try:
-        response = requests.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
-            headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-            json=payload, timeout=(12, 50),
-        )
-    except requests.RequestException as exc:
-        raise RuntimeError(f"Gemini connection unavailable ({type(exc).__name__})") from exc
+    response = None
+    for attempt in range(2):
+        try:
+            response = requests.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+                headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+                json=payload, timeout=(12, 50),
+            )
+        except requests.RequestException as exc:
+            # One bounded retry for temporary connectivity problems only.
+            if attempt == 0:
+                time.sleep(1.5)
+                continue
+            raise RuntimeError(
+                f"Gemini connection unavailable ({type(exc).__name__})"
+            ) from exc
+        if response.status_code in (502, 503, 504) and attempt == 0:
+            time.sleep(1.5)
+            continue
+        break
+    if response is None:
+        raise RuntimeError("Gemini connection unavailable")
     if not response.ok:
         # Do not log headers, API keys or full request/response bodies.
         diagnostic = {
