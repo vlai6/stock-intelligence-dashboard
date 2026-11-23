@@ -13,6 +13,11 @@ on:
           - dry-run-small
           - dry-run-full
           - live
+      automated:
+        description: "External scheduler only: enable weekday morning gate and daily deduplication"
+        required: false
+        type: boolean
+        default: false
   # Primary 8:30 AM ET cron plus an 8:55 AM ET backup. GitHub Actions may
   # delay or drop scheduled jobs, so the backup reduces (but cannot remove)
   # that risk. The DST gate filters cross-season cron events. The scanner
@@ -47,6 +52,7 @@ jobs:
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_EVENT_SCHEDULE: ${{ github.event.schedule }}
+          EXTERNAL_SCHEDULED: ${{ inputs.automated || 'false' }}
         run: python regression_scanner/schedule_guard.py
 
   email-alerts:
@@ -64,6 +70,7 @@ jobs:
       SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
       ALERT_TO: ${{ vars.ALERT_TO || secrets.ALERT_TO }}
       SEND_EVERY_SCAN: '1'
+      EXTERNAL_SCHEDULED: ${{ inputs.automated || 'false' }}
       AUTO_REGRESSION_YEARS: '10'
       AUTO_BATCH_HARD_TIMEOUT_SECONDS: '20'
       ENABLE_INTRINSIC_VALUE: '1'
