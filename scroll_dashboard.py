@@ -14,6 +14,7 @@ import streamlit as st
 
 from dashboard_theme import apply_dashboard_theme
 from scroll_nav import SECTIONS, render_scroll_navigation
+from stock_selection import RERUN_SOURCE_KEY
 
 ROOT = Path(__file__).resolve().parent
 
@@ -63,6 +64,12 @@ def _make_fragment(section: str):
     # rerun only that section rather than refreshing every news/AI API call.
     @st.fragment(key=f"si_continuous_{section}")
     def display() -> None:
+        # Stock selection in a fragment only reruns that one section by
+        # default. Promote an explicit cross-section change to one app-wide
+        # rerun BEFORE any costly market-data or Gemini requests start.
+        if st.session_state.get(RERUN_SOURCE_KEY) == section:
+            st.session_state.pop(RERUN_SOURCE_KEY, None)
+            st.rerun(scope="app")
         if section in st.session_state["si_loaded_sections"]:
             _render_existing_section(section)
         else:
@@ -83,6 +90,9 @@ def _make_fragment(section: str):
 
 st.session_state.setdefault("si_loaded_sections", {"philosophy"})
 st.session_state["si_continuous_mode"] = True
+# A full-app rerun already refreshes all loaded fragments, so clear any
+# pending request that might have been set by an in-page form submission.
+st.session_state.pop(RERUN_SOURCE_KEY, None)
 apply_dashboard_theme()
 
 st.markdown("""
