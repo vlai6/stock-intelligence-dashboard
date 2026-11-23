@@ -21,16 +21,24 @@ EDT_BACKUP_CRON = "55 12 * * 1-5"
 EST_BACKUP_CRON = "55 13 * * 1-5"
 
 
-def should_send(event: str, cron: str, now_utc: datetime | None = None) -> bool:
-    """Return True only for the intended weekday ET morning scan.
+def is_scheduled_trigger(event: str, externally_scheduled: bool = False) -> bool:
+    """Identify native schedule and authenticated external recurring dispatch."""
+    return event == "schedule" or (event == "workflow_dispatch" and externally_scheduled)
 
-    A 2-hour grace window permits ordinary runner queueing and scan setup.
-    It deliberately does NOT turn a wildly delayed 4 PM schedule into an
-    afternoon email. A missed run is visible in Actions as a gate skip.
+
+def should_send(
+    event: str, cron: str, now_utc: datetime | None = None,
+    externally_scheduled: bool = False,
+) -> bool:
+    """Gate scheduled notifications to weekday mornings in New York.
+
+    Manual dispatch is always allowed. External scheduler requests are checked
+    against the same ET morning window as native cron, but are independent of
+    which UTC cron expression GitHub emitted.
     """
-    if event == "workflow_dispatch":
+    if event == "workflow_dispatch" and not externally_scheduled:
         return True
-    if event != "schedule":
+    if not is_scheduled_trigger(event, externally_scheduled):
         return False
     utc_now = now_utc or datetime.now(timezone.utc)
     if utc_now.tzinfo is None:
@@ -38,22 +46,29 @@ def should_send(event: str, cron: str, now_utc: datetime | None = None) -> bool:
     eastern = utc_now.astimezone(ET)
     if eastern.weekday() >= 5:
         return False
+    minutes = eastern.hour * 60 + eastern.minute
+    if not (8 * 60 + 20) <= minutes < (10 * 60 + 30):
+        return False
+    if event == "workflow_dispatch":
+        return True
     expected = (
         (EDT_CRON, EDT_BACKUP_CRON)
         if eastern.dst() != timedelta(0)
         else (EST_CRON, EST_BACKUP_CRON)
     )
-    minutes = eastern.hour * 60 + eastern.minute
-    return cron in expected and (8 * 60 + 20) <= minutes < (10 * 60 + 30)
+    return cron in expected
 
 
-def scheduled_delivery_exists(state: dict, local_time: datetime, event: str) -> bool:
-    """Prevent an 8:55 backup from re-emailing a successful 8:30 delivery.
+def scheduled_delivery_exists(
+    state: dict, local_time: datetime, event: str,
+    externally_scheduled: bool = False,
+) -> bool:
+    """Prevent native and external daily triggers from emailing twice.
 
-    Manual live runs remain independent and can be used for troubleshooting.
-    The marker is saved only *after* SMTP reports a successful send.
+    Manual dispatch still works independently and does not set a scheduled
+    delivery marker. The marker is set only after successful SMTP delivery.
     """
-    if event != "schedule":
+    if not is_scheduled_trigger(event, externally_scheduled):
         return False
     return state.get("last_scheduled_delivery_date") == (
         local_time.astimezone(ET).date().isoformat()
@@ -65,12 +80,13 @@ def main() -> None:
     cron = os.environ.get("GITHUB_EVENT_SCHEDULE", "")
     utc_now = datetime.now(timezone.utc)
     local = utc_now.astimezone(ET)
-    allowed = should_send(event, cron, utc_now)
-    print(f"[schedule] event={event} cron={cron!r}", flush=True)
+    external = os.environ.get("EXTERNAL_SCHEDULED", "").lower() == "true"
+    allowed = should_send(event, cron, utc_now, externally_scheduled=external)
+    print(f"[schedule] event={event} cron={cron!r} external={external}", flush=True)
     print(f"[schedule] actual Eastern={local.isoformat(timespec='seconds')}", flush=True)
     print(f"[schedule] allowed={'yes' if allowed else 'no'}", flush=True)
-    if not allowed and event == "schedule":
-        print("[schedule] Skip: wrong DST cron or outside 08:20–10:30 AM ET window.", flush=True)
+    if not allowed and is_scheduled_trigger(event, external):
+        print("[schedule] Skip: outside weekday 08:20–10:30 AM ET window or wrong DST cron.", flush=True)
     destination = os.environ["GITHUB_OUTPUT"]
     with Path(destination).open("a", encoding="utf-8") as out:
         out.write(f"run_scan={'true' if allowed else 'false'}\n")
