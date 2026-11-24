@@ -148,12 +148,11 @@ assert 'if alerts or send_failures or send_every_scan:' in scanner_src
 assert 'send_email(subject, body, html_body=html_body)' in scanner_src
 assert "daily_delivery_exists(read_state(), started)" in scanner_src
 assert 'previous["last_daily_delivery_date"]' in scanner_src
-assert 'output.write("daily_report_sent=true\\n")' in scanner_src
 assert "is_scheduled_trigger(run_event, external_schedule)" in scanner_src
 assert 'previous["last_scheduled_delivery_date"]' in scanner_src
 assert "[mail] Today's regression digest has already been sent." in scanner_src
-assert "id: run_scanner" in workflow
-assert "steps.run_scanner.outputs.daily_report_sent != 'true'" in workflow
+assert "Show scanner failure in Actions without emailing" in workflow
+assert "send_email('[Regression Scanner] CLOUD RUN FAILED'" not in workflow
 assert "Save delivered alert state for next cloud run" in workflow
 assert "if: ${{ !cancelled() && " in workflow
 mailer = (ROOT / "regression_scanner/emailer.py").read_text()
