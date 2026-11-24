@@ -30,11 +30,12 @@ def should_send(
     event: str, cron: str, now_utc: datetime | None = None,
     externally_scheduled: bool = False,
 ) -> bool:
-    """Gate scheduled notifications to weekday mornings in New York.
+    """Prefer weekday 8:30 ET; accept GitHub's severely delayed native cron.
 
-    Manual dispatch is always allowed. External scheduler requests are checked
-    against the same ET morning window as native cron, but are independent of
-    which UTC cron expression GitHub emitted.
+    Manual dispatch is always allowed. External scheduler requests must be in
+    the intended morning window. Native GitHub cron is checked for correct
+    DST and weekday but may arrive in the evening. A late same-day report is
+    preferable to never sending one; daily dedup remains in automated_scan.
     """
     if event == "workflow_dispatch" and not externally_scheduled:
         return True
@@ -47,16 +48,20 @@ def should_send(
     if eastern.weekday() >= 5:
         return False
     minutes = eastern.hour * 60 + eastern.minute
-    if not (8 * 60 + 20) <= minutes < (10 * 60 + 30):
-        return False
     if event == "workflow_dispatch":
-        return True
+        # The external scheduler is expected to dispatch around 8:30 a.m.
+        # Do not accept stray external requests in the evening.
+        return (8 * 60 + 20) <= minutes < (10 * 60 + 30)
     expected = (
         (EDT_CRON, EDT_BACKUP_CRON)
         if eastern.dst() != timedelta(0)
         else (EST_CRON, EST_BACKUP_CRON)
     )
-    return cron in expected
+    # GitHub has repeatedly executed 08:30 ET cron expressions 10+ HOURS
+    # late, at 7:12/8:07 PM ET on Nov 23, 2026. Discarding them meant no
+    # email all day. Allow matching native cron events later on the same ET
+    # weekday; the daily delivery marker prevents duplicate digests.
+    return cron in expected and minutes >= (8 * 60 + 20)
 
 
 def scheduled_delivery_exists(
@@ -108,8 +113,18 @@ def main() -> None:
     print(f"[schedule] event={event} cron={cron!r} external={external}", flush=True)
     print(f"[schedule] actual Eastern={local.isoformat(timespec='seconds')}", flush=True)
     print(f"[schedule] allowed={'yes' if allowed else 'no'}", flush=True)
+    if allowed and event == "schedule" and local.hour >= 10:
+        print(
+            "[schedule] GitHub delivered the morning cron late. "
+            "Proceeding with one best-effort trading-day digest.",
+            flush=True,
+        )
     if not allowed and is_scheduled_trigger(event, external):
-        print("[schedule] Skip: outside weekday 08:20–10:30 AM ET window or wrong DST cron.", flush=True)
+        print(
+            "[schedule] Skip: incorrect weekday/DST cron or "
+            "outside the permitted dispatch window.",
+            flush=True,
+        )
     destination = os.environ["GITHUB_OUTPUT"]
     with Path(destination).open("a", encoding="utf-8") as out:
         out.write(f"run_scan={'true' if allowed else 'false'}\n")
