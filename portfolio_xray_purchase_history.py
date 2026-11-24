@@ -82,7 +82,7 @@ def parse_purchase_csv(payload: bytes) -> dict[str, list[dict]]:
                     "stock/ETF. Bond coupons and cash cannot be approximated."
                 )
             amt = row["amount"].replace("$", "").replace(",", "")
-            if not re.fullmatch(r"(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)", amt):
+            if not re.fullmatch(r"(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)", amt):
                 raise ValueError(
                     f"Row {row_number}: Amount must be a positive dollar purchase, "
                     "not a percentage, a negative sale or a current holding weight."
