@@ -374,7 +374,7 @@ def execute(*, dry_run: bool = False, limit: int | None = None, force_market_day
             if output_path:
                 try:
                     with open(output_path, "a", encoding="utf-8") as output:
-                        output.write("daily_report_sent=true\\n".replace("\\n", "\n"))
+                        output.write("daily_report_sent=true\n")
                 except OSError:
                     print("[mail] Could not set GitHub delivery output.", flush=True)
 
