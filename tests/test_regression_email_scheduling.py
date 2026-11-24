@@ -28,12 +28,19 @@ assert should_send("schedule", EDT_BACKUP_CRON, at(2026, 7, 20, 12, 55))
 assert not should_send("schedule", EDT_BACKUP_CRON, at(2026, 11, 23, 12, 55))
 assert not should_send("schedule", EST_BACKUP_CRON, at(2026, 7, 20, 13, 55))
 assert not should_send("schedule", EST_CRON, at(2026, 7, 20, 13, 35))
-assert not should_send("schedule", EST_CRON, at(2026, 11, 20, 21, 26))
-assert not should_send("schedule", EST_CRON, at(2026, 11, 23, 16, 0))
+# A matching native cron delivered many hours late is allowed to send
+# its trading-day digest instead of silently skipping all email.
+assert should_send("schedule", EST_CRON, at(2026, 11, 20, 21, 26))
+assert should_send("schedule", EST_CRON, at(2026, 11, 23, 16, 0))
 assert not should_send("schedule", EST_CRON, at(2026, 11, 21, 13, 30))  # Saturday
 assert not should_send("schedule", EST_CRON, at(2026, 11, 22, 13, 30))  # Sunday
-assert not should_send("schedule", EST_CRON, at(2026, 11, 23, 15, 30))  # after 10:30 AM ET
+assert should_send("schedule", EST_CRON, at(2026, 11, 23, 15, 30))  # 10:30 ET native late
 assert not should_send("schedule", EST_CRON, at(2026, 11, 23, 13, 0))  # before morning window
+# Actual 2026-11-23 GitHub runs arrived at 19:12 and 20:07 EST;
+# only the correct EST cron is eligible, and daily dedup ensures one digest.
+assert not should_send("schedule", EDT_CRON, at(2026, 11, 24, 0, 12))
+assert should_send("schedule", EST_CRON, at(2026, 11, 24, 1, 7))
+assert not should_send("schedule", EST_CRON, at(2026, 11, 24, 6, 7))  # 1:07 AM Tue
 assert should_send("schedule", EST_CRON, at(2026, 11, 23, 15, 29))  # 10:29 AM ET
 # Summer/winter DST switchover is handled by the expected UTC cron.
 assert not should_send("push", EST_CRON, at(2026, 11, 23, 13, 35))
@@ -44,6 +51,10 @@ assert should_send(
 )
 assert not should_send(
     "workflow_dispatch", "", at(2026, 11, 23, 16, 30),
+    externally_scheduled=True,
+)
+assert not should_send(
+    "workflow_dispatch", "", at(2026, 11, 24, 1, 7),
     externally_scheduled=True,
 )
 assert not should_send(
@@ -160,4 +171,4 @@ assert 'message["Message-ID"] = make_msgid()' in mailer
 assert 'message["Date"] = format_datetime' in mailer
 html = (ROOT / "regression_scanner/email_report.py").read_text()
 assert "<details" not in html and 'style="display:none' not in html
-print("PASS: morning scheduling, DST, delayed-run suppression, dated subjects and visible HTML")
+print("PASS: native late-day fallback, external morning gate, DST and one-digest deduplication")
