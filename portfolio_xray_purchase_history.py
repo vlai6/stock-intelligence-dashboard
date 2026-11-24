@@ -52,10 +52,10 @@ def parse_purchase_csv(payload: bytes) -> dict[str, list[dict]]:
         for row_number, raw_row in enumerate(reader, 2):
             if row_number > MAX_ROWS + 1:
                 raise ValueError("CSV exceeds 500 purchase records.")
-            if not raw_row or all(not (v or "").strip() for v in raw_row.values()):
-                continue
             if None in raw_row:
                 raise ValueError(f"Row {row_number}: unexpected extra columns.")
+            if not raw_row or all(not (v or "").strip() for v in raw_row.values()):
+                continue
             row = {key.lower().strip(): (value or "").strip()
                    for key, value in raw_row.items()}
             name = row.get("portfolio", "Uploaded Portfolio").strip()
