@@ -22,7 +22,7 @@ EST_CRON = "30 13 * * 1-5"
 EDT_BACKUP_CRON = "55 12 * * 1-5"
 EST_BACKUP_CRON = "55 13 * * 1-5"
 # Native timezone-aware schedules (GitHub Actions, March 2026 onward).
-LOCAL_CRONS = ("30 8 * * 1-5", "55 8 * * 1-5", "17 10 * * 1-5", "23 12 * * 1-5")
+LOCAL_CRONS = ("30 8 * * 1-5",)
 
 
 def is_scheduled_trigger(event: str, externally_scheduled: bool = False) -> bool:
