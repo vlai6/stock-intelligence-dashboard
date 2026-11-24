@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from regression_scanner.schedule_guard import (
-    EDT_CRON, EST_CRON, EDT_BACKUP_CRON, EST_BACKUP_CRON,
+    EDT_CRON, EST_CRON, EDT_BACKUP_CRON, EST_BACKUP_CRON, LOCAL_CRONS,
     should_send, scheduled_delivery_exists, daily_delivery_exists, is_scheduled_trigger,
 )
 
@@ -105,14 +105,18 @@ assert not daily_delivery_exists(
 )
 
 workflow = (ROOT / ".github/workflows/cloud-email-scanner.yml").read_text()
-assert "cron: '30 12 * * 1-5'" in workflow
-assert "cron: '30 13 * * 1-5'" in workflow
-assert "cron: '55 12 * * 1-5'" in workflow
-assert "cron: '55 13 * * 1-5'" in workflow
+for cron in LOCAL_CRONS:
+    assert f"cron: '{cron}'\n      timezone: America/New_York" in workflow
+    hour, minute = map(int, (cron.split()[1], cron.split()[0]))
+    for year, month, day, offset in [(2026, 11, 23, 5), (2026, 7, 20, 4)]:
+        assert should_send("schedule", cron, at(year, month, day, hour + offset, minute))
+    assert should_send("schedule", cron, at(2026, 11, 24, 1, 7))
+    assert not should_send("schedule", cron, at(2026, 11, 21, 15, 0))
+    assert not should_send("schedule", cron, at(2026, 11, 23, 12, 0))
 assert "automated:" in workflow
 assert "EXTERNAL_SCHEDULED: ${{ inputs.automated || 'false' }}" in workflow
 assert "default: false" in workflow
-assert "timezone:" not in workflow
+assert workflow.count("timezone: America/New_York") == len(LOCAL_CRONS)
 assert "ENABLE_CLOUD_SCHEDULE" not in workflow
 assert "SEND_EVERY_SCAN: '1'" in workflow
 assert "SMTP_HOST: ${{ secrets.SMTP_HOST }}" in workflow
