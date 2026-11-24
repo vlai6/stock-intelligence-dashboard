@@ -79,8 +79,14 @@ def render_purchase_history() -> None:
         "closes approximate purchases and reinvestment."
     )
     fingerprint = sha256(raw).hexdigest()
+    confirmed = st.checkbox(
+        "These are original USD purchases and purchase dates—not a snapshot "
+        "of current holdings or portfolio percentages.",
+        key="portfolio_xray_purchase_confirm",
+    )
     if st.button(
         "Calculate purchase-date returns", type="primary",
+        disabled=not confirmed,
         key="portfolio_xray_purchase_csv_calculate",
     ):
         st.session_state.pop(RESULT_KEY, None)
