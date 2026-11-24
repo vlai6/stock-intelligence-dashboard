@@ -134,6 +134,7 @@ jobs:
           PY
 
       - name: Run manual test email or scheduled stock scan
+        id: run_scanner
         timeout-minutes: 45
         shell: bash
         run: |
@@ -219,7 +220,9 @@ jobs:
           PY
 
       - name: Save delivered alert state for next cloud run
-        if: ${{ success() && (github.event_name == 'schedule' || inputs.mode == 'live') }}
+        # Preserve successful SMTP state even if a subsequent scanner step
+        # failed, avoiding duplicate sends on the following trigger.
+        if: ${{ !cancelled() && (github.event_name == 'schedule' || inputs.mode == 'live') }}
         uses: actions/cache/save@v6
         with:
           path: regression_scanner/state/scheduled_alerts.json
@@ -244,7 +247,8 @@ jobs:
       # A failed publication is reported in Actions, but does NOT send a second
       # misleading "scanner failed" email after a successful scanner email.
       - name: Send diagnostic email if the cloud scanner failed
-        if: ${{ failure() && steps.publish_watchlist.outcome != 'failure' && (github.event_name == 'schedule' || inputs.mode == 'live') }}
+        # Never send a SECOND email if SMTP already accepted the daily digest.
+        if: ${{ failure() && steps.run_scanner.outputs.daily_report_sent != 'true' && steps.publish_watchlist.outcome != 'failure' && (github.event_name == 'schedule' || inputs.mode == 'live') }}
         run: |
           python - <<'PY'
           import os
