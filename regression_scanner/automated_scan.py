@@ -368,6 +368,15 @@ def execute(*, dry_run: bool = False, limit: int | None = None, force_market_day
             send_email(subject, body, html_body=html_body)
             email_sent_at = datetime.now(ET)
             print(f"[mail] Email sent successfully at {email_sent_at.isoformat()}", flush=True)
+            # Tell GitHub the digest was accepted by SMTP immediately, so a
+            # later cache/publish failure cannot trigger a SECOND email.
+            output_path = os.getenv("GITHUB_OUTPUT")
+            if output_path:
+                try:
+                    with open(output_path, "a", encoding="utf-8") as output:
+                        output.write("daily_report_sent=true\\n".replace("\\n", "\n"))
+                except OSError:
+                    print("[mail] Could not set GitHub delivery output.", flush=True)
 
         # Mark delivered alerts as active only after email succeeds. An unexpected
         # crash between SMTP delivery and state save could cause a duplicate email.
