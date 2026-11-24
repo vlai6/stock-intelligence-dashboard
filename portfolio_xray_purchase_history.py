@@ -1,6 +1,6 @@
 """Purchase-dated, cash-flow-adjusted historical portfolio performance.
 
-CSV Amount is USD newly invested at a historical close, NEVER a current weight.
+CSV Amount is a positive relative contribution unit (or USD when explicitly intended), NEVER a current weight.
 This buy-only approximation assumes fractional shares and dividend reinvestment.
 It deliberately rejects unmodelled sales, cash, CUSIPs and absent price history.
 """
@@ -27,7 +27,7 @@ EARLIEST = date(2000, 1, 1)
 def parse_purchase_csv(payload: bytes) -> dict[str, list[dict]]:
     """Parse Date,Ticker,Amount or Portfolio,Date,Ticker,Amount.
 
-    All amounts are positive *USD purchases*, not percentages or valuations.
+    Amounts are positive purchase contributions in arbitrary *consistent* units.\n    Divide actual purchase dollars by one private constant per portfolio before\n    upload; percentage performance stays unchanged. Never upload balances.
     """
     if not isinstance(payload, bytes) or not payload:
         raise ValueError("Upload a nonempty purchase-history CSV.")
@@ -84,7 +84,7 @@ def parse_purchase_csv(payload: bytes) -> dict[str, list[dict]]:
             amt = row["amount"].replace("$", "").replace(",", "")
             if not re.fullmatch(r"(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)", amt):
                 raise ValueError(
-                    f"Row {row_number}: Amount must be a positive dollar purchase, "
+                    f"Row {row_number}: Amount must be a positive purchase unit, "
                     "not a percentage, a negative sale or a current holding weight."
                 )
             amount = float(amt)
@@ -205,7 +205,7 @@ def simulate_purchase_history(
 
     For comparisons, rebase each strategy to 100 on the SAME first shared
     trading session. SPY is funded on each portfolio's identical buy dates.
-    USD profit and invested figures describe the entire contribution history.
+    Invested/value/profit figures use input units; they are NOT actual USD\n    when users scale their contributions for privacy.
     """
     if not portfolios or len(portfolios) > MAX_PORTFOLIOS:
         raise ValueError("Provide between one and five purchase portfolios.")
@@ -241,10 +241,10 @@ def simulate_purchase_history(
             "Common-period return %": pct,
             "SPY return %": spy_pct,
             "Excess return (pp)": pct - spy_pct,
-            "Total invested ($)": outcome["invested"],
-            "Ending value ($)": outcome["ending_value"],
-            "Profit ($)": outcome["net_profit"],
-            "SPY profit ($)": outcome["spy_profit"],
+            "Invested (units)": outcome["invested"],
+            "Ending value (units)": outcome["ending_value"],
+            "Profit (units)": outcome["net_profit"],
+            "SPY profit (units)": outcome["spy_profit"],
         })
     return {
         "chart": chart, "summary": pd.DataFrame(summary),
