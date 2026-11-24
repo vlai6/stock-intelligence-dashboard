@@ -28,7 +28,7 @@ from email_report import formatted_signal, plain_report, html_report, grouped_si
 from scanner import ScanSettings, scan_market
 from intrinsic_value import enrich_signals, unavailable, get_assumptions
 from storage import data_root
-from schedule_guard import scheduled_delivery_exists, is_scheduled_trigger
+from schedule_guard import daily_delivery_exists, is_scheduled_trigger
 
 ET = ZoneInfo("America/New_York")
 ROOT = data_root()
@@ -249,16 +249,13 @@ def execute(*, dry_run: bool = False, limit: int | None = None, force_market_day
         started = datetime.now(ET)
         run_event = os.getenv("GITHUB_EVENT_NAME", "")
         external_schedule = os.getenv("EXTERNAL_SCHEDULED", "").lower() == "true"
-        if not dry_run and scheduled_delivery_exists(
-            read_state(), started, run_event,
-            externally_scheduled=external_schedule,
-        ):
+        if not dry_run and daily_delivery_exists(read_state(), started):
             print(
-                "[schedule] Today's scheduled scan email already delivered. "
-                "Skipping backup run to prevent duplicate alerts.",
+                "[mail] Today's regression digest has already been sent. "
+                "Skipping duplicate live scan and email.",
                 flush=True,
             )
-            return {"skipped": "scheduled email already delivered today"}
+            return {"skipped": "daily regression digest already sent"}
         run_id = started.strftime("%Y%m%d-%H%M%S")
         folder = AUTOMATION_ROOT / run_id
         all_results = []
@@ -381,6 +378,9 @@ def execute(*, dry_run: bool = False, limit: int | None = None, force_market_day
                 {sym: zone_for(float(row["z_score"]), row.get("bucket", "")) for sym, row in active.items()})
         if email_sent_at is not None:
             previous["last_delivery"] = email_sent_at.isoformat()
+            previous["last_daily_delivery_date"] = (
+                email_sent_at.astimezone(ET).date().isoformat()
+            )
             if is_scheduled_trigger(run_event, external_schedule):
                 previous["last_scheduled_delivery_date"] = (
                     email_sent_at.astimezone(ET).date().isoformat()
