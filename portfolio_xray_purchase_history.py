@@ -27,7 +27,9 @@ EARLIEST = date(2000, 1, 1)
 def parse_purchase_csv(payload: bytes) -> dict[str, list[dict]]:
     """Parse Date,Ticker,Amount or Portfolio,Date,Ticker,Amount.
 
-    Amounts are positive purchase contributions in arbitrary *consistent* units.\n    Divide actual purchase dollars by one private constant per portfolio before\n    upload; percentage performance stays unchanged. Never upload balances.
+    Amounts are positive purchase contributions in arbitrary *consistent* units.
+    Divide actual purchase dollars by one private constant per portfolio before
+    upload; percentage performance stays unchanged. Never upload balances.
     """
     if not isinstance(payload, bytes) or not payload:
         raise ValueError("Upload a nonempty purchase-history CSV.")
@@ -205,7 +207,8 @@ def simulate_purchase_history(
 
     For comparisons, rebase each strategy to 100 on the SAME first shared
     trading session. SPY is funded on each portfolio's identical buy dates.
-    Invested/value/profit figures use input units; they are NOT actual USD\n    when users scale their contributions for privacy.
+    Invested/value/profit figures use input units; they are NOT actual USD
+    when users scale their contributions for privacy.
     """
     if not portfolios or len(portfolios) > MAX_PORTFOLIOS:
         raise ValueError("Provide between one and five purchase portfolios.")
