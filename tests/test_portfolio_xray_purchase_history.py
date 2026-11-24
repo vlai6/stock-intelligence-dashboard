@@ -78,6 +78,28 @@ assert abs(summary.loc["A", "SPY return %"] - (100/110-1)*100) < 1e-8
 assert abs(result["chart"]["portfolio_0"].iloc[0] - 100) < 1e-8
 assert abs(result["chart"]["portfolio_0"].iloc[-1] - 120) < 1e-8
 
+
+# Scaling all purchases within each portfolio by a private factor must
+# preserve time-weighted and SPY excess returns, while changing only the
+# displayed normalized unit values.
+private_scaled = parse_purchase_csv(
+    b"Portfolio,Date,Ticker,Amount\\n"
+    b"A,2025-01-02,SPY,10\\n"
+    b"A,2025-01-03,NVDA,4\\n"
+    b"B,2025-01-03,SPY,7\\n"
+)
+scaled_result = simulate_purchase_history(private_scaled, prices, date(2025, 1, 6))
+for original_row, scaled_row in zip(result["summary"].to_dict("records"),
+                                    scaled_result["summary"].to_dict("records")):
+    assert original_row["Portfolio"] == scaled_row["Portfolio"]
+    for key in ("Common-period return %", "SPY return %",
+                "Excess return (pp)"):
+        assert abs(original_row[key] - scaled_row[key]) < 1e-9
+assert abs(scaled_result["outcomes"]["A"]["invested"] - 14) < 1e-8
+assert abs(scaled_result["outcomes"]["B"]["invested"] - 7) < 1e-8
+assert "Invested (units)" in scaled_result["summary"].columns
+assert "Total invested ($)" not in scaled_result["summary"].columns
+
 # Cash added on day two at unchanged prices must not manufacture "returns".
 flat = pd.DataFrame({"SPY":[100,100,100]},
     index=days)
