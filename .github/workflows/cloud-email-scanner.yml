@@ -18,15 +18,17 @@ on:
         required: false
         type: boolean
         default: false
-  # Primary 8:30 AM ET cron plus an 8:55 AM ET backup. GitHub Actions may
-  # delay or drop scheduled jobs, so the backup reduces (but cannot remove)
-  # that risk. The DST gate filters cross-season cron events. The scanner
-  # records a successful scheduled delivery to prevent duplicate digests.
+  # Native Eastern timezone: no cross-season UTC triggers.
+  # Backup runs recover missed/delayed triggers; live delivery is deduplicated.
   schedule:
-    - cron: '30 12 * * 1-5'   # 08:30 EDT (UTC-4)
-    - cron: '55 12 * * 1-5'   # 08:55 EDT backup
-    - cron: '30 13 * * 1-5'   # 08:30 EST (UTC-5)
-    - cron: '55 13 * * 1-5'   # 08:55 EST backup
+    - cron: '30 8 * * 1-5'
+      timezone: America/New_York
+    - cron: '55 8 * * 1-5'
+      timezone: America/New_York
+    - cron: '17 10 * * 1-5'
+      timezone: America/New_York
+    - cron: '23 12 * * 1-5'
+      timezone: America/New_York
 
 # The main dashboard is now the single scheduled sender. The legacy standalone
 # repository workflow has its scheduled trigger removed.
@@ -93,7 +95,7 @@ jobs:
           echo "Workflow commit: ${{ github.sha }}"
           echo "Actual start UTC: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
           echo "Actual start Eastern: $(TZ=America/New_York date '+%Y-%m-%d %I:%M:%S %p %Z')"
-          echo "Target: 8:30 AM ET via two UTC schedules. Schedule gate prevents late-afternoon sends."
+          echo "Target: 8:30 AM ET with native timezone and three backup triggers."
           echo "SMTP send time is logged separately; GitHub scheduling is best effort."
 
       - name: Set up Python 3.12
