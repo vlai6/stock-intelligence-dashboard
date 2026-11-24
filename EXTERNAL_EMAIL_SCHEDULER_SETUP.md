@@ -49,7 +49,11 @@ this file does **not** activate an external scheduler.
   SMTP credentials remain entirely in GitHub Actions Secrets.
 - External scheduled dispatches are accepted only Monday–Friday between
   **08:20 and 10:30 America/New_York**, including daylight-saving changes.
-- GitHub's native 08:30 and 08:55 triggers remain as backups.
+- GitHub's native 08:30 and 08:55 cron expressions remain as backups.
+  GitHub has actually delivered them around **7–8 p.m. Eastern**; instead
+  of rejecting them and missing the whole day, the scanner now accepts an
+  otherwise valid delayed native run later on the **same Eastern weekday**.
+  An external 08:30 scheduler is still needed for dependable morning timing.
 - **Only one live regression digest is intended per Eastern calendar day,**
   regardless of which scheduler triggered it. The 08:55 backup and any later
   external/native triggers skip after an earlier successful delivery.
