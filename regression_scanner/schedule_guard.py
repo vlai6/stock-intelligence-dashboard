@@ -1,10 +1,12 @@
-"""Keep scheduled email scans in the Eastern morning, with correct DST.
+"""Prefer 8:30 a.m. Eastern email scans while recovering delayed crons.
 
-GitHub's timezone-aware cron unexpectedly fired the legacy scanner at
-4:26 PM EST on Nov 20, 2026. The migrated dashboard instead uses UTC
-expressions at 12:30/13:30 UTC and runs only the expression corresponding
-to 8:30 AM in New York. Late afternoon schedule deliveries are skipped.
-Manual workflow_dispatch runs are always permitted.
+GitHub Actions has repeatedly delivered morning UTC cron expressions in
+the evening (including 7:12/8:07 p.m. Eastern on Nov 23, 2026). Native
+scheduled runs therefore remain eligible later on the same Eastern weekday,
+but not before the morning window or on weekends. Only the DST-appropriate
+cron is accepted. Externally scheduled workflow dispatches remain restricted
+to the morning. Manual runs are still permitted any time; live-report
+deduplication is enforced in automated_scan.py.
 """
 from __future__ import annotations
 
