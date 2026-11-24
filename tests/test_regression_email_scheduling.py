@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from regression_scanner.schedule_guard import (
     EDT_CRON, EST_CRON, EDT_BACKUP_CRON, EST_BACKUP_CRON,
-    should_send, scheduled_delivery_exists, is_scheduled_trigger,
+    should_send, scheduled_delivery_exists, daily_delivery_exists, is_scheduled_trigger,
 )
 
 def at(year, month, day, hour, minute, second=0):
@@ -67,6 +67,31 @@ assert not scheduled_delivery_exists(
     {"last_delivery": "2026-11-23T04:29:22-05:00"},
     at(2026, 11, 23, 13, 55), "schedule",
 )
+# Exactly one live digest per Eastern calendar day. Even the 4:29 a.m.
+# manual report counts; a subsequent 8:30/8:55 scheduled run must skip it.
+assert daily_delivery_exists(
+    {"last_delivery": "2026-11-23T04:29:22-05:00"},
+    at(2026, 11, 23, 13, 30),
+)
+assert daily_delivery_exists(
+    {"last_daily_delivery_date": "2026-11-23"},
+    at(2026, 11, 23, 13, 55),
+)
+assert daily_delivery_exists(
+    {"last_scheduled_delivery_date": "2026-11-23"},
+    at(2026, 11, 23, 13, 55),
+)
+assert not daily_delivery_exists(
+    {"last_delivery": "2026-11-23T04:29:22-05:00"},
+    at(2026, 11, 24, 13, 30),
+)
+assert not daily_delivery_exists(
+    {"last_delivery": "not-a-date"},
+    at(2026, 11, 23, 13, 30),
+)
+assert not daily_delivery_exists(
+    {}, at(2026, 11, 23, 13, 30),
+)
 
 workflow = (ROOT / ".github/workflows/cloud-email-scanner.yml").read_text()
 assert "cron: '30 12 * * 1-5'" in workflow
@@ -121,11 +146,16 @@ assert 'if not force_market_day and not market_open_today()' in scanner_src
 assert 'send_every_scan = os.getenv("SEND_EVERY_SCAN", "1")' in scanner_src
 assert 'if alerts or send_failures or send_every_scan:' in scanner_src
 assert 'send_email(subject, body, html_body=html_body)' in scanner_src
-assert "scheduled_delivery_exists(" in scanner_src
-assert "externally_scheduled=external_schedule" in scanner_src
+assert "daily_delivery_exists(read_state(), started)" in scanner_src
+assert 'previous["last_daily_delivery_date"]' in scanner_src
+assert 'output.write("daily_report_sent=true\\n")' in scanner_src
 assert "is_scheduled_trigger(run_event, external_schedule)" in scanner_src
 assert 'previous["last_scheduled_delivery_date"]' in scanner_src
-assert '[schedule] Today\'s scheduled scan email already delivered.' in scanner_src
+assert "[mail] Today's regression digest has already been sent." in scanner_src
+assert "id: run_scanner" in workflow
+assert "steps.run_scanner.outputs.daily_report_sent != 'true'" in workflow
+assert "Save delivered alert state for next cloud run" in workflow
+assert "if: ${{ !cancelled() && " in workflow
 mailer = (ROOT / "regression_scanner/emailer.py").read_text()
 assert 'message["Message-ID"] = make_msgid()' in mailer
 assert 'message["Date"] = format_datetime' in mailer
