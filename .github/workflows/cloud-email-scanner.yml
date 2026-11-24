@@ -19,15 +19,9 @@ on:
         type: boolean
         default: false
   # Native Eastern timezone: no cross-season UTC triggers.
-  # Backup runs recover missed/delayed triggers; live delivery is deduplicated.
+  # One weekday trigger only; live delivery is deduplicated.
   schedule:
     - cron: '30 8 * * 1-5'
-      timezone: America/New_York
-    - cron: '55 8 * * 1-5'
-      timezone: America/New_York
-    - cron: '17 10 * * 1-5'
-      timezone: America/New_York
-    - cron: '23 12 * * 1-5'
       timezone: America/New_York
 
 # The main dashboard is now the single scheduled sender. The legacy standalone
@@ -95,7 +89,7 @@ jobs:
           echo "Workflow commit: ${{ github.sha }}"
           echo "Actual start UTC: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
           echo "Actual start Eastern: $(TZ=America/New_York date '+%Y-%m-%d %I:%M:%S %p %Z')"
-          echo "Target: 8:30 AM ET with native timezone and three backup triggers."
+          echo "Target: 8:30 AM ET with one native timezone schedule."
           echo "SMTP send time is logged separately; GitHub scheduling is best effort."
 
       - name: Set up Python 3.12
