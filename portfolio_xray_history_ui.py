@@ -195,6 +195,17 @@ def render_historical_returns(
     """Compare a single loaded X-Ray or 2–5 saved portfolios, on demand."""
     st.divider()
     st.markdown("#### HISTORICAL PORTFOLIO RETURNS")
+    source = st.selectbox(
+        "Return calculation method",
+        ["Purchase History CSV", "Allocation Simulation"],
+        key="portfolio_xray_historical_source",
+        help="Purchase History uses individual buy dates and invested dollars. "
+             "Allocation Simulation models a hypothetical fixed starting allocation.",
+    )
+    if source == "Purchase History CSV":
+        from portfolio_xray_purchase_ui import render_purchase_history
+        render_purchase_history()
+        return
     st.caption(
         "Hypothetical buy-and-hold of the entered allocation, without rebalancing. "
         "Adjusted ETF/stock prices include dividends and splits; returns are "
