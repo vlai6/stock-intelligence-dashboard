@@ -79,6 +79,10 @@ def render_purchase_history() -> None:
         "closes approximate purchases and reinvestment."
     )
     fingerprint = sha256(raw).hexdigest()
+    if st.session_state.get("portfolio_xray_purchase_last_csv_hash") != fingerprint:
+        st.session_state["portfolio_xray_purchase_last_csv_hash"] = fingerprint
+        st.session_state["portfolio_xray_purchase_confirm"] = False
+        st.session_state.pop(RESULT_KEY, None)
     confirmed = st.checkbox(
         "These are original USD purchases and purchase dates—not a snapshot "
         "of current holdings or portfolio percentages.",
