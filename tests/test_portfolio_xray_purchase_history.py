@@ -112,7 +112,11 @@ else:
 weekend = parse_purchase_csv(
     b"Date,Ticker,Amount\n2025-01-04,SPY,100\n"
 )
-weekend_result = simulate_purchase_history(weekend, flat, date(2025, 1, 6))
+weekend_prices = pd.DataFrame(
+    {"SPY": [100, 100, 100, 101]},
+    index=pd.to_datetime(["2025-01-02", "2025-01-03", "2025-01-06", "2025-01-07"]),
+)
+weekend_result = simulate_purchase_history(weekend, weekend_prices, date(2025, 1, 7))
 assert weekend_result["outcomes"]["Uploaded Portfolio"]["start"] == date(2025, 1, 6)
 
 print("PASS: purchase CSV validation, cash-flow-adjusted returns, matched SPY, common windows")
