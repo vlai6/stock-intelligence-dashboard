@@ -83,10 +83,10 @@ assert abs(result["chart"]["portfolio_0"].iloc[-1] - 120) < 1e-8
 # preserve time-weighted and SPY excess returns, while changing only the
 # displayed normalized unit values.
 private_scaled = parse_purchase_csv(
-    b"Portfolio,Date,Ticker,Amount\\n"
-    b"A,2025-01-02,SPY,10\\n"
-    b"A,2025-01-03,NVDA,4\\n"
-    b"B,2025-01-03,SPY,7\\n"
+    b"Portfolio,Date,Ticker,Amount\n"
+    b"A,2025-01-02,SPY,10\n"
+    b"A,2025-01-03,NVDA,4\n"
+    b"B,2025-01-03,SPY,7\n"
 )
 scaled_result = simulate_purchase_history(private_scaled, prices, date(2025, 1, 6))
 for original_row, scaled_row in zip(result["summary"].to_dict("records"),
