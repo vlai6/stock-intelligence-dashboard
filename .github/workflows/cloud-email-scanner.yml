@@ -134,7 +134,6 @@ jobs:
           PY
 
       - name: Run manual test email or scheduled stock scan
-        id: run_scanner
         timeout-minutes: 45
         shell: bash
         run: |
