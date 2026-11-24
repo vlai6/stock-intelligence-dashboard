@@ -178,9 +178,38 @@ def _portfolio_date_changed():
     st.session_state.pop("portfolio_xray_results_signature", None)
 
 
+def _csv_upload_key():
+    return "portfolio_xray_csv_file_" + str(
+        st.session_state.get("portfolio_xray_csv_generation", 0)
+    )
+
+
+def _clear_portfolio_xray():
+    """Reset the working editor and analysis, not saved browser portfolios."""
+    state = st.session_state
+    for index in range(30):
+        state[f"portfolio_xray_ticker_{index}"] = ""
+        state[f"portfolio_xray_amount_{index}"] = 0.0
+        state[f"portfolio_xray_date_{index}"] = None
+    state["portfolio_xray_row_count"] = 1
+    state["portfolio_xray_unit_mode"] = "usd"
+    state[SAVED_NS + "loaded_name"] = None
+    for key in (
+        "portfolio_xray_results", "portfolio_xray_results_signature",
+        "portfolio_xray_results_unit", "portfolio_xray_historical_result",
+        "portfolio_xray_auto_analyze", "portfolio_xray_csv_feedback",
+    ):
+        state.pop(key, None)
+    # A new uploader identity discards the previous file without assigning
+    # a value to Streamlit's read-only file uploader widget state.
+    state["portfolio_xray_csv_generation"] = (
+        state.get("portfolio_xray_csv_generation", 0) + 1
+    )
+
+
 def _import_portfolio_csv():
     """Upload callback: assign input widget state before the editor renders."""
-    upload = st.session_state.get("portfolio_xray_csv_file")
+    upload = st.session_state.get(_csv_upload_key())
     if upload is None:
         return
     try:
@@ -339,7 +368,7 @@ def render_portfolio_xray():
             with st.popover("Import CSV", use_container_width=True):
                 st.file_uploader(
                     "Date, Ticker, Amount CSV", type=["csv"],
-                    key="portfolio_xray_csv_file",
+                    key=_csv_upload_key(),
                     on_change=_import_portfolio_csv,
                     help="Date, Ticker, Amount (or legacy Ticker, Amount). "
                          "Date is optional and selects historical ETF constituents; "
@@ -366,10 +395,18 @@ def render_portfolio_xray():
             count = st.session_state["portfolio_xray_row_count"]
             input_unit = st.session_state.get("portfolio_xray_unit_mode", "usd")
             is_pct = input_unit == "pct"
-            submitted = st.button(
-                "Analyze portfolio", type="primary", use_container_width=True,
-                key="portfolio_xray_analyze",
-            )
+            analyze_col, clear_col = st.columns([2, 1], gap="small")
+            with analyze_col:
+                submitted = st.button(
+                    "Analyze portfolio", type="primary", use_container_width=True,
+                    key="portfolio_xray_analyze",
+                )
+            with clear_col:
+                st.button(
+                    "Clear All", use_container_width=True,
+                    key="portfolio_xray_clear_all", on_click=_clear_portfolio_xray,
+                    help="Clear current holdings and results; saved portfolios are kept.",
+                )
             header_date, header_ticker, header_amount = st.columns(
                 [1.27, 1.08, 1.04], gap="small"
             )
