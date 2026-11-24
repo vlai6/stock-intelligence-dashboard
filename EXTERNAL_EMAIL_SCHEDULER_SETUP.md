@@ -50,14 +50,20 @@ this file does **not** activate an external scheduler.
 - External scheduled dispatches are accepted only Monday–Friday between
   **08:20 and 10:30 America/New_York**, including daylight-saving changes.
 - GitHub's native 08:30 and 08:55 triggers remain as backups.
-- Native and external **scheduled** runs share a same-day email-delivery
-  marker. A succeeding second scan should skip if the first one already sent.
-- **Ordinary manually run** `workflow_dispatch` jobs keep independent
-  behavior and do not mark the scheduled delivery as complete.
+- **Only one live regression digest is intended per Eastern calendar day,**
+  regardless of which scheduler triggered it. The 08:55 backup and any later
+  external/native triggers skip after an earlier successful delivery.
+- **Manual LIVE scans also count toward that same daily digest limit.** If you
+  manually send the digest at 04:30 ET, the 08:30 scheduled attempt will skip.
+  **Dry runs do not send email**; selecting `test-email` deliberately sends
+  a separate SMTP diagnostic message.
+- Scan failures are logged in GitHub Actions, **not emailed as an additional
+  "cloud run failed" message**.
 - Workflows still skip NYSE holidays and may include partial-scan warnings.
-- The state marker is restored from the Actions cache; a cache outage/loss
-  can break deduplication. This safeguard is best effort, not exactly-once
-  delivery across arbitrary failures.
+- The state marker is restored from the Actions cache; a cache outage/loss,
+  concurrent external systems, or a crash between SMTP acceptance and saving
+  the marker can break deduplication. This is best-effort one-email-per-day
+  protection, not a mathematically strict delivery guarantee.
 
 ## If automatic triggering still does not work
 
