@@ -21,6 +21,8 @@ EST_CRON = "30 13 * * 1-5"
 # A second chance if GitHub drops/delays the normal 8:30 cron.
 EDT_BACKUP_CRON = "55 12 * * 1-5"
 EST_BACKUP_CRON = "55 13 * * 1-5"
+# Native timezone-aware schedules (GitHub Actions, March 2026 onward).
+LOCAL_CRONS = ("30 8 * * 1-5", "55 8 * * 1-5", "17 10 * * 1-5", "23 12 * * 1-5")
 
 
 def is_scheduled_trigger(event: str, externally_scheduled: bool = False) -> bool:
@@ -63,7 +65,7 @@ def should_send(
     # late, at 7:12/8:07 PM ET on Nov 23, 2026. Discarding them meant no
     # email all day. Allow matching native cron events later on the same ET
     # weekday; the daily delivery marker prevents duplicate digests.
-    return cron in expected and minutes >= (8 * 60 + 20)
+    return cron in (*expected, *LOCAL_CRONS) and minutes >= (8 * 60 + 20)
 
 
 def scheduled_delivery_exists(
