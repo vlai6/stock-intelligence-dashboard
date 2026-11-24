@@ -17,10 +17,10 @@ from portfolio_xray_purchase_history import (
 RESULT_KEY = "portfolio_xray_purchase_csv_result"
 SAMPLE_CSV = (
     "Portfolio,Date,Ticker,Amount\n"
-    "Core ETFs,2024-01-16,VOO,10000\n"
-    "Core ETFs,2024-06-10,AVUV,3000\n"
-    "Growth,2024-01-16,QQQ,10000\n"
-    "Growth,2024-06-10,NVDA,3000\n"
+    "Core ETFs,2024-01-16,VOO,100\n"
+    "Core ETFs,2024-06-10,AVUV,30\n"
+    "Growth,2024-01-16,QQQ,100\n"
+    "Growth,2024-06-10,NVDA,30\n"
 )
 
 
@@ -30,17 +30,18 @@ def _purchases_prices(symbols: tuple[str, ...], start: date, end: date):
 
 
 def render_purchase_history() -> None:
-    """Import buys as dated dollar cash flows, compare 1–5 strategies to SPY."""
+    """Import scaled dated contributions, compare 1–5 strategies to SPY."""
     st.caption(
-        "Upload your actual purchase dates and dollar amounts (USD). "
-        "Each CSV row is a BUY on that date, not an account weight or today's "
-        "market value. Portfolio and SPY use the same contribution dates and "
-        "amounts. The chart measures cash-flow-adjusted time-weighted returns."
+        "Privacy-first import: use actual purchase dates, but SCALE the purchase "
+        "amounts before uploading. For example, divide EVERY purchase in one "
+        "portfolio by the same private number: 50,000 to 100; 15,000 to 30. "
+        "These relative units preserve percentage returns, but not actual dollar "
+        "profits. Do not upload brokerage statements, account numbers or balances."
     )
     upload_col, example_col = st.columns([3, 1.4], gap="small")
     with upload_col:
         upload = st.file_uploader(
-            "Purchase history CSV", type=["csv"],
+            "Scaled purchase history CSV", type=["csv"],
             key="portfolio_xray_purchase_history_upload",
             help="Date,Ticker,Amount for one portfolio; "
                  "Portfolio,Date,Ticker,Amount for 2–5 portfolios.",
@@ -54,8 +55,10 @@ def render_purchase_history() -> None:
     if upload is None:
         st.caption(
             "CSV format: Date,Ticker,Amount or Portfolio,Date,Ticker,Amount. "
-            "Example: 2024-01-16,VOO,10000. Include every historical buy "
-            "you wish to model, not just currently held tickers."
+            "Example: 2024-01-16,VOO,100 (scaled units). Include every "
+            "historical buy you wish to model, not current portfolio weights. "
+            "One constant scaling factor PER portfolio; never rescale "
+            "individual transactions differently."
         )
         return
 
@@ -73,10 +76,11 @@ def render_purchase_history() -> None:
         f"portfolio{'s' if len(names) != 1 else ''}: {', '.join(names)}."
     )
     st.warning(
-        "Buy-only estimate: actual sells, transfers, trading prices, cash, "
-        "taxes and fees are not reconstructed. This is NOT an actual "
-        "brokerage-account performance statement. Dividend-adjusted daily "
-        "closes approximate purchases and reinvestment."
+        "Only buy transactions are simulated. Sales, withdrawals, cash, "
+        "taxes and fees are NOT reconstructed. Historical adjusted daily "
+        "closes approximate purchases and reinvestment. The upload travels "
+        "to the Streamlit application server for processing, so remove "
+        "personal identifiers and actual dollar amounts FIRST."
     )
     fingerprint = sha256(raw).hexdigest()
     if st.session_state.get("portfolio_xray_purchase_last_csv_hash") != fingerprint:
@@ -84,8 +88,8 @@ def render_purchase_history() -> None:
         st.session_state["portfolio_xray_purchase_confirm"] = False
         st.session_state.pop(RESULT_KEY, None)
     confirmed = st.checkbox(
-        "These are original USD purchases and purchase dates—not a snapshot "
-        "of current holdings or portfolio percentages.",
+        "I replaced actual amounts with proportional purchase units, removed "
+        "identifiers, and used actual purchase dates—not today's holdings weights.",
         key="portfolio_xray_purchase_confirm",
     )
     if st.button(
@@ -133,10 +137,10 @@ def render_purchase_history() -> None:
             "Common-period return %": st.column_config.NumberColumn(format="%+.2f%%"),
             "SPY return %": st.column_config.NumberColumn(format="%+.2f%%"),
             "Excess return (pp)": st.column_config.NumberColumn(format="%+.2f"),
-            "Total invested ($)": st.column_config.NumberColumn(format="$%.2f"),
-            "Ending value ($)": st.column_config.NumberColumn(format="$%.2f"),
-            "Profit ($)": st.column_config.NumberColumn(format="$%+.2f"),
-            "SPY profit ($)": st.column_config.NumberColumn(format="$%+.2f"),
+            "Invested (units)": st.column_config.NumberColumn(format="%.2f"),
+            "Ending value (units)": st.column_config.NumberColumn(format="%.2f"),
+            "Profit (units)": st.column_config.NumberColumn(format="%+.2f"),
+            "SPY profit (units)": st.column_config.NumberColumn(format="%+.2f"),
         },
     )
     chart = go.Figure()
@@ -162,8 +166,8 @@ def render_purchase_history() -> None:
     )
     st.plotly_chart(style_blue_figure(chart), use_container_width=True)
     st.caption(
-        "Common-period return and SPY excess are time-weighted and use the "
-        "same start/end dates. Invested dollars, ending value and dollar "
-        "profit cover each portfolio's complete purchase history; because "
-        "contribution timing differs, dollar profit is not a percentage return."
+        "Common-period return and SPY excess are time-weighted on identical "
+        "dates. Invested amount, ending value, and profit use your normalized "
+        "input units, NOT real USD. Relative amounts must preserve the "
+        "sizes and dates of your original buys for accurate comparisons."
     )
