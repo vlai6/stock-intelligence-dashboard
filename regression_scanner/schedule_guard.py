@@ -75,6 +75,29 @@ def scheduled_delivery_exists(
     )
 
 
+def daily_delivery_exists(state: dict, local_time: datetime) -> bool:
+    """One successful live regression digest per America/New_York date.
+
+    Unlike scheduled_delivery_exists, this also includes manually triggered
+    LIVE reports. SMTP test emails and dry runs never set delivery markers.
+    Older state files are compatible via the existing last_delivery timestamp.
+    """
+    day = local_time.astimezone(ET).date().isoformat()
+    if state.get("last_daily_delivery_date") == day:
+        return True
+    if state.get("last_scheduled_delivery_date") == day:
+        return True
+    prior = state.get("last_delivery")
+    if isinstance(prior, str) and prior:
+        try:
+            sent = datetime.fromisoformat(prior.replace("Z", "+00:00"))
+            if sent.tzinfo is not None:
+                return sent.astimezone(ET).date().isoformat() == day
+        except ValueError:
+            pass
+    return False
+
+
 def main() -> None:
     event = os.environ.get("GITHUB_EVENT_NAME", "")
     cron = os.environ.get("GITHUB_EVENT_SCHEDULE", "")
