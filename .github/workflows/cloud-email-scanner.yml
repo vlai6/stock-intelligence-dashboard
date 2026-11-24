@@ -244,22 +244,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python publish_watchlist.py
 
-      # A failed publication is reported in Actions, but does NOT send a second
-      # misleading "scanner failed" email after a successful scanner email.
-      - name: Send diagnostic email if the cloud scanner failed
-        # Never send a SECOND email if SMTP already accepted the daily digest.
-        if: ${{ failure() && steps.run_scanner.outputs.daily_report_sent != 'true' && steps.publish_watchlist.outcome != 'failure' && (github.event_name == 'schedule' || inputs.mode == 'live') }}
-        run: |
-          python - <<'PY'
-          import os
-          from emailer import send_email
-          url = (f"{os.environ.get('GITHUB_SERVER_URL', 'https://github.com')}/"
-                 f"{os.environ.get('GITHUB_REPOSITORY', '')}/actions/runs/"
-                 f"{os.environ.get('GITHUB_RUN_ID', '')}")
-          try:
-              send_email('[Regression Scanner] CLOUD RUN FAILED',
-                         'The scheduled cloud stock scanner failed. Check the workflow log:\n' + url)
-              print('Failure notification sent.')
-          except Exception as exc:
-              print(f'Could not send failure notification: {type(exc).__name__}')
-          PY
+      # If the scan fails, show the failure in Actions logs only. Do NOT
+      # send a diagnostic email: a backup trigger could otherwise generate
+      # multiple failure messages on the same day.
+      - name: Show scanner failure in Actions without emailing
+        if: ${{ failure() && (github.event_name == 'schedule' || inputs.mode == 'live') }}
+        run: echo "::error::The regression scanner failed. Check this workflow's logs; no duplicate email notification was sent."
