@@ -1,37 +1,37 @@
 {
   "schema_version": 2,
   "last_email": {
-    "sent_at": "2026-11-25T17:44:02.526801-05:00",
-    "scan_started_at": "2026-11-25T17:40:03.662538-05:00",
+    "sent_at": "2026-11-27T17:19:03.995835-05:00",
+    "scan_started_at": "2026-11-27T17:14:11.966405-05:00",
     "stocks": [
       {
         "ticker": "INTU",
-        "session": "2026-11-25",
-        "z_score": -3.2819,
+        "session": "2026-11-27",
+        "z_score": -3.2692,
         "bucket": "50B+",
         "alert_level": "-3σ",
         "new_or_worsened": false
       },
       {
         "ticker": "NOW",
-        "session": "2026-11-25",
-        "z_score": -2.988,
+        "session": "2026-11-27",
+        "z_score": -2.957,
         "bucket": "50B+",
         "alert_level": "-2.75σ",
         "new_or_worsened": false
       },
       {
         "ticker": "DOX",
-        "session": "2026-11-25",
-        "z_score": -3.9188,
+        "session": "2026-11-27",
+        "z_score": -3.871,
         "bucket": "2-5B",
         "alert_level": "-3σ",
         "new_or_worsened": false
       },
       {
         "ticker": "PFSI",
-        "session": "2026-11-25",
-        "z_score": -3.3255,
+        "session": "2026-11-27",
+        "z_score": -3.303,
         "bucket": "2-5B",
         "alert_level": "-3σ",
         "new_or_worsened": false
